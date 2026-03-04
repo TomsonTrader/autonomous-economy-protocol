@@ -67,7 +67,15 @@ export class BlockchainService {
         ? process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org"
         : "http://localhost:8545";
 
-    this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    this.provider = new ethers.JsonRpcProvider(rpcUrl, undefined, {
+      polling: true,
+      pollingInterval: 12000, // 12s — matches Base block time, reduces filter churn
+    });
+    // Suppress "filter not found" errors from ethers.js polling on remote RPCs
+    this.provider.on("error", (err: any) => {
+      const msg: string = err?.error?.message ?? err?.message ?? "";
+      if (msg.includes("filter not found")) return;
+    });
 
     // Load deployment addresses
     const deploymentPath = path.join(

@@ -98,6 +98,15 @@ export class EventIndexer {
       }, event.log.transactionHash, event.log.blockNumber);
     });
 
+    // Suppress "filter not found" polling noise common on remote RPCs
+    for (const contract of [registry, marketplace, engine]) {
+      (contract.provider as any)?.on?.("error", (err: any) => {
+        const msg: string = err?.error?.message ?? err?.message ?? "";
+        if (msg.includes("filter not found")) return;
+        console.error("[Indexer] Provider error:", msg);
+      });
+    }
+
     console.log("[Indexer] Listening for on-chain events...");
   }
 
