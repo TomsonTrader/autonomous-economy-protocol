@@ -1,0 +1,17 @@
+{
+  "network": "base-sepolia",
+  "chainId": "84532",
+  "deployedAt": "2026-03-04T04:45:32.149Z",
+  "deployer": "0xf7f2B8E79eE2c0B74FEAfd3E47106Bd9eB5faa1c",
+  "contracts": {
+    "AgentToken": "0x126d65BeBC92Aa660b67882B623aaceC0F533797",
+    "AgentRegistry": "0xAAF4E3D289168FEaE502a6bFF35dC893eD1Ef2D3",
+    "ReputationSystem": "0x3E895D9259Be22717a0590a421bC3BB76D332841",
+    "Marketplace": "0xa9205cC3c3fC31D0af06b71287A8869430a0da97",
+    "NegotiationEngine": "0x19C6ccfbf25d586dfc83a71Eb951EA1dFFDA40f6",
+    "AgentVault": "0x208A5e53C884E6997AC8918109A2c79Ce33138D2",
+    "TaskDAG": "0x93caC51CdE985326032367422330b25c64D6408d",
+    "SubscriptionManager": "0xF175576DC487cc59C35A2d68B4c9C9420259A458",
+    "ReferralNetwork": "0xce13AE836f6A38463fed7231122a1E09bAB8A88E"
+  }
+}

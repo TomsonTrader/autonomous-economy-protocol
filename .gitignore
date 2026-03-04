@@ -1,0 +1,30 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Hardhat
+artifacts/
+cache/
+typechain-types/
+
+# Build
+dist/
+build/
+.next/
+
+# Logs
+*.log
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
