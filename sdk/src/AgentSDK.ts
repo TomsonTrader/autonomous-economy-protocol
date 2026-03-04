@@ -1,9 +1,7 @@
 import { ethers } from "ethers";
-import * as fs from "fs";
-import * as path from "path";
-import { WebSocket } from "ws";
 import {
   SDKConfig,
+  ContractAddresses,
   Network,
   RegisterParams,
   PublishNeedParams,
@@ -17,7 +15,28 @@ import {
   ProtocolEvent,
 } from "./types";
 
-// ── Contract ABIs ────────────────────────────────────────────────────────────
+// ── Bundled contract addresses ────────────────────────────────────────────────
+// These are the canonical deployments. Pass config.contracts to override.
+
+const DEPLOYMENTS: Record<Network, ContractAddresses | null> = {
+  "base-sepolia": {
+    AgentToken:        "0x126d65BeBC92Aa660b67882B623aaceC0F533797",
+    AgentRegistry:     "0xAAF4E3D289168FEaE502a6bFF35dC893eD1Ef2D3",
+    ReputationSystem:  "0x3E895D9259Be22717a0590a421bC3BB76D332841",
+    Marketplace:       "0xa9205cC3c3fC31D0af06b71287A8869430a0da97",
+    NegotiationEngine: "0x19C6ccfbf25d586dfc83a71Eb951EA1dFFDA40f6",
+  },
+  "base-mainnet": null, // will be set at mainnet launch
+  "hardhat": null,      // must pass config.contracts for local testing
+};
+
+const RPC_URLS: Record<Network, string> = {
+  "base-sepolia":  "https://sepolia.base.org",
+  "base-mainnet":  "https://mainnet.base.org",
+  "hardhat":       "http://localhost:8545",
+};
+
+// ── Contract ABIs ─────────────────────────────────────────────────────────────
 
 const TOKEN_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -54,6 +73,7 @@ const NEGOTIATION_ABI = [
   "function rejectProposal(uint256 proposalId)",
   "function getProposal(uint256) view returns (tuple(uint256 needId, uint256 offerId, address buyer, address seller, uint256 price, string terms, uint8 status, uint256 createdAt, uint256 counterDepth, uint256 parentId))",
   "function proposalAgreement(uint256) view returns (address)",
+  "function totalProposals() view returns (uint256)",
 ];
 
 const REPUTATION_ABI = [
@@ -70,15 +90,7 @@ const AGREEMENT_ABI = [
   "function paymentAmount() view returns (uint256)",
 ];
 
-// ── Network RPC map ──────────────────────────────────────────────────────────
-
-const RPC_URLS: Record<Network, string> = {
-  "base-sepolia": "https://sepolia.base.org",
-  "base-mainnet": "https://mainnet.base.org",
-  hardhat: "http://localhost:8545",
-};
-
-// ── AgentSDK ─────────────────────────────────────────────────────────────────
+// ── AgentSDK ──────────────────────────────────────────────────────────────────
 
 /**
  * AgentSDK — the primary interface for AI agents to interact with the
@@ -86,9 +98,20 @@ const RPC_URLS: Record<Network, string> = {
  *
  * @example
  * ```ts
- * const sdk = new AgentSDK({ privateKey: "0x...", network: "base-sepolia" });
+ * import { AgentSDK } from "@autonomous-economy/sdk";
+ *
+ * const sdk = new AgentSDK({
+ *   privateKey: process.env.AGENT_KEY!,
+ *   network: "base-sepolia",
+ * });
+ *
  * await sdk.register({ name: "MyAgent", capabilities: ["data", "analysis"] });
- * const needId = await sdk.publishNeed({ description: "...", budget: "100", deadline: ..., tags: ["data"] });
+ * const needId = await sdk.publishNeed({
+ *   description: "Need sentiment analysis on 1000 tweets",
+ *   budget: "50",
+ *   deadline: Math.floor(Date.now() / 1000) + 86400,
+ *   tags: ["nlp", "sentiment", "data"],
+ * });
  * ```
  */
 export class AgentSDK {
@@ -102,7 +125,6 @@ export class AgentSDK {
   private engine: ethers.Contract;
   private reputation: ethers.Contract;
 
-  private backendUrl?: string;
   private wsClient?: WebSocket;
   private eventHandlers = new Map<string, EventHandler[]>();
 
@@ -111,42 +133,35 @@ export class AgentSDK {
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
     this.signer = new ethers.Wallet(config.privateKey, this.provider);
     this.address = this.signer.address;
-    this.backendUrl = config.backendUrl;
 
-    // Load deployment addresses
-    const deploymentPath = this._findDeployment(config.network);
-    const deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf-8"));
-    const { contracts } = deployment;
+    // Resolve contract addresses: config override > bundled defaults
+    const addrs = config.contracts || DEPLOYMENTS[config.network];
+    if (!addrs) {
+      throw new Error(
+        `No contract addresses for network '${config.network}'. ` +
+        `Pass config.contracts with your deployment addresses.`
+      );
+    }
 
-    this.token = new ethers.Contract(contracts.AgentToken, TOKEN_ABI, this.signer);
-    this.registry = new ethers.Contract(contracts.AgentRegistry, REGISTRY_ABI, this.signer);
-    this.marketplace = new ethers.Contract(contracts.Marketplace, MARKETPLACE_ABI, this.signer);
-    this.engine = new ethers.Contract(contracts.NegotiationEngine, NEGOTIATION_ABI, this.signer);
-    this.reputation = new ethers.Contract(contracts.ReputationSystem, REPUTATION_ABI, this.provider);
+    this.token      = new ethers.Contract(addrs.AgentToken, TOKEN_ABI, this.signer);
+    this.registry   = new ethers.Contract(addrs.AgentRegistry, REGISTRY_ABI, this.signer);
+    this.marketplace = new ethers.Contract(addrs.Marketplace, MARKETPLACE_ABI, this.signer);
+    this.engine     = new ethers.Contract(addrs.NegotiationEngine, NEGOTIATION_ABI, this.signer);
+    this.reputation = new ethers.Contract(addrs.ReputationSystem, REPUTATION_ABI, this.provider);
 
     if (config.backendUrl) {
       this._connectWebSocket(config.backendUrl);
     }
   }
 
-  // ── Registration ──────────────────────────────────────────────────────────
+  // ── Registration ────────────────────────────────────────────────────────────
 
-  /**
-   * Register this agent in the protocol. Pays the ENTRY_FEE (10 AGT)
-   * and receives 1000 AGT welcome tokens.
-   */
+  /** Register this agent in the protocol. Pays the ENTRY_FEE (10 AGT) and receives 1000 AGT welcome tokens. */
   async register(params: RegisterParams): Promise<string> {
     const entryFee = ethers.parseEther("10");
     const registryAddr = await this.registry.getAddress();
-
-    // Approve entry fee
     await (await this.token.approve(registryAddr, entryFee)).wait();
-
-    const tx = await this.registry.registerAgent(
-      params.name,
-      params.capabilities,
-      params.metadataURI || ""
-    );
+    const tx = await this.registry.registerAgent(params.name, params.capabilities, params.metadataURI || "");
     const receipt = await tx.wait();
     return receipt.hash;
   }
@@ -157,24 +172,26 @@ export class AgentSDK {
 
   async updateCapabilities(capabilities: string[]): Promise<string> {
     const tx = await this.registry.updateCapabilities(capabilities);
-    const receipt = await tx.wait();
-    return receipt.hash;
+    return (await tx.wait()).hash;
   }
 
-  // ── Token ─────────────────────────────────────────────────────────────────
+  async getActiveAgents(): Promise<string[]> {
+    return this.registry.getActiveAgents();
+  }
 
-  /** Get AGT balance for this agent (or any address). */
+  // ── Token ───────────────────────────────────────────────────────────────────
+
+  /** Get AGT balance in ether units (e.g. "100.0" = 100 AGT). */
   async getBalance(address?: string): Promise<string> {
     const bal = await this.token.balanceOf(address || this.address);
     return ethers.formatEther(bal);
   }
 
-  // ── Reputation ────────────────────────────────────────────────────────────
+  // ── Reputation ──────────────────────────────────────────────────────────────
 
   async getReputation(address?: string) {
-    const addr = address || this.address;
     const [score, totalDeals, successfulDeals, totalValueTransacted, lastUpdated] =
-      await this.reputation.getReputation(addr);
+      await this.reputation.getReputation(address || this.address);
     return {
       score: score.toString(),
       totalDeals: totalDeals.toString(),
@@ -184,185 +201,154 @@ export class AgentSDK {
     };
   }
 
-  // ── Marketplace ───────────────────────────────────────────────────────────
+  // ── Marketplace ─────────────────────────────────────────────────────────────
 
+  /** Publish a need (buyer). Returns the needId. */
   async publishNeed(params: PublishNeedParams): Promise<number> {
+    const nextId = Number(await this.marketplace.totalNeeds());
     const tx = await this.marketplace.publishNeed(
       params.description,
       ethers.parseEther(params.budget),
       params.deadline,
       params.tags
     );
-    const receipt = await tx.wait();
-    // Extract needId from event
-    const event = receipt.logs.find((log: any) => {
-      try {
-        const parsed = this.marketplace.interface.parseLog(log);
-        return parsed?.name === "NeedPublished";
-      } catch { return false; }
-    });
-    if (event) {
-      const parsed = this.marketplace.interface.parseLog(event);
-      return Number(parsed!.args.needId);
-    }
-    return -1;
+    await tx.wait();
+    return nextId;
   }
 
+  /** Publish an offer (seller). Returns the offerId. */
   async publishOffer(params: PublishOfferParams): Promise<number> {
+    const nextId = Number(await this.marketplace.totalOffers());
     const tx = await this.marketplace.publishOffer(
       params.description,
       ethers.parseEther(params.price),
       params.tags
     );
-    const receipt = await tx.wait();
-    const event = receipt.logs.find((log: any) => {
-      try {
-        const parsed = this.marketplace.interface.parseLog(log);
-        return parsed?.name === "OfferPublished";
-      } catch { return false; }
-    });
-    if (event) {
-      const parsed = this.marketplace.interface.parseLog(event);
-      return Number(parsed!.args.offerId);
-    }
-    return -1;
+    await tx.wait();
+    return nextId;
   }
 
   async cancelNeed(needId: number): Promise<string> {
-    const tx = await this.marketplace.cancelNeed(needId);
-    const receipt = await tx.wait();
-    return receipt.hash;
+    return (await (await this.marketplace.cancelNeed(needId)).wait()).hash;
   }
 
   async cancelOffer(offerId: number): Promise<string> {
-    const tx = await this.marketplace.cancelOffer(offerId);
-    const receipt = await tx.wait();
-    return receipt.hash;
+    return (await (await this.marketplace.cancelOffer(offerId)).wait()).hash;
   }
 
   async getMatchingOffers(needId: number): Promise<number[]> {
-    const ids = await this.marketplace.getMatchingOffers(needId);
-    return ids.map(Number);
+    return (await this.marketplace.getMatchingOffers(needId)).map(Number);
   }
 
   async getNeed(needId: number): Promise<NeedInfo> {
-    const need = await this.marketplace.getNeed(needId);
-    return {
-      id: needId,
-      publisher: need.publisher,
-      description: need.description,
-      budget: ethers.formatEther(need.budget),
-      deadline: Number(need.deadline),
-      tags: need.tags,
-      active: need.active,
-      createdAt: Number(need.createdAt),
-    };
+    const n = await this.marketplace.getNeed(needId);
+    return { id: needId, publisher: n.publisher, description: n.description,
+      budget: ethers.formatEther(n.budget), deadline: Number(n.deadline),
+      tags: n.tags, active: n.active, createdAt: Number(n.createdAt) };
   }
 
   async getOffer(offerId: number): Promise<OfferInfo> {
-    const offer = await this.marketplace.getOffer(offerId);
-    return {
-      id: offerId,
-      publisher: offer.publisher,
-      description: offer.description,
-      price: ethers.formatEther(offer.price),
-      tags: offer.tags,
-      active: offer.active,
-      createdAt: Number(offer.createdAt),
-    };
+    const o = await this.marketplace.getOffer(offerId);
+    return { id: offerId, publisher: o.publisher, description: o.description,
+      price: ethers.formatEther(o.price), tags: o.tags,
+      active: o.active, createdAt: Number(o.createdAt) };
   }
 
-  // ── Negotiation ───────────────────────────────────────────────────────────
-
-  async propose(params: ProposeParams): Promise<number> {
-    const tx = await this.engine.propose(
-      params.needId,
-      params.offerId,
-      ethers.parseEther(params.price),
-      params.terms
-    );
-    const receipt = await tx.wait();
-    const event = receipt.logs.find((log: any) => {
-      try {
-        const parsed = this.engine.interface.parseLog(log);
-        return parsed?.name === "ProposalCreated";
-      } catch { return false; }
-    });
-    if (event) {
-      const parsed = this.engine.interface.parseLog(event);
-      return Number(parsed!.args.proposalId);
+  async getAllNeeds(): Promise<NeedInfo[]> {
+    const total = Number(await this.marketplace.totalNeeds());
+    const needs: NeedInfo[] = [];
+    for (let i = 0; i < total; i++) {
+      const n = await this.getNeed(i);
+      if (n.active) needs.push(n);
     }
-    return -1;
+    return needs;
   }
 
+  async getAllOffers(): Promise<OfferInfo[]> {
+    const total = Number(await this.marketplace.totalOffers());
+    const offers: OfferInfo[] = [];
+    for (let i = 0; i < total; i++) {
+      const o = await this.getOffer(i);
+      if (o.active) offers.push(o);
+    }
+    return offers;
+  }
+
+  // ── Negotiation ─────────────────────────────────────────────────────────────
+
+  /** Create a proposal to fulfill a need. Returns the proposalId. */
+  async propose(params: ProposeParams): Promise<number> {
+    const nextId = Number(await this.engine.totalProposals());
+    const tx = await this.engine.propose(
+      params.needId, params.offerId,
+      ethers.parseEther(params.price), params.terms
+    );
+    await tx.wait();
+    return nextId;
+  }
+
+  /** Submit a counter-offer. Returns the new proposalId. */
   async counterOffer(params: CounterOfferParams): Promise<number> {
+    const nextId = Number(await this.engine.totalProposals());
     const tx = await this.engine.counterOffer(
       params.proposalId,
       ethers.parseEther(params.newPrice),
       params.newTerms
     );
-    const receipt = await tx.wait();
-    const event = receipt.logs.find((log: any) => {
-      try {
-        const parsed = this.engine.interface.parseLog(log);
-        return parsed?.name === "CounterOffered";
-      } catch { return false; }
-    });
-    if (event) {
-      const parsed = this.engine.interface.parseLog(event);
-      return Number(parsed!.args.newProposalId);
-    }
-    return -1;
+    await tx.wait();
+    return nextId;
   }
 
+  /** Accept a proposal. Returns the escrow agreement address. */
   async acceptProposal(proposalId: number): Promise<string> {
-    const tx = await this.engine.acceptProposal(proposalId);
-    const receipt = await tx.wait();
-    // Return the agreement contract address
-    return await this.engine.proposalAgreement(proposalId);
+    await (await this.engine.acceptProposal(proposalId)).wait();
+    return this.engine.proposalAgreement(proposalId);
   }
 
   async rejectProposal(proposalId: number): Promise<string> {
-    const tx = await this.engine.rejectProposal(proposalId);
-    const receipt = await tx.wait();
-    return receipt.hash;
+    return (await (await this.engine.rejectProposal(proposalId)).wait()).hash;
   }
 
-  // ── Agreements ────────────────────────────────────────────────────────────
+  async getProposal(proposalId: number) {
+    const p = await this.engine.getProposal(proposalId);
+    return {
+      id: proposalId,
+      needId: Number(p.needId), offerId: Number(p.offerId),
+      buyer: p.buyer, seller: p.seller,
+      price: ethers.formatEther(p.price), terms: p.terms,
+      status: Number(p.status), // 0=Pending, 1=Accepted, 2=Rejected, 3=Countered
+      createdAt: Number(p.createdAt),
+      counterDepth: Number(p.counterDepth),
+    };
+  }
 
+  // ── Agreements ──────────────────────────────────────────────────────────────
+
+  /** Fund the escrow for an accepted proposal (buyer step 1). */
   async fundAgreement(agreementAddress: string): Promise<string> {
     const agreement = new ethers.Contract(agreementAddress, AGREEMENT_ABI, this.signer);
     const paymentAmount = await agreement.paymentAmount();
-
-    // Approve token transfer to agreement
     await (await this.token.approve(agreementAddress, paymentAmount)).wait();
-    const tx = await agreement.fund();
-    const receipt = await tx.wait();
-    return receipt.hash;
+    return (await (await agreement.fund()).wait()).hash;
   }
 
+  /** Confirm delivery and release payment to seller (buyer step 2). */
   async confirmDelivery(agreementAddress: string): Promise<string> {
     const agreement = new ethers.Contract(agreementAddress, AGREEMENT_ABI, this.signer);
-    const tx = await agreement.confirmDelivery();
-    const receipt = await tx.wait();
-    return receipt.hash;
+    return (await (await agreement.confirmDelivery()).wait()).hash;
   }
 
   async raiseDispute(agreementAddress: string): Promise<string> {
     const agreement = new ethers.Contract(agreementAddress, AGREEMENT_ABI, this.signer);
-    const tx = await agreement.raiseDispute();
-    const receipt = await tx.wait();
-    return receipt.hash;
+    return (await (await agreement.raiseDispute()).wait()).hash;
   }
 
   async claimTimeout(agreementAddress: string): Promise<string> {
     const agreement = new ethers.Contract(agreementAddress, AGREEMENT_ABI, this.signer);
-    const tx = await agreement.claimTimeout();
-    const receipt = await tx.wait();
-    return receipt.hash;
+    return (await (await agreement.claimTimeout()).wait()).hash;
   }
 
-  // ── Events ────────────────────────────────────────────────────────────────
+  // ── Events ──────────────────────────────────────────────────────────────────
 
   on(event: ProtocolEvent | string, handler: EventHandler): void {
     const handlers = this.eventHandlers.get(event) || [];
@@ -375,42 +361,28 @@ export class AgentSDK {
     this.eventHandlers.set(event, handlers.filter((h) => h !== handler));
   }
 
-  // ── Internal ──────────────────────────────────────────────────────────────
-
-  private _findDeployment(network: Network): string {
-    // Walk up directories to find deployments folder
-    const candidates = [
-      path.join(__dirname, "../../deployments", `${network}.json`),
-      path.join(__dirname, "../../../deployments", `${network}.json`),
-      path.join(process.cwd(), "deployments", `${network}.json`),
-    ];
-    for (const p of candidates) {
-      if (fs.existsSync(p)) return p;
-    }
-    throw new Error(
-      `Deployment not found for '${network}'. Run: npx hardhat run scripts/deploy/00_all.ts --network ${network}`
-    );
+  disconnect(): void {
+    this.wsClient?.close();
   }
+
+  // ── Internal ─────────────────────────────────────────────────────────────────
 
   private _connectWebSocket(backendUrl: string): void {
     const wsUrl = backendUrl.replace(/^http/, "ws") + "/ws";
     try {
-      this.wsClient = new WebSocket(wsUrl);
-      this.wsClient.on("message", (raw: Buffer) => {
-        const msg = JSON.parse(raw.toString());
-        const handlers = this.eventHandlers.get(msg.type) || [];
-        handlers.forEach((h) => h(msg.data));
-        // Also fire wildcard handlers
-        const wildcard = this.eventHandlers.get("*") || [];
-        wildcard.forEach((h) => h({ type: msg.type, ...msg.data }));
-      });
-      this.wsClient.on("error", () => { /* silent — optional connection */ });
-    } catch {
-      // WebSocket is optional
-    }
-  }
-
-  disconnect(): void {
-    this.wsClient?.close();
+      // Support both browser WebSocket and Node.js ws
+      const WS = typeof WebSocket !== "undefined" ? WebSocket : require("ws");
+      this.wsClient = new WS(wsUrl);
+      this.wsClient!.onmessage = (event: MessageEvent) => {
+        try {
+          const msg = JSON.parse(event.data);
+          const handlers = this.eventHandlers.get(msg.type) || [];
+          handlers.forEach((h) => h(msg.data));
+          const wildcard = this.eventHandlers.get("*") || [];
+          wildcard.forEach((h) => h({ type: msg.type, ...msg.data }));
+        } catch { /* ignore malformed */ }
+      };
+      this.wsClient!.onerror = () => { /* silent — optional */ };
+    } catch { /* silent */ }
   }
 }

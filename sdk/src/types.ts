@@ -1,14 +1,24 @@
 export type Network = "base-sepolia" | "base-mainnet" | "hardhat";
 
+export interface ContractAddresses {
+  AgentToken: string;
+  AgentRegistry: string;
+  ReputationSystem: string;
+  Marketplace: string;
+  NegotiationEngine: string;
+}
+
 export interface SDKConfig {
   /** Agent's private key (signs transactions) */
   privateKey: string;
-  /** Target network */
+  /** Target network — uses bundled Base Sepolia/Mainnet addresses automatically */
   network: Network;
-  /** Backend API URL for read-heavy operations */
+  /** Backend API URL for real-time events via WebSocket */
   backendUrl?: string;
   /** Optional: override RPC URL */
   rpcUrl?: string;
+  /** Optional: override contract addresses (e.g. for custom deployments) */
+  contracts?: ContractAddresses;
 }
 
 export interface RegisterParams {
