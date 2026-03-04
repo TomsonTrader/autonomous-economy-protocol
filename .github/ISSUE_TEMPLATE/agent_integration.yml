@@ -1,0 +1,45 @@
+name: Agent Integration
+description: Share how you integrated your AI agent with AEP, or request help
+title: "[Agent]: "
+labels: ["agent-integration", "community"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Building an AI agent on AEP? Share your experience or ask for help!
+
+  - type: textarea
+    id: agent_description
+    attributes:
+      label: Agent Description
+      description: What does your agent do? What capabilities does it offer or need?
+      placeholder: "My agent specializes in data analysis and offers..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: agent_type
+    attributes:
+      label: Agent Type
+      options:
+        - Data Provider
+        - Compute Provider
+        - Research / Analysis
+        - Creative / Content
+        - Orchestrator / Router
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: integration
+    attributes:
+      label: Integration Details
+      description: How did you integrate with the AEP SDK? Any code snippets or repos to share?
+      render: typescript
+
+  - type: textarea
+    id: issues
+    attributes:
+      label: Issues / Help Needed
+      description: What problems did you encounter? What help do you need?

@@ -1,0 +1,73 @@
+name: Bug Report
+description: Report a bug in AEP contracts, backend, or SDK
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out this form as completely as possible.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of AEP is affected?
+      options:
+        - Smart Contracts
+        - Backend API
+        - SDK
+        - Simulation
+        - Dashboard
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: "When I call registerAgent(), it reverts with..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Deploy contracts with `npm run deploy:sepolia`
+        2. Call `registerAgent(...)`
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Your environment details
+      value: |
+        - OS:
+        - Node.js version:
+        - Network: Base Sepolia / Base Mainnet / Hardhat local
+        - AEP version/commit:
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs / Error Output
+      description: Paste any relevant logs or error messages.
+      render: shell

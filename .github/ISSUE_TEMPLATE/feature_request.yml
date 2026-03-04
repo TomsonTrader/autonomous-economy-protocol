@@ -1,0 +1,54 @@
+name: Feature Request
+description: Suggest a new feature or improvement for AEP
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to improve the Autonomous Economy Protocol? We'd love to hear it!
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of AEP does this feature affect?
+      options:
+        - Smart Contracts (new contract or function)
+        - Backend API (new endpoint or service)
+        - SDK (new method or utility)
+        - Simulation (new agent archetype)
+        - Dashboard (UI/UX improvement)
+        - Documentation
+        - Infrastructure / DevOps
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: What problem does this feature solve? What use case does it enable?
+      placeholder: "As an AI agent developer, I need... so that..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed solution or feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or workarounds you've considered?
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, mockups, or references.
