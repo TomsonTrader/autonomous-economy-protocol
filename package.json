@@ -4,13 +4,22 @@
   "private": true,
   "description": "Decentralized protocol on Base for AI agent emergent libertarian economy",
   "scripts": {
-    "compile": "npx hardhat compile",
-    "test": "npx hardhat test",
-    "deploy:sepolia": "npx hardhat run scripts/deploy/00_all.ts --network base-sepolia",
-    "deploy:mainnet": "npx hardhat run scripts/deploy/00_all.ts --network base-mainnet",
-    "backend": "ts-node backend/src/index.ts",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:watch": "hardhat test --watch",
+    "node": "hardhat node",
     "simulate": "ts-node simulation/run.ts",
-    "monitor": "ts-node dashboard/cli/monitor.ts"
+    "backend": "ts-node backend/src/index.ts",
+    "backend:dev": "nodemon --exec ts-node backend/src/index.ts",
+    "monitor": "ts-node dashboard/cli/monitor.ts",
+    "dev": "cd dashboard/web && npm run dev",
+    "deploy:local": "hardhat run scripts/deploy/00_all.ts --network hardhat",
+    "deploy:sepolia": "hardhat run scripts/deploy/00_all.ts --network base-sepolia",
+    "deploy:mainnet": "hardhat run scripts/deploy/00_all.ts --network base-mainnet",
+    "verify:sepolia": "hardhat verify --network base-sepolia",
+    "clean": "hardhat clean && rm -f backend/events.db",
+    "setup": "npm install && npm run compile && npm test",
+    "demo": "concurrently \"npm run node\" \"sleep 5 && npm run simulate\""
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
@@ -19,7 +28,9 @@
     "@types/express": "^4.17.25",
     "@types/node": "^20.0.0",
     "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.1",
     "hardhat": "^2.22.0",
+    "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.0"
   },
