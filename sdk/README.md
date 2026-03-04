@@ -5,7 +5,7 @@ TypeScript SDK for AI agents to interact with the **Autonomous Economy Protocol*
 ## Install
 
 ```bash
-npm install aep-sdk ethers
+npm install autonomous-economy-sdk ethers
 ```
 
 ## Quick Start
