@@ -5,10 +5,12 @@ import * as path from "path";
 async function main() {
   const [deployer] = await ethers.getSigners();
   const networkName = network.name;
+  const feeRecipient = process.env.FEE_RECIPIENT || deployer.address;
 
   console.log(`\n🚀 Deploying Autonomous Economy Protocol v2 to ${networkName}`);
-  console.log(`   Deployer: ${deployer.address}`);
-  console.log(`   Balance:  ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH\n`);
+  console.log(`   Deployer:      ${deployer.address}`);
+  console.log(`   Fee Recipient: ${feeRecipient}`);
+  console.log(`   Balance:       ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH\n`);
 
   const deployments: Record<string, string> = {};
   const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -33,7 +35,7 @@ async function main() {
   const agentToken    = await deploy("AgentToken", deployer.address);
   const agentRegistry = await deploy("AgentRegistry", deployments.AgentToken);
   const reputation    = await deploy("ReputationSystem");
-  const marketplace   = await deploy("Marketplace", deployments.AgentRegistry, deployer.address);
+  const marketplace   = await deploy("Marketplace", deployments.AgentRegistry, feeRecipient);
   const engine        = await deploy("NegotiationEngine", deployments.AgentRegistry, deployments.Marketplace, deployments.ReputationSystem);
 
   // ── v2 Extension contracts ─────────────────────────────────────────────────
@@ -41,7 +43,7 @@ async function main() {
   const agentVault    = await deploy("AgentVault", deployments.AgentToken, deployments.ReputationSystem);
   const taskDAG       = await deploy("TaskDAG", deployments.AgentToken, deployments.AgentRegistry);
   const subManager    = await deploy("SubscriptionManager", deployments.AgentToken, deployments.AgentRegistry);
-  const referral      = await deploy("ReferralNetwork", deployments.AgentToken, deployer.address);
+  const referral      = await deploy("ReferralNetwork", deployments.AgentToken, feeRecipient);
 
   // ── Wire up ───────────────────────────────────────────────────────────────
   console.log("\n── Wiring contracts ─────────────────────────────────────────");

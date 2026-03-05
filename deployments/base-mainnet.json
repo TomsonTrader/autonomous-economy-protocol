@@ -1,0 +1,17 @@
+{
+  "network": "base-mainnet",
+  "chainId": "8453",
+  "deployedAt": "2026-03-05T16:23:16.541Z",
+  "deployer": "0x1200BE707C668b0313757Fc7d097B1a498bA62Ba",
+  "contracts": {
+    "AgentToken": "0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed",
+    "AgentRegistry": "0x63b427a39e2e07587CF13b2AecBaEcDD4D20bf23",
+    "ReputationSystem": "0x87527e1fb08934a4f37C7fe1D7214Cd5f2bc0F7F",
+    "Marketplace": "0xc8Dc4a3686887d27d845666d0a7664E995b3F3Ae",
+    "NegotiationEngine": "0x5B3529d0fC4aB779D24D605d6549134F9a5853c2",
+    "AgentVault": "0x40175dD73BBB455314117286a3b3E14b9Cf6624c",
+    "TaskDAG": "0x9d51c51646027947220666DB7281b990E84A26aB",
+    "SubscriptionManager": "0x6Fe8A83A3364bC059A3cC046EC930b3FeFE8C22d",
+    "ReferralNetwork": "0x855F3fe403EF0963b5F29ae8a246719684c26da0"
+  }
+}
