@@ -158,7 +158,8 @@ contract NegotiationEngine {
             proposal.terms,
             need.deadline,
             address(registry.token()),
-            address(reputation)
+            address(reputation),
+            marketplace.treasury()
         ));
 
         // Authorize the agreement to record reputation outcomes

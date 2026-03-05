@@ -12,6 +12,8 @@ pragma solidity ^0.8.24;
  *         - Score is the foundation for AgentVault credit lines
  */
 contract ReputationSystem {
+    address public owner;
+
     struct ReputationData {
         uint256 totalDeals;
         uint256 successfulDeals;
@@ -47,8 +49,12 @@ contract ReputationSystem {
         _;
     }
 
+    constructor() {
+        owner = msg.sender;
+    }
+
     function setNegotiationEngine(address _engine) external {
-        require(negotiationEngine == address(0), "ReputationSystem: engine already set");
+        require(msg.sender == owner || negotiationEngine == address(0), "ReputationSystem: not authorized");
         require(_engine != address(0), "ReputationSystem: zero address");
         negotiationEngine = _engine;
         emit NegotiationEngineSet(_engine);

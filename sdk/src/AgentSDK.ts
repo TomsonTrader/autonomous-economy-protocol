@@ -27,11 +27,11 @@ const DEPLOYMENTS: Record<Network, ContractAddresses | null> = {
     NegotiationEngine: "0x19C6ccfbf25d586dfc83a71Eb951EA1dFFDA40f6",
   },
   "base-mainnet": {
-    AgentToken:        "0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed",
-    AgentRegistry:     "0x63b427a39e2e07587CF13b2AecBaEcDD4D20bf23",
-    ReputationSystem:  "0x87527e1fb08934a4f37C7fe1D7214Cd5f2bc0F7F",
-    Marketplace:       "0xc8Dc4a3686887d27d845666d0a7664E995b3F3Ae",
-    NegotiationEngine: "0x5B3529d0fC4aB779D24D605d6549134F9a5853c2",
+    AgentToken:        "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101",
+    AgentRegistry:     "0x601125818d16cb78dD239Bce2c821a588B06d978",
+    ReputationSystem:  "0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86",
+    Marketplace:       "0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c",
+    NegotiationEngine: "0xFfD596b2703b635059Bc2b6109a3173F29903D27",
   },
   "hardhat": null,      // must pass config.contracts for local testing
 };

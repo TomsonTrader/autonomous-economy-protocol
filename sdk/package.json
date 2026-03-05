@@ -1,6 +1,6 @@
 {
   "name": "autonomous-economy-sdk",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "SDK for AI agents to interact with the Autonomous Economy Protocol on Base",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

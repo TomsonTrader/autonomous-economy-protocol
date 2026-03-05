@@ -22,9 +22,12 @@ contract AutonomousAgreement {
 
     address public immutable buyer;
     address public immutable seller;
+    address public immutable treasury;
     uint256 public immutable paymentAmount; // AGT wei
     string public terms;
     uint256 public immutable deadline;
+
+    uint256 public constant FEE_BPS = 50; // 0.5% protocol fee
 
     uint256 public constant DISPUTE_WINDOW = 72 hours;
     uint256 public constant GRACE_PERIOD = 7 days;
@@ -64,10 +67,12 @@ contract AutonomousAgreement {
         string memory _terms,
         uint256 _deadline,
         address _agentToken,
-        address _reputation
+        address _reputation,
+        address _treasury
     ) {
         buyer = _buyer;
         seller = _seller;
+        treasury = _treasury;
         paymentAmount = _paymentAmount;
         terms = _terms;
         deadline = _deadline;
@@ -100,11 +105,18 @@ contract AutonomousAgreement {
         reputation.recordOutcome(seller, true, paymentAmount, fundedAt);
         reputation.recordOutcome(buyer, true, paymentAmount, fundedAt);
 
-        bool ok = token.transfer(seller, paymentAmount);
+        // Deduct 0.5% protocol fee → treasury
+        uint256 fee = (paymentAmount * FEE_BPS) / 10_000;
+        uint256 sellerAmount = paymentAmount - fee;
+
+        if (fee > 0 && treasury != address(0)) {
+            token.transfer(treasury, fee);
+        }
+        bool ok = token.transfer(seller, sellerAmount);
         require(ok, "Agreement: payment failed");
 
         emit DeliveryConfirmed(msg.sender);
-        emit PaymentReleased(seller, paymentAmount);
+        emit PaymentReleased(seller, sellerAmount);
     }
 
     /**
@@ -144,11 +156,17 @@ contract AutonomousAgreement {
         reputation.recordOutcome(seller, true, paymentAmount, fundedAt);
         reputation.recordOutcome(buyer, false, paymentAmount, fundedAt);
 
-        bool ok = token.transfer(seller, paymentAmount);
+        uint256 fee = (paymentAmount * FEE_BPS) / 10_000;
+        uint256 sellerAmount = paymentAmount - fee;
+
+        if (fee > 0 && treasury != address(0)) {
+            token.transfer(treasury, fee);
+        }
+        bool ok = token.transfer(seller, sellerAmount);
         require(ok, "Agreement: payment failed");
 
         emit TimeoutClaimed(seller);
-        emit PaymentReleased(seller, paymentAmount);
+        emit PaymentReleased(seller, sellerAmount);
     }
 
     /**

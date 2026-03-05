@@ -246,12 +246,16 @@ describe("Autonomous Economy Protocol", () => {
   });
 
   describe("ReputationSystem", () => {
-    it("only NegotiationEngine can set engine", async () => {
+    it("only owner or first-time can set engine, strangers cannot", async () => {
       const rep2 = await (await ethers.getContractFactory("ReputationSystem")).deploy();
+      // First-time set by deployer (owner) works
       await rep2.setNegotiationEngine(carol.address);
-      await expect(rep2.setNegotiationEngine(carol.address)).to.be.revertedWith(
-        "ReputationSystem: engine already set"
-      );
+      // Owner can update engine address
+      await rep2.setNegotiationEngine(alice.address);
+      // A non-owner stranger cannot set engine
+      await expect(
+        rep2.connect(bob).setNegotiationEngine(bob.address)
+      ).to.be.revertedWith("ReputationSystem: not authorized");
     });
   });
 });

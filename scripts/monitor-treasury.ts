@@ -11,10 +11,10 @@ const RPC = "https://mainnet.base.org";
 const TREASURY = "0x8CCB591C94D419687c4C6dDfdd9F789cc29Bd0Fd";
 
 const CONTRACTS = {
-  AgentToken:      "0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed",
-  AgentRegistry:   "0x63b427a39e2e07587CF13b2AecBaEcDD4D20bf23",
-  Marketplace:     "0xc8Dc4a3686887d27d845666d0a7664E995b3F3Ae",
-  NegotiationEngine: "0x5B3529d0fC4aB779D24D605d6549134F9a5853c2",
+  AgentToken:        "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101",
+  AgentRegistry:     "0x601125818d16cb78dD239Bce2c821a588B06d978",
+  Marketplace:       "0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c",
+  NegotiationEngine: "0xFfD596b2703b635059Bc2b6109a3173F29903D27",
 };
 
 const TOKEN_ABI = [
