@@ -24,6 +24,10 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       chainId: 31337,
+      forking: process.env.FORK_MAINNET === "true" ? {
+        url: process.env.BASE_MAINNET_RPC || "https://mainnet.base.org",
+        blockNumber: undefined, // latest
+      } : undefined,
     },
     "base-sepolia": {
       url: process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org",

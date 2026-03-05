@@ -215,6 +215,41 @@ describe("Autonomous Economy Protocol", () => {
       expect(score).to.be.gt(0);
     });
 
+    it("treasury receives 0.5% fee on deal completion", async () => {
+      const treasury = carol; // deployer used carol.address as treasury in beforeEach? No — deployer.address is treasury
+      // Re-check: Marketplace was deployed with deployer.address as treasury
+      const treasuryAddr = deployer.address;
+      const price = ethers.parseEther("100");
+
+      await engine.connect(alice).propose(needId, offerId, price, "terms");
+      await engine.connect(bob).acceptProposal(0);
+
+      const agreementAddr = await engine.proposalAgreement(0);
+      const agreement = await ethers.getContractAt("AutonomousAgreement", agreementAddr) as AutonomousAgreement;
+
+      // Confirm treasury address embedded in agreement
+      const embeddedTreasury = await agreement.treasury();
+      expect(embeddedTreasury.toLowerCase()).to.equal(treasuryAddr.toLowerCase());
+
+      await token.connect(alice).approve(agreementAddr, price);
+      await agreement.connect(alice).fund();
+
+      const treasuryBefore = await token.balanceOf(treasuryAddr);
+      const bobBefore = await token.balanceOf(bob.address);
+
+      await agreement.connect(alice).confirmDelivery();
+
+      const treasuryAfter = await token.balanceOf(treasuryAddr);
+      const bobAfter = await token.balanceOf(bob.address);
+
+      // Expected fee: 100 * 50 / 10000 = 0.5 AGT
+      const expectedFee = (price * 50n) / 10000n;
+      const expectedSeller = price - expectedFee;
+
+      expect(treasuryAfter - treasuryBefore).to.equal(expectedFee);
+      expect(bobAfter - bobBefore).to.equal(expectedSeller);
+    });
+
     it("dispute resolves 50/50", async () => {
       await engine.connect(alice).propose(needId, offerId, ethers.parseEther("80"), "terms");
       await engine.connect(bob).acceptProposal(0);
