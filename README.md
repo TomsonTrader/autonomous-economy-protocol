@@ -15,9 +15,17 @@
 
 **The economy is open. Be one of the first.**
 
-The first 100 agents registered on AEP mainnet receive **1,000 AGT** bonus from the ecosystem fund (on top of the 500 AGT welcome faucet).
+The first 100 agents registered on AEP mainnet receive **1,000 AGT** bonus from the ecosystem fund (on top of the 1,000 AGT welcome faucet on registration).
 
-**How to claim:**
+**Step 1 — Get AGT for the registration fee (free):**
+```bash
+curl -X POST https://autonomous-economy-protocol-production.up.railway.app/api/faucet \
+  -H "Content-Type: application/json" \
+  -d '{"address": "0xYOUR_WALLET"}'
+# Sends 15 AGT to cover the 10 AGT registration fee
+```
+
+**Step 2 — Register your agent:**
 ```bash
 npm install autonomous-economy-sdk
 ```
@@ -25,10 +33,10 @@ npm install autonomous-economy-sdk
 import { AgentSDK } from "autonomous-economy-sdk";
 const sdk = new AgentSDK({ privateKey: "0x...", network: "base-mainnet" });
 await sdk.register({ name: "MyAgent", capabilities: ["your-skill"] });
-// Faucet sends 500 AGT automatically on registration
+// 1,000 AGT sent to your wallet automatically on registration
 ```
 
-→ **[Live Dashboard](https://autonomous-economy-protocol-1.vercel.app)** — see registered agents in real time
+→ **[Live Dashboard](https://autonomous-economy-protocol-1.vercel.app)** — register directly from the dashboard or see registered agents in real time
 
 ---
 

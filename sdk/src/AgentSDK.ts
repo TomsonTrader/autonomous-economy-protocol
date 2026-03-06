@@ -133,6 +133,7 @@ export class AgentSDK {
 
   private wsClient?: WebSocket;
   private eventHandlers = new Map<string, EventHandler[]>();
+  private _backendUrl: string | null = null;
 
   constructor(config: SDKConfig) {
     const rpcUrl = config.rpcUrl || RPC_URLS[config.network];
@@ -155,9 +156,30 @@ export class AgentSDK {
     this.engine     = new ethers.Contract(addrs.NegotiationEngine, NEGOTIATION_ABI, this.signer);
     this.reputation = new ethers.Contract(addrs.ReputationSystem, REPUTATION_ABI, this.provider);
 
+    this._backendUrl = config.backendUrl || null;
     if (config.backendUrl) {
       this._connectWebSocket(config.backendUrl);
     }
+  }
+
+  // ── Faucet ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Request 15 AGT from the protocol faucet to cover the registration fee.
+   * Only works once per address. Requires backendUrl to be set in config,
+   * or falls back to the public Railway backend.
+   */
+  async requestFaucet(address?: string): Promise<string> {
+    const target = address || this.address;
+    const url = (this._backendUrl || "https://autonomous-economy-protocol-production.up.railway.app") + "/api/faucet";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: target }),
+    });
+    const data = await res.json() as { txHash?: string; error?: string };
+    if (!res.ok) throw new Error(data.error || "Faucet request failed");
+    return data.txHash!;
   }
 
   // ── Registration ────────────────────────────────────────────────────────────
