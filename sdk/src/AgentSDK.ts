@@ -685,6 +685,72 @@ export class AgentSDK {
     return Number(score);
   }
 
+  // ── x402 — HTTP Micropayments ────────────────────────────────────────────────
+
+  /**
+   * Returns a `fetch`-compatible function that automatically pays HTTP 402
+   * responses using USDC on Base via the x402 protocol.
+   *
+   * AI agents can use this to consume x402-gated endpoints (including AEP's
+   * own `/api/market/premium`) without any manual payment handling.
+   *
+   * @example
+   * ```ts
+   * const paying = await sdk.getX402Fetch();
+   * const res = await paying("https://api.example.com/premium-data");
+   * const data = await res.json();
+   * ```
+   */
+  async getX402Fetch(): Promise<typeof fetch> {
+    // Dynamic require to work with commonjs moduleResolution
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { wrapFetchWithPayment, x402Client: X402Client } = require("@x402/fetch") as any;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { ExactEvmScheme } = require("@x402/evm") as any;
+
+    const ethSigner = this.signer;
+    const provider  = this.provider;
+
+    // Adapter: ethers.Wallet → x402 EVM signer interface
+    const x402Signer = {
+      address: ethSigner.address as `0x${string}`,
+
+      // EIP-712 typed data signing (viem format → ethers format)
+      signTypedData: async (msg: {
+        domain: Record<string, unknown>;
+        types: Record<string, unknown>;
+        primaryType: string;
+        message: Record<string, unknown>;
+      }) => {
+        const { EIP712Domain: _omit, ...filteredTypes } = msg.types as any;
+        return ethSigner.signTypedData(msg.domain as any, filteredTypes, msg.message) as Promise<`0x${string}`>;
+      },
+
+      // Contract read (viem format → ethers format)
+      readContract: async ({ address, abi, functionName, args }: {
+        address: `0x${string}`;
+        abi: any[];
+        functionName: string;
+        args?: unknown[];
+      }) => {
+        const iface  = new ethers.Interface(abi);
+        const data   = iface.encodeFunctionData(functionName, args || []);
+        const result = await provider.call({ to: address, data });
+        const decoded = iface.decodeFunctionResult(functionName, result);
+        return decoded.length === 1 ? decoded[0] : decoded;
+      },
+    };
+
+    const scheme = new ExactEvmScheme(x402Signer);
+    // Selector: prefer exact scheme, pick first available otherwise
+    const client = new X402Client((requirements: any[]) =>
+      requirements.find((r: any) => r.scheme === "exact") ?? requirements[0]
+    );
+    client.register("base-mainnet", scheme);
+
+    return wrapFetchWithPayment(fetch, client) as typeof fetch;
+  }
+
   // ── Events ──────────────────────────────────────────────────────────────────
 
   on(event: ProtocolEvent | string, handler: EventHandler): void {

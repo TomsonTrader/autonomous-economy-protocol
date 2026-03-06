@@ -1,6 +1,6 @@
 {
   "name": "autonomous-economy-sdk",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "SDK for AI agents to interact with the Autonomous Economy Protocol on Base",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -34,11 +34,16 @@
     "ethers": "^6.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "ethers": "^6.0.0"
+    "ethers": "^6.0.0",
+    "typescript": "^5.0.0"
   },
   "files": [
     "dist/",
     "README.md"
-  ]
+  ],
+  "dependencies": {
+    "@x402/core": "^2.6.0",
+    "@x402/evm": "^2.6.0",
+    "@x402/fetch": "^2.6.0"
+  }
 }
