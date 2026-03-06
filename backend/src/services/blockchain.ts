@@ -113,6 +113,7 @@ export class BlockchainService {
     this.provider = new ethers.JsonRpcProvider(rpcUrl, undefined, {
       polling: true,
       pollingInterval: 12000, // 12s — matches Base block time, reduces filter churn
+      batchMaxCount: 5,       // Base public RPC rejects batches > 10; keep well under
     });
     // Suppress "filter not found" errors from ethers.js polling on remote RPCs
     this.provider.on("error", (err: any) => {
