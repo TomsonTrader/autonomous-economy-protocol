@@ -1,4 +1,5 @@
 import * as dotenv from "dotenv";
+// Local dev: load from root .env. Railway/production: env vars injected by platform.
 dotenv.config({ path: require("path").join(__dirname, "../../.env") });
 
 import express from "express";
