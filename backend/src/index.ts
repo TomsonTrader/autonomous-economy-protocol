@@ -14,6 +14,21 @@ import { monitorRouter } from "./routes/monitor";
 
 const PORT = parseInt(process.env.PORT || "3001");
 
+// Prevent unhandled RPC polling errors (eth_getLogs rate-limit, filter expiry)
+// from crashing the process — ethers.js v6 doesn't always emit these as provider errors
+process.on("unhandledRejection", (reason: any) => {
+  const msg: string = reason?.message ?? String(reason);
+  if (
+    msg.includes("missing response") ||
+    msg.includes("maximum") ||
+    msg.includes("filter not found") ||
+    msg.includes("BAD_DATA")
+  ) {
+    return; // suppress known public-RPC rate-limit / polling errors
+  }
+  console.error("[Unhandled Rejection]", reason);
+});
+
 async function main() {
   console.log("🤖 Autonomous Economy Protocol — Backend starting...");
 
