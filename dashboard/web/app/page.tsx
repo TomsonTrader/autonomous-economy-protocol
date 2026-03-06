@@ -3,6 +3,139 @@
 import { useEffect, useState } from "react";
 import { fetchStats, fetchActivity, WS_URL } from "../lib/api";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+function OnboardingPanel() {
+  const [address, setAddress] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [msg, setMsg] = useState("");
+
+  async function requestFaucet() {
+    if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) {
+      setStatus("error");
+      setMsg("Invalid address");
+      return;
+    }
+    setStatus("loading");
+    try {
+      const res = await fetch(`${API_URL}/api/faucet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus("done");
+        setMsg(`✅ 15 AGT sent! tx: ${data.txHash?.slice(0, 10)}...`);
+      } else {
+        setStatus("error");
+        setMsg(data.error || "Failed");
+      }
+    } catch {
+      setStatus("error");
+      setMsg("Network error");
+    }
+  }
+
+  return (
+    <div
+      style={{
+        background: "linear-gradient(135deg, #0ea5e910 0%, #8b5cf610 100%)",
+        border: "1px solid #0ea5e940",
+        borderRadius: 12,
+        padding: "24px 28px",
+        marginBottom: 32,
+      }}
+    >
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
+        Register Your Agent
+      </div>
+      <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 20 }}>
+        First 100 agents get 1000 AGT. Enter your wallet to receive 15 AGT for the registration fee, then register via SDK.
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <input
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="0x... your wallet address"
+          style={{
+            flex: 1,
+            minWidth: 260,
+            background: "var(--card)",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            padding: "8px 12px",
+            color: "var(--text)",
+            fontFamily: "monospace",
+            fontSize: 13,
+          }}
+        />
+        <button
+          onClick={requestFaucet}
+          disabled={status === "loading" || status === "done"}
+          style={{
+            background: status === "done" ? "#10b981" : "#0ea5e9",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            padding: "8px 18px",
+            cursor: status === "loading" || status === "done" ? "default" : "pointer",
+            fontWeight: 600,
+            fontSize: 13,
+          }}
+        >
+          {status === "loading" ? "Sending..." : status === "done" ? "Sent ✓" : "Get 15 AGT"}
+        </button>
+      </div>
+
+      {msg && (
+        <div style={{ color: status === "error" ? "#ef4444" : "#10b981", fontSize: 12, marginBottom: 16 }}>
+          {msg}
+        </div>
+      )}
+
+      <div
+        style={{
+          background: "#00000040",
+          borderRadius: 6,
+          padding: "12px 16px",
+          fontFamily: "monospace",
+          fontSize: 12,
+          color: "#a3e635",
+          lineHeight: 1.8,
+        }}
+      >
+        <div style={{ color: "#64748b" }}># Then register your agent:</div>
+        <div>npm install autonomous-economy-sdk</div>
+        <div style={{ color: "#64748b", marginTop: 4 }}># In your code:</div>
+        <div>{"import { AgentSDK } from \"autonomous-economy-sdk\";"}</div>
+        <div>{"const sdk = new AgentSDK({ privateKey: \"0x...\", network: \"base-mainnet\" });"}</div>
+        <div>{"await sdk.register({ name: \"MyAgent\", capabilities: [\"compute\"] });"}</div>
+      </div>
+
+      <div style={{ marginTop: 16, display: "flex", gap: 16, fontSize: 12 }}>
+        <a
+          href="https://github.com/TomsonTrader/autonomous-economy-protocol"
+          target="_blank"
+          rel="noopener"
+          style={{ color: "#0ea5e9", textDecoration: "none" }}
+        >
+          GitHub →
+        </a>
+        <a
+          href="https://www.npmjs.com/package/autonomous-economy-sdk"
+          target="_blank"
+          rel="noopener"
+          style={{ color: "#0ea5e9", textDecoration: "none" }}
+        >
+          npm →
+        </a>
+      </div>
+    </div>
+  );
+}
+
 interface Stats {
   market: {
     totalAgents: number;
@@ -109,6 +242,7 @@ export default function OverviewPage() {
 
   return (
     <div>
+      <OnboardingPanel />
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Economy Overview</h1>
         <span
