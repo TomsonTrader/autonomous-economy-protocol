@@ -13,6 +13,12 @@ import {
   OfferInfo,
   EventHandler,
   ProtocolEvent,
+  VaultInfo,
+  ReferralInfo,
+  TaskInfo,
+  CreateTaskParams,
+  SpawnSubtaskParams,
+  SubscribeParams,
 } from "./types";
 
 // ── Bundled contract addresses ────────────────────────────────────────────────
@@ -27,11 +33,15 @@ const DEPLOYMENTS: Record<Network, ContractAddresses | null> = {
     NegotiationEngine: "0x19C6ccfbf25d586dfc83a71Eb951EA1dFFDA40f6",
   },
   "base-mainnet": {
-    AgentToken:        "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101",
-    AgentRegistry:     "0x601125818d16cb78dD239Bce2c821a588B06d978",
-    ReputationSystem:  "0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86",
-    Marketplace:       "0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c",
-    NegotiationEngine: "0xFfD596b2703b635059Bc2b6109a3173F29903D27",
+    AgentToken:          "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101",
+    AgentRegistry:       "0x601125818d16cb78dD239Bce2c821a588B06d978",
+    ReputationSystem:    "0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86",
+    Marketplace:         "0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c",
+    NegotiationEngine:   "0xFfD596b2703b635059Bc2b6109a3173F29903D27",
+    AgentVault:          "0xb3e844C920D399634147872dc3ce44A4b655e0b7",
+    TaskDAG:             "0x8fFC6EBaf3764D40A994503b9096c4eBf6aAAda3",
+    SubscriptionManager: "0xC466C9cEc228C74C933d35ed0694E5134CdD8B18",
+    ReferralNetwork:     "0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c",
   },
   "hardhat": null,      // must pass config.contracts for local testing
 };
@@ -96,6 +106,50 @@ const AGREEMENT_ABI = [
   "function paymentAmount() view returns (uint256)",
 ];
 
+const VAULT_ABI = [
+  "function stake(uint256 amount)",
+  "function requestUnstake(uint256 amount)",
+  "function unstake()",
+  "function claimYield()",
+  "function borrow(uint256 amount)",
+  "function repay(uint256 amount)",
+  "function getTier(address agent) view returns (uint8)",
+  "function getMaxDealSize(address agent) view returns (uint256)",
+  "function getCreditLimit(address agent) view returns (uint256)",
+  "function getPendingYield(address agent) view returns (uint256)",
+  "function getVault(address agent) view returns (tuple(uint256 staked, uint256 yieldAccrued, uint256 lastYieldUpdate, uint256 borrowed, uint256 unstakeRequestedAt, uint256 unstakePending))",
+  "function totalStaked() view returns (uint256)",
+  "function yieldPool() view returns (uint256)",
+];
+
+const REFERRAL_ABI = [
+  "function registerReferral(address agent, address referrer)",
+  "function claimCommissions()",
+  "function getReferralData(address agent) view returns (tuple(address referrer, uint256 totalEarned, uint256 claimableEarnings, uint256 directReferrals, uint256 totalNetworkDeals))",
+  "function getNetworkSize(address referrer) view returns (uint256)",
+  "function getClaimable(address agent) view returns (uint256)",
+];
+
+const SUBSCRIPTION_ABI = [
+  "function subscribe(address provider, uint256 pricePerPeriod, uint256 periodDuration, uint256 totalPeriods, string serviceDescription) returns (uint256)",
+  "function claimPeriod(uint256 subId)",
+  "function cancel(uint256 subId)",
+  "function getSubscription(uint256 subId) view returns (tuple(uint256 id, address subscriber, address provider, uint256 pricePerPeriod, uint256 periodDuration, uint256 totalPeriods, uint256 periodsRemaining, uint256 periodsClaimed, uint256 startTime, uint256 lastClaimTime, uint8 status, string serviceDescription))",
+  "function getClaimableRevenue(address provider) view returns (uint256)",
+  "function totalSubscriptions() view returns (uint256)",
+];
+
+const TASKDAG_ABI = [
+  "function createTask(string description, string[] tags, uint256 budget, uint256 deadline, uint256 requiredSubtasks) returns (uint256)",
+  "function spawnSubtask(uint256 parentId, address assignee, string description, string[] tags, uint256 budget, uint256 deadline) returns (uint256)",
+  "function acceptTask(uint256 taskId)",
+  "function completeSubtask(uint256 subtaskId)",
+  "function completeTask(uint256 taskId)",
+  "function cancelTask(uint256 taskId)",
+  "function getTask(uint256 taskId) view returns (tuple(uint256 id, address orchestrator, address assignee, uint256 budget, string description, string[] tags, uint256 deadline, uint8 status, uint256 parentId, uint256[] subtaskIds, uint256 requiredSubtasks, uint256 completedSubtasks, uint256 createdAt, bool fundsReleased))",
+  "function totalTasks() view returns (uint256)",
+];
+
 // ── AgentSDK ──────────────────────────────────────────────────────────────────
 
 /**
@@ -131,6 +185,12 @@ export class AgentSDK {
   private engine: ethers.Contract;
   private reputation: ethers.Contract;
 
+  // Extended contracts (available on Base Mainnet v2+)
+  private vault: ethers.Contract | null = null;
+  private referral: ethers.Contract | null = null;
+  private subManager: ethers.Contract | null = null;
+  private taskDAG: ethers.Contract | null = null;
+
   private wsClient?: WebSocket;
   private eventHandlers = new Map<string, EventHandler[]>();
   private _backendUrl: string | null = null;
@@ -150,16 +210,42 @@ export class AgentSDK {
       );
     }
 
-    this.token      = new ethers.Contract(addrs.AgentToken, TOKEN_ABI, this.signer);
-    this.registry   = new ethers.Contract(addrs.AgentRegistry, REGISTRY_ABI, this.signer);
+    this.token       = new ethers.Contract(addrs.AgentToken, TOKEN_ABI, this.signer);
+    this.registry    = new ethers.Contract(addrs.AgentRegistry, REGISTRY_ABI, this.signer);
     this.marketplace = new ethers.Contract(addrs.Marketplace, MARKETPLACE_ABI, this.signer);
-    this.engine     = new ethers.Contract(addrs.NegotiationEngine, NEGOTIATION_ABI, this.signer);
-    this.reputation = new ethers.Contract(addrs.ReputationSystem, REPUTATION_ABI, this.provider);
+    this.engine      = new ethers.Contract(addrs.NegotiationEngine, NEGOTIATION_ABI, this.signer);
+    this.reputation  = new ethers.Contract(addrs.ReputationSystem, REPUTATION_ABI, this.provider);
+
+    if (addrs.AgentVault)
+      this.vault = new ethers.Contract(addrs.AgentVault, VAULT_ABI, this.signer);
+    if (addrs.ReferralNetwork)
+      this.referral = new ethers.Contract(addrs.ReferralNetwork, REFERRAL_ABI, this.signer);
+    if (addrs.SubscriptionManager)
+      this.subManager = new ethers.Contract(addrs.SubscriptionManager, SUBSCRIPTION_ABI, this.signer);
+    if (addrs.TaskDAG)
+      this.taskDAG = new ethers.Contract(addrs.TaskDAG, TASKDAG_ABI, this.signer);
 
     this._backendUrl = config.backendUrl || null;
     if (config.backendUrl) {
       this._connectWebSocket(config.backendUrl);
     }
+  }
+
+  private _requireVault(): ethers.Contract {
+    if (!this.vault) throw new Error("AgentVault not available on this network");
+    return this.vault;
+  }
+  private _requireReferral(): ethers.Contract {
+    if (!this.referral) throw new Error("ReferralNetwork not available on this network");
+    return this.referral;
+  }
+  private _requireSubManager(): ethers.Contract {
+    if (!this.subManager) throw new Error("SubscriptionManager not available on this network");
+    return this.subManager;
+  }
+  private _requireTaskDAG(): ethers.Contract {
+    if (!this.taskDAG) throw new Error("TaskDAG not available on this network");
+    return this.taskDAG;
   }
 
   // ── Faucet ───────────────────────────────────────────────────────────────────
@@ -377,6 +463,226 @@ export class AgentSDK {
   async claimTimeout(agreementAddress: string): Promise<string> {
     const agreement = new ethers.Contract(agreementAddress, AGREEMENT_ABI, this.signer);
     return (await (await agreement.claimTimeout()).wait()).hash;
+  }
+
+  // ── AgentVault ──────────────────────────────────────────────────────────────
+
+  /** Stake AGT to unlock higher deal tiers. Returns tx hash. */
+  async stake(amount: string): Promise<string> {
+    const vault = this._requireVault();
+    const vaultAddr = await vault.getAddress();
+    const parsed = ethers.parseEther(amount);
+    await (await this.token.approve(vaultAddr, parsed)).wait();
+    return (await (await vault.stake(parsed)).wait()).hash;
+  }
+
+  /** Request unstake — starts 7-day cooldown. Returns tx hash. */
+  async requestUnstake(amount: string): Promise<string> {
+    const vault = this._requireVault();
+    return (await (await vault.requestUnstake(ethers.parseEther(amount))).wait()).hash;
+  }
+
+  /** Claim unstaked AGT after cooldown period. Returns tx hash. */
+  async unstake(): Promise<string> {
+    const vault = this._requireVault();
+    return (await (await vault.unstake()).wait()).hash;
+  }
+
+  /** Claim accrued staking yield. Returns tx hash. */
+  async claimYield(): Promise<string> {
+    const vault = this._requireVault();
+    return (await (await vault.claimYield()).wait()).hash;
+  }
+
+  /** Borrow AGT against reputation credit line. Returns tx hash. */
+  async borrow(amount: string): Promise<string> {
+    const vault = this._requireVault();
+    return (await (await vault.borrow(ethers.parseEther(amount))).wait()).hash;
+  }
+
+  /** Repay borrowed AGT. Returns tx hash. */
+  async repay(amount: string): Promise<string> {
+    const vault = this._requireVault();
+    const vaultAddr = await vault.getAddress();
+    const parsed = ethers.parseEther(amount);
+    await (await this.token.approve(vaultAddr, parsed)).wait();
+    return (await (await vault.repay(parsed)).wait()).hash;
+  }
+
+  /** Get vault info for an agent (staked, tier, yield, credit). */
+  async getVaultInfo(address?: string): Promise<VaultInfo> {
+    const vault = this._requireVault();
+    const target = address || this.address;
+    const [v, tier, creditLimit, pendingYield] = await Promise.all([
+      vault.getVault(target),
+      vault.getTier(target),
+      vault.getCreditLimit(target),
+      vault.getPendingYield(target),
+    ]);
+    return {
+      staked:         ethers.formatEther(v.staked),
+      tier:           Number(tier),
+      unstakePending: ethers.formatEther(v.unstakePending),
+      borrowed:       ethers.formatEther(v.borrowed),
+      creditLimit:    ethers.formatEther(creditLimit),
+      pendingYield:   ethers.formatEther(pendingYield),
+    };
+  }
+
+  // ── ReferralNetwork ─────────────────────────────────────────────────────────
+
+  /** Register a referrer for this agent. Call once after registering. */
+  async registerWithReferrer(referrerAddress: string): Promise<string> {
+    const ref = this._requireReferral();
+    return (await (await ref.registerReferral(this.address, referrerAddress)).wait()).hash;
+  }
+
+  /** Claim all accumulated referral commissions. Returns tx hash. */
+  async claimCommissions(): Promise<string> {
+    const ref = this._requireReferral();
+    return (await (await ref.claimCommissions()).wait()).hash;
+  }
+
+  /** Get referral stats for an agent. */
+  async getReferralInfo(address?: string): Promise<ReferralInfo> {
+    const ref = this._requireReferral();
+    const target = address || this.address;
+    const d = await ref.getReferralData(target);
+    return {
+      referrer:          d.referrer,
+      directReferrals:   Number(d.directReferrals),
+      totalNetworkDeals: Number(d.totalNetworkDeals),
+      claimableEarnings: ethers.formatEther(d.claimableEarnings),
+      totalEarned:       ethers.formatEther(d.totalEarned),
+    };
+  }
+
+  // ── SubscriptionManager ─────────────────────────────────────────────────────
+
+  /** Subscribe to an agent's service. Returns subscriptionId. */
+  async subscribe(params: SubscribeParams): Promise<number> {
+    const sub = this._requireSubManager();
+    const subAddr = await sub.getAddress();
+    const totalCost = ethers.parseEther(params.pricePerPeriod) * BigInt(params.totalPeriods);
+    await (await this.token.approve(subAddr, totalCost)).wait();
+    const nextId = Number(await sub.totalSubscriptions());
+    await (await sub.subscribe(
+      params.provider,
+      ethers.parseEther(params.pricePerPeriod),
+      params.periodDuration,
+      params.totalPeriods,
+      params.serviceDescription
+    )).wait();
+    return nextId;
+  }
+
+  /** Provider claims payment for elapsed periods. Returns tx hash. */
+  async claimPeriod(subscriptionId: number): Promise<string> {
+    const sub = this._requireSubManager();
+    return (await (await sub.claimPeriod(subscriptionId)).wait()).hash;
+  }
+
+  /** Subscriber cancels subscription. Returns tx hash. */
+  async cancelSubscription(subscriptionId: number): Promise<string> {
+    const sub = this._requireSubManager();
+    return (await (await sub.cancel(subscriptionId)).wait()).hash;
+  }
+
+  /** Get total claimable revenue across all subscriptions for a provider. */
+  async getClaimableRevenue(address?: string): Promise<string> {
+    const sub = this._requireSubManager();
+    const raw = await sub.getClaimableRevenue(address || this.address);
+    return ethers.formatEther(raw);
+  }
+
+  // ── TaskDAG ─────────────────────────────────────────────────────────────────
+
+  /** Create a root task with escrowed budget. Returns taskId. */
+  async createTask(params: CreateTaskParams): Promise<number> {
+    const dag = this._requireTaskDAG();
+    const dagAddr = await dag.getAddress();
+    const budget = ethers.parseEther(params.budget);
+    await (await this.token.approve(dagAddr, budget)).wait();
+    const nextId = Number(await dag.totalTasks()) + 1;
+    await (await dag.createTask(
+      params.description,
+      params.tags,
+      budget,
+      params.deadline,
+      params.requiredSubtasks ?? 0
+    )).wait();
+    return nextId;
+  }
+
+  /** Spawn a subtask from a parent task. Returns subtaskId. */
+  async spawnSubtask(params: SpawnSubtaskParams): Promise<number> {
+    const dag = this._requireTaskDAG();
+    const nextId = Number(await dag.totalTasks()) + 1;
+    await (await dag.spawnSubtask(
+      params.parentId,
+      params.assignee,
+      params.description,
+      params.tags,
+      ethers.parseEther(params.budget),
+      params.deadline
+    )).wait();
+    return nextId;
+  }
+
+  /** Accept an open task (assignee calls this). Returns tx hash. */
+  async acceptTask(taskId: number): Promise<string> {
+    const dag = this._requireTaskDAG();
+    return (await (await dag.acceptTask(taskId)).wait()).hash;
+  }
+
+  /** Orchestrator confirms subtask delivery. Returns tx hash. */
+  async completeSubtask(subtaskId: number): Promise<string> {
+    const dag = this._requireTaskDAG();
+    return (await (await dag.completeSubtask(subtaskId)).wait()).hash;
+  }
+
+  /** Orchestrator confirms root task delivery. Returns tx hash. */
+  async completeTask(taskId: number): Promise<string> {
+    const dag = this._requireTaskDAG();
+    return (await (await dag.completeTask(taskId)).wait()).hash;
+  }
+
+  /** Cancel an open task and refund budget to orchestrator. Returns tx hash. */
+  async cancelTask(taskId: number): Promise<string> {
+    const dag = this._requireTaskDAG();
+    return (await (await dag.cancelTask(taskId)).wait()).hash;
+  }
+
+  /** Get task details. */
+  async getTask(taskId: number): Promise<TaskInfo> {
+    const dag = this._requireTaskDAG();
+    const t = await dag.getTask(taskId);
+    return {
+      id:                Number(t.id),
+      orchestrator:      t.orchestrator,
+      assignee:          t.assignee,
+      budget:            ethers.formatEther(t.budget),
+      description:       t.description,
+      deadline:          Number(t.deadline),
+      status:            Number(t.status),
+      parentId:          Number(t.parentId),
+      subtaskIds:        (t.subtaskIds as bigint[]).map(Number),
+      requiredSubtasks:  Number(t.requiredSubtasks),
+      completedSubtasks: Number(t.completedSubtasks),
+    };
+  }
+
+  // ── Reputation (extended) ────────────────────────────────────────────────────
+
+  /** Get live reputation score with decay applied (view, no tx). */
+  async getLiveScore(address?: string): Promise<number> {
+    const reputationExtended = new ethers.Contract(
+      await this.reputation.getAddress(),
+      ["function getLiveScore(address) view returns (uint256)"],
+      this.provider
+    );
+    const score = await reputationExtended.getLiveScore(address || this.address);
+    return Number(score);
   }
 
   // ── Events ──────────────────────────────────────────────────────────────────

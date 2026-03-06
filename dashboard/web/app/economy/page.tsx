@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { fetchActivity, fetchStats, WS_URL } from "../../lib/api";
+import { fetchActivity, fetchStats, fetchVaultStats, WS_URL } from "../../lib/api";
 
 interface PricePoint {
   time: string;
@@ -31,6 +31,11 @@ export default function EconomyPage() {
   const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [eventTotals, setEventTotals] = useState<{ name: string; count: number }[]>([]);
+  const [vaultStats, setVaultStats] = useState<{ totalStaked: string; yieldPool: string } | null>(null);
+
+  useEffect(() => {
+    fetchVaultStats().then(setVaultStats).catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Load historical activity to build price chart
@@ -122,6 +127,21 @@ export default function EconomyPage() {
   return (
     <div>
       <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 24 }}>Economy Analytics</h1>
+
+      {/* Vault / staking metrics */}
+      {vaultStats && (
+        <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+          {[
+            { label: "Total AGT Staked", value: `${parseFloat(vaultStats.totalStaked).toLocaleString(undefined, { maximumFractionDigits: 0 })} AGT`, color: "#f59e0b" },
+            { label: "Yield Pool", value: `${parseFloat(vaultStats.yieldPool).toFixed(2)} AGT`, color: "#10b981" },
+          ].map((m) => (
+            <div key={m.label} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 20px", minWidth: 160 }}>
+              <div style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>{m.label}</div>
+              <div style={{ color: m.color, fontSize: 24, fontWeight: 700 }}>{m.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Price metrics */}
       <div style={{ display: "flex", gap: 12, marginBottom: 32, flexWrap: "wrap" }}>

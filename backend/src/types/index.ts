@@ -9,6 +9,11 @@ export interface DeploymentConfig {
     ReputationSystem: string;
     Marketplace: string;
     NegotiationEngine: string;
+    // Extended contracts (Base Mainnet v2+)
+    AgentVault?: string;
+    TaskDAG?: string;
+    SubscriptionManager?: string;
+    ReferralNetwork?: string;
   };
 }
 

@@ -14,11 +14,13 @@ export function marketRouter(blockchain: BlockchainService): Router {
 
       const needs = [];
       for (let i = 0; i < total; i++) {
-        const need = await blockchain.getNeed(i);
-        if (!need.active) continue;
-        if (tag && !need.tags.some((t: string) => t.toLowerCase().includes(tag.toLowerCase()))) continue;
-        if (maxBudget && ethers.parseEther(need.budget) > maxBudget) continue;
-        needs.push(need);
+        try {
+          const need = await blockchain.getNeed(i);
+          if (!need.active) continue;
+          if (tag && !need.tags.some((t: string) => t.toLowerCase().includes(tag.toLowerCase()))) continue;
+          if (maxBudget && ethers.parseEther(need.budget) > maxBudget) continue;
+          needs.push(need);
+        } catch { /* skip corrupted entries */ }
       }
 
       res.json({ needs, total: needs.length });
@@ -36,11 +38,13 @@ export function marketRouter(blockchain: BlockchainService): Router {
 
       const offers = [];
       for (let i = 0; i < total; i++) {
-        const offer = await blockchain.getOffer(i);
-        if (!offer.active) continue;
-        if (tag && !offer.tags.some((t: string) => t.toLowerCase().includes(tag.toLowerCase()))) continue;
-        if (maxPrice && ethers.parseEther(offer.price) > maxPrice) continue;
-        offers.push(offer);
+        try {
+          const offer = await blockchain.getOffer(i);
+          if (!offer.active) continue;
+          if (tag && !offer.tags.some((t: string) => t.toLowerCase().includes(tag.toLowerCase()))) continue;
+          if (maxPrice && ethers.parseEther(offer.price) > maxPrice) continue;
+          offers.push(offer);
+        } catch { /* skip corrupted entries */ }
       }
 
       res.json({ offers, total: offers.length });

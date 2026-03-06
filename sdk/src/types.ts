@@ -6,6 +6,11 @@ export interface ContractAddresses {
   ReputationSystem: string;
   Marketplace: string;
   NegotiationEngine: string;
+  // Extended contracts (Base Mainnet v2+)
+  AgentVault?: string;
+  TaskDAG?: string;
+  SubscriptionManager?: string;
+  ReferralNetwork?: string;
 }
 
 export interface SDKConfig {
@@ -110,4 +115,71 @@ export type ProtocolEvent =
   | "ProposalRejected"
   | "DeliveryConfirmed"
   | "DisputeRaised"
-  | "PaymentReleased";
+  | "PaymentReleased"
+  | "Staked"
+  | "UnstakeRequested"
+  | "Unstaked"
+  | "YieldClaimed"
+  | "TaskCreated"
+  | "TaskCompleted"
+  | "SubscriptionCreated"
+  | "ReferralRegistered"
+  | "CommissionEarned";
+
+// ── Extended contract types ───────────────────────────────────────────────────
+
+export interface VaultInfo {
+  staked: string;          // AGT staked
+  tier: number;            // 0-3
+  unstakePending: string;  // AGT awaiting cooldown
+  borrowed: string;        // AGT borrowed against reputation
+  creditLimit: string;     // max borrowable AGT
+  pendingYield: string;    // unclaimed yield
+}
+
+export interface ReferralInfo {
+  referrer: string;
+  directReferrals: number;
+  totalNetworkDeals: number;
+  claimableEarnings: string; // AGT
+  totalEarned: string;       // AGT lifetime
+}
+
+export interface TaskInfo {
+  id: number;
+  orchestrator: string;
+  assignee: string;
+  budget: string;          // AGT
+  description: string;
+  deadline: number;
+  status: number;          // 0=Open, 1=InProgress, 2=Completed, 3=Cancelled
+  parentId: number;
+  subtaskIds: number[];
+  requiredSubtasks: number;
+  completedSubtasks: number;
+}
+
+export interface CreateTaskParams {
+  description: string;
+  tags: string[];
+  budget: string;          // AGT
+  deadline: number;
+  requiredSubtasks?: number;
+}
+
+export interface SpawnSubtaskParams {
+  parentId: number;
+  assignee: string;
+  description: string;
+  tags: string[];
+  budget: string;          // AGT
+  deadline: number;
+}
+
+export interface SubscribeParams {
+  provider: string;
+  pricePerPeriod: string;  // AGT
+  periodDuration: number;  // seconds
+  totalPeriods: number;
+  serviceDescription: string;
+}

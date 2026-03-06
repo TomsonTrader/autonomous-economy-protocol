@@ -98,6 +98,57 @@ export class EventIndexer {
       }, event.log.transactionHash, event.log.blockNumber);
     });
 
+    const { vault, referral, taskDAG, subscription } = this.blockchain;
+
+    // ── AgentVault events ──────────────────────────────────────────────────
+    if (vault) {
+      vault.on("Staked", (agent: string, amount: bigint, tier: number, event: any) => {
+        this.saveEvent("Staked", { agent, amount: amount.toString(), tier }, event.log.transactionHash, event.log.blockNumber);
+      });
+      vault.on("Unstaked", (agent: string, amount: bigint, event: any) => {
+        this.saveEvent("Unstaked", { agent, amount: amount.toString() }, event.log.transactionHash, event.log.blockNumber);
+      });
+      vault.on("YieldClaimed", (agent: string, amount: bigint, event: any) => {
+        this.saveEvent("YieldClaimed", { agent, amount: amount.toString() }, event.log.transactionHash, event.log.blockNumber);
+      });
+      vault.on("Borrowed", (agent: string, amount: bigint, event: any) => {
+        this.saveEvent("Borrowed", { agent, amount: amount.toString() }, event.log.transactionHash, event.log.blockNumber);
+      });
+    }
+
+    // ── ReferralNetwork events ─────────────────────────────────────────────
+    if (referral) {
+      referral.on("ReferralRegistered", (agent: string, referrerAddr: string, event: any) => {
+        this.saveEvent("ReferralRegistered", { agent, referrer: referrerAddr }, event.log.transactionHash, event.log.blockNumber);
+      });
+      referral.on("CommissionEarned", (earner: string, source: string, amount: bigint, level: number, event: any) => {
+        this.saveEvent("CommissionEarned", { earner, source, amount: amount.toString(), level }, event.log.transactionHash, event.log.blockNumber);
+      });
+    }
+
+    // ── TaskDAG events ─────────────────────────────────────────────────────
+    if (taskDAG) {
+      taskDAG.on("TaskCreated", (taskId: bigint, orchestrator: string, budget: bigint, parentId: bigint, event: any) => {
+        this.saveEvent("TaskCreated", { taskId: taskId.toString(), orchestrator, budget: budget.toString(), parentId: parentId.toString() }, event.log.transactionHash, event.log.blockNumber);
+      });
+      taskDAG.on("TaskCompleted", (taskId: bigint, assignee: string, payment: bigint, event: any) => {
+        this.saveEvent("TaskCompleted", { taskId: taskId.toString(), assignee, payment: payment.toString() }, event.log.transactionHash, event.log.blockNumber);
+      });
+      taskDAG.on("SubtaskSpawned", (parentId: bigint, subtaskId: bigint, assignee: string, budget: bigint, event: any) => {
+        this.saveEvent("SubtaskSpawned", { parentId: parentId.toString(), subtaskId: subtaskId.toString(), assignee, budget: budget.toString() }, event.log.transactionHash, event.log.blockNumber);
+      });
+    }
+
+    // ── SubscriptionManager events ─────────────────────────────────────────
+    if (subscription) {
+      subscription.on("SubscriptionCreated", (subId: bigint, subscriber: string, provider: string, pricePerPeriod: bigint, periodDuration: bigint, totalPeriods: bigint, event: any) => {
+        this.saveEvent("SubscriptionCreated", { subId: subId.toString(), subscriber, provider, pricePerPeriod: pricePerPeriod.toString(), periodDuration: periodDuration.toString(), totalPeriods: totalPeriods.toString() }, event.log.transactionHash, event.log.blockNumber);
+      });
+      subscription.on("PeriodClaimed", (subId: bigint, provider: string, amount: bigint, periodsRemaining: bigint, event: any) => {
+        this.saveEvent("PeriodClaimed", { subId: subId.toString(), provider, amount: amount.toString(), periodsRemaining: periodsRemaining.toString() }, event.log.transactionHash, event.log.blockNumber);
+      });
+    }
+
     // Suppress "filter not found" polling noise common on remote RPCs
     for (const contract of [registry, marketplace, engine]) {
       (contract.provider as any)?.on?.("error", (err: any) => {

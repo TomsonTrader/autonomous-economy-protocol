@@ -33,3 +33,15 @@ export async function fetchActivity(limit = 50) {
 }
 
 export const WS_URL = (API || "http://localhost:3001").replace(/^http/, "ws") + "/ws";
+
+export async function fetchVaultInfo(address: string) {
+  const res = await fetch(`${API}/api/vault/${address}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch vault info");
+  return res.json();
+}
+
+export async function fetchVaultStats() {
+  const res = await fetch(`${API}/api/vault/stats`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch vault stats");
+  return res.json();
+}

@@ -5,7 +5,7 @@ import { DeploymentConfig } from "../types";
 
 // Minimal ABIs for the contracts we need to call
 const REGISTRY_ABI = [
-  "function getAgent(address) view returns (tuple(string name, string[] capabilities, string metadataURI, uint256 registeredAt, bool active))",
+  "function getAgent(address) view returns (tuple(string name, string[] capabilities, uint256 registeredAt, bool active))",
   "function isRegistered(address) view returns (bool)",
   "function getActiveAgents() view returns (address[])",
   "function totalRegistered() view returns (uint256)",
@@ -49,6 +49,45 @@ const AGREEMENT_ABI = [
   "event PaymentReleased(address indexed seller, uint256 amount)",
 ];
 
+const VAULT_ABI = [
+  "function getTier(address agent) view returns (uint8)",
+  "function getCreditLimit(address agent) view returns (uint256)",
+  "function getPendingYield(address agent) view returns (uint256)",
+  "function getVault(address agent) view returns (tuple(uint256 staked, uint256 yieldAccrued, uint256 lastYieldUpdate, uint256 borrowed, uint256 unstakeRequestedAt, uint256 unstakePending))",
+  "function totalStaked() view returns (uint256)",
+  "function yieldPool() view returns (uint256)",
+  "event Staked(address indexed agent, uint256 amount, uint8 tier)",
+  "event UnstakeRequested(address indexed agent, uint256 amount, uint256 availableAt)",
+  "event Unstaked(address indexed agent, uint256 amount)",
+  "event YieldClaimed(address indexed agent, uint256 amount)",
+  "event Borrowed(address indexed agent, uint256 amount)",
+  "event Repaid(address indexed agent, uint256 amount)",
+];
+
+const REFERRAL_ABI = [
+  "function getReferralData(address agent) view returns (tuple(address referrer, uint256 totalEarned, uint256 claimableEarnings, uint256 directReferrals, uint256 totalNetworkDeals))",
+  "function getNetworkSize(address referrer) view returns (uint256)",
+  "event ReferralRegistered(address indexed agent, address indexed referrer)",
+  "event CommissionEarned(address indexed earner, address indexed source, uint256 amount, uint8 level)",
+  "event CommissionClaimed(address indexed agent, uint256 amount)",
+];
+
+const TASKDAG_ABI = [
+  "function totalTasks() view returns (uint256)",
+  "function getTask(uint256 taskId) view returns (tuple(uint256 id, address orchestrator, address assignee, uint256 budget, string description, string[] tags, uint256 deadline, uint8 status, uint256 parentId, uint256[] subtaskIds, uint256 requiredSubtasks, uint256 completedSubtasks, uint256 createdAt, bool fundsReleased))",
+  "event TaskCreated(uint256 indexed taskId, address indexed orchestrator, uint256 budget, uint256 parentId)",
+  "event SubtaskSpawned(uint256 indexed parentId, uint256 indexed subtaskId, address indexed assignee, uint256 budget)",
+  "event TaskCompleted(uint256 indexed taskId, address indexed assignee, uint256 payment)",
+  "event TaskCancelled(uint256 indexed taskId)",
+];
+
+const SUBSCRIPTION_ABI = [
+  "function totalSubscriptions() view returns (uint256)",
+  "event SubscriptionCreated(uint256 indexed subId, address indexed subscriber, address indexed provider, uint256 pricePerPeriod, uint256 periodDuration, uint256 totalPeriods)",
+  "event PeriodClaimed(uint256 indexed subId, address indexed provider, uint256 amount, uint256 periodsRemaining)",
+  "event SubscriptionCancelled(uint256 indexed subId, address indexed by, uint256 refund)",
+];
+
 export class BlockchainService {
   provider: ethers.JsonRpcProvider;
   registry: ethers.Contract;
@@ -56,6 +95,10 @@ export class BlockchainService {
   engine: ethers.Contract;
   reputation: ethers.Contract;
   token: ethers.Contract;
+  vault: ethers.Contract | null = null;
+  referral: ethers.Contract | null = null;
+  taskDAG: ethers.Contract | null = null;
+  subscription: ethers.Contract | null = null;
   deployment: DeploymentConfig;
 
   constructor() {
@@ -93,34 +136,51 @@ export class BlockchainService {
     this.deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf-8"));
     const { contracts } = this.deployment;
 
-    this.registry = new ethers.Contract(contracts.AgentRegistry, REGISTRY_ABI, this.provider);
+    this.registry    = new ethers.Contract(contracts.AgentRegistry, REGISTRY_ABI, this.provider);
     this.marketplace = new ethers.Contract(contracts.Marketplace, MARKETPLACE_ABI, this.provider);
-    this.engine = new ethers.Contract(contracts.NegotiationEngine, NEGOTIATION_ABI, this.provider);
-    this.reputation = new ethers.Contract(contracts.ReputationSystem, REPUTATION_ABI, this.provider);
-    this.token = new ethers.Contract(contracts.AgentToken, TOKEN_ABI, this.provider);
+    this.engine      = new ethers.Contract(contracts.NegotiationEngine, NEGOTIATION_ABI, this.provider);
+    this.reputation  = new ethers.Contract(contracts.ReputationSystem, REPUTATION_ABI, this.provider);
+    this.token       = new ethers.Contract(contracts.AgentToken, TOKEN_ABI, this.provider);
+
+    if (contracts.AgentVault)
+      this.vault = new ethers.Contract(contracts.AgentVault, VAULT_ABI, this.provider);
+    if (contracts.ReferralNetwork)
+      this.referral = new ethers.Contract(contracts.ReferralNetwork, REFERRAL_ABI, this.provider);
+    if (contracts.TaskDAG)
+      this.taskDAG = new ethers.Contract(contracts.TaskDAG, TASKDAG_ABI, this.provider);
+    if (contracts.SubscriptionManager)
+      this.subscription = new ethers.Contract(contracts.SubscriptionManager, SUBSCRIPTION_ABI, this.provider);
   }
 
   async getAgentInfo(address: string) {
-    const agent = await this.registry.getAgent(address);
+    const [agent, reputation, balance] = await Promise.allSettled([
+      this.registry.getAgent(address),
+      this.reputation.getReputation(address),
+      this.token.balanceOf(address),
+    ]);
+
+    const agentData = agent.status === "fulfilled" ? agent.value : null;
+    const repData   = reputation.status === "fulfilled" ? reputation.value : null;
+    const bal       = balance.status === "fulfilled" ? balance.value : 0n;
+
     const [score, totalDeals, successfulDeals, totalValueTransacted, lastUpdated] =
-      await this.reputation.getReputation(address);
-    const balance = await this.token.balanceOf(address);
+      repData ? repData : [0n, 0n, 0n, 0n, 0n];
 
     return {
       address,
-      name: agent.name,
-      capabilities: agent.capabilities,
-      metadataURI: agent.metadataURI,
-      registeredAt: Number(agent.registeredAt),
-      active: agent.active,
+      name:          agentData?.name ?? "Unknown",
+      capabilities:  agentData?.capabilities ?? [],
+      metadataURI:   agentData?.metadataURI ?? "",
+      registeredAt:  Number(agentData?.registeredAt ?? 0),
+      active:        agentData?.active ?? false,
       reputation: {
-        score: score.toString(),
-        totalDeals: totalDeals.toString(),
-        successfulDeals: successfulDeals.toString(),
+        score:                score.toString(),
+        totalDeals:           totalDeals.toString(),
+        successfulDeals:      successfulDeals.toString(),
         totalValueTransacted: ethers.formatEther(totalValueTransacted),
-        lastUpdated: lastUpdated.toString(),
+        lastUpdated:          lastUpdated.toString(),
       },
-      balance: ethers.formatEther(balance),
+      balance: ethers.formatEther(bal),
     };
   }
 

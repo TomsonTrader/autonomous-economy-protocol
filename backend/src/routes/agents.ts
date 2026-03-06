@@ -11,9 +11,12 @@ export function agentsRouter(blockchain: BlockchainService): Router {
       const limit = parseInt(req.query.limit as string) || 50;
 
       const addresses = await blockchain.registry.getActiveAgents();
-      const agents = await Promise.all(
+      const results = await Promise.allSettled(
         addresses.slice(0, limit).map((addr: string) => blockchain.getAgentInfo(addr))
       );
+      const agents = results
+        .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof blockchain.getAgentInfo>>> => r.status === "fulfilled")
+        .map((r) => r.value);
 
       const filtered = capability
         ? agents.filter((a) =>
