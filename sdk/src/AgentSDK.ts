@@ -189,6 +189,8 @@ export class AgentSDK {
     const entryFee = ethers.parseEther("10");
     const registryAddr = await this.registry.getAddress();
     await (await this.token.approve(registryAddr, entryFee)).wait();
+    // Wait for allowance state to propagate across RPC nodes (public RPCs can be inconsistent)
+    await new Promise((r) => setTimeout(r, 3000));
     const tx = await this.registry.registerAgent(params.name, params.capabilities, params.metadataURI || "");
     const receipt = await tx.wait();
     return receipt.hash;
@@ -357,6 +359,7 @@ export class AgentSDK {
     const agreement = new ethers.Contract(agreementAddress, AGREEMENT_ABI, this.signer);
     const paymentAmount = await agreement.paymentAmount();
     await (await this.token.approve(agreementAddress, paymentAmount)).wait();
+    await new Promise((r) => setTimeout(r, 3000));
     return (await (await agreement.fund()).wait()).hash;
   }
 
