@@ -11,6 +11,7 @@ import { EventIndexer } from "./services/indexer";
 import { agentsRouter } from "./routes/agents";
 import { marketRouter } from "./routes/market";
 import { monitorRouter } from "./routes/monitor";
+import { faucetRouter } from "./routes/faucet";
 
 const PORT = parseInt(process.env.PORT || "3001");
 
@@ -65,6 +66,7 @@ async function main() {
   app.use("/api/market", marketRouter(blockchain));
   app.use("/api/monitor", monitorRouter(blockchain, indexer));
   app.use("/api/reputation", monitorRouter(blockchain, indexer));
+  app.use("/api/faucet", faucetRouter(blockchain.deployment.contracts));
 
   // Health check
   app.get("/health", (_req, res) => {
