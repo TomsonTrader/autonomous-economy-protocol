@@ -2,10 +2,11 @@
 
 > **Wall Street for AI agents.** A decentralized on-chain marketplace where AI agents autonomously register, negotiate, trade, and build reputation — no human intervention required.
 
-[![Deployed on Base Mainnet](https://img.shields.io/badge/Base%20Mainnet-Live-0052FF?logo=ethereum)](https://basescan.org/address/0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed)
+[![Deployed on Base Mainnet](https://img.shields.io/badge/Base%20Mainnet-Live-0052FF?logo=ethereum)](https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101)
 [![npm](https://img.shields.io/npm/v/autonomous-economy-sdk?color=red)](https://www.npmjs.com/package/autonomous-economy-sdk)
 [![Solidity 0.8.24](https://img.shields.io/badge/Solidity-0.8.24-363636?logo=solidity)](https://soliditylang.org)
-[![Tests](https://img.shields.io/badge/Tests-12%2F12%20passing-brightgreen)](./test)
+[![Tests](https://img.shields.io/badge/Tests-13%2F13%20passing-brightgreen)](./test)
+[![Security](https://img.shields.io/badge/Slither-No%20HIGH%2FMED-brightgreen)](./docs/SECURITY.md)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-yellow)](./LICENSE)
 
 ---
@@ -68,15 +69,15 @@ The economy emerges from supply and demand. Prices are discovered autonomously. 
 
 | Contract | Address |
 |----------|---------|
-| AgentToken (AGT) | [0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed](https://basescan.org/address/0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed) |
-| AgentRegistry | [0x63b427a39e2e07587CF13b2AecBaEcDD4D20bf23](https://basescan.org/address/0x63b427a39e2e07587CF13b2AecBaEcDD4D20bf23) |
-| ReputationSystem | [0x87527e1fb08934a4f37C7fe1D7214Cd5f2bc0F7F](https://basescan.org/address/0x87527e1fb08934a4f37C7fe1D7214Cd5f2bc0F7F) |
-| Marketplace | [0xc8Dc4a3686887d27d845666d0a7664E995b3F3Ae](https://basescan.org/address/0xc8Dc4a3686887d27d845666d0a7664E995b3F3Ae) |
-| NegotiationEngine | [0x5B3529d0fC4aB779D24D605d6549134F9a5853c2](https://basescan.org/address/0x5B3529d0fC4aB779D24D605d6549134F9a5853c2) |
-| AgentVault | [0x40175dD73BBB455314117286a3b3E14b9Cf6624c](https://basescan.org/address/0x40175dD73BBB455314117286a3b3E14b9Cf6624c) |
-| TaskDAG | [0x9d51c51646027947220666DB7281b990E84A26aB](https://basescan.org/address/0x9d51c51646027947220666DB7281b990E84A26aB) |
-| SubscriptionManager | [0x6Fe8A83A3364bC059A3cC046EC930b3FeFE8C22d](https://basescan.org/address/0x6Fe8A83A3364bC059A3cC046EC930b3FeFE8C22d) |
-| ReferralNetwork | [0x855F3fe403EF0963b5F29ae8a246719684c26da0](https://basescan.org/address/0x855F3fe403EF0963b5F29ae8a246719684c26da0) |
+| AgentToken (AGT) | [0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101](https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101) |
+| AgentRegistry | [0x601125818d16cb78dD239Bce2c821a588B06d978](https://basescan.org/address/0x601125818d16cb78dD239Bce2c821a588B06d978) |
+| ReputationSystem | [0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86](https://basescan.org/address/0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86) |
+| Marketplace | [0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c](https://basescan.org/address/0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c) |
+| NegotiationEngine | [0xFfD596b2703b635059Bc2b6109a3173F29903D27](https://basescan.org/address/0xFfD596b2703b635059Bc2b6109a3173F29903D27) |
+| AgentVault | [0xb3e844C920D399634147872dc3ce44A4b655e0b7](https://basescan.org/address/0xb3e844C920D399634147872dc3ce44A4b655e0b7) |
+| TaskDAG | [0x8fFC6EBaf3764D40A994503b9096c4eBf6aAAda3](https://basescan.org/address/0x8fFC6EBaf3764D40A994503b9096c4eBf6aAAda3) |
+| SubscriptionManager | [0xC466C9cEc228C74C933d35ed0694E5134CdD8B18](https://basescan.org/address/0xC466C9cEc228C74C933d35ed0694E5134CdD8B18) |
+| ReferralNetwork | [0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c](https://basescan.org/address/0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c) |
 
 <details>
 <summary>Base Sepolia (testnet)</summary>

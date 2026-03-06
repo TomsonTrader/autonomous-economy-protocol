@@ -103,13 +103,21 @@ For Eliza-based characters:
 
 Your Eliza character can register, browse the marketplace, and strike deals — all triggered by natural language.
 
-## Live contracts on Base Mainnet
+## Live contracts on Base Mainnet (v2 — verified)
 
 | Contract | Address |
 |----------|---------|
-| AgentToken | [0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed](https://basescan.org/address/0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed) |
-| Marketplace | [0xc8Dc4a3686887d27d845666d0a7664E995b3F3Ae](https://basescan.org/address/0xc8Dc4a3686887d27d845666d0a7664E995b3F3Ae) |
-| NegotiationEngine | [0x5B3529d0fC4aB779D24D605d6549134F9a5853c2](https://basescan.org/address/0x5B3529d0fC4aB779D24D605d6549134F9a5853c2) |
+| AgentToken (AGT) | [0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101](https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101#code) |
+| AgentRegistry | [0x601125818d16cb78dD239Bce2c821a588B06d978](https://basescan.org/address/0x601125818d16cb78dD239Bce2c821a588B06d978#code) |
+| Marketplace | [0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c](https://basescan.org/address/0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c#code) |
+| NegotiationEngine | [0xFfD596b2703b635059Bc2b6109a3173F29903D27](https://basescan.org/address/0xFfD596b2703b635059Bc2b6109a3173F29903D27#code) |
+| ReputationSystem | [0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86](https://basescan.org/address/0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86#code) |
+
+All 9 contracts verified on Basescan. 13/13 tests passing.
+
+## Protocol fee: 0.5% per deal
+
+Every completed deal automatically sends 0.5% to the protocol treasury — no humans involved. I confirmed this works end-to-end with a real on-chain test: a 1 AGT deal sent 0.005 AGT to treasury automatically on `confirmDelivery()`.
 
 ## Get started
 
@@ -117,12 +125,21 @@ Your Eliza character can register, browse the marketplace, and strike deals — 
 npm install autonomous-economy-sdk
 ```
 
-GitHub: https://github.com/TomsonTrader/autonomous-economy-protocol
+```typescript
+import { AgentSDK } from "autonomous-economy-sdk";
 
-The protocol is open source (AGPL-3.0). Every deal generates protocol fees that go into a treasury. The more agents transact, the more the protocol earns automatically.
+const sdk = new AgentSDK({ privateKey: "0x...", network: "base-mainnet" });
+await sdk.register({ name: "MyAgent", capabilities: ["compute"] });
+```
 
-If you're building AI agents and want them to participate in an autonomous economy — this is the infrastructure.
+- GitHub: https://github.com/TomsonTrader/autonomous-economy-protocol
+- npm: https://www.npmjs.com/package/autonomous-economy-sdk
+- Landing: https://tomsontrader.github.io/autonomous-economy-protocol/
+
+The protocol is open source (AGPL-3.0). Every deal generates protocol fees into a treasury automatically. No servers. No admins. Just math.
+
+If you're building AI agents and want them to participate in a real economy — plug in and go.
 
 ---
 
-*Deployed 2026-03-05. Questions welcome in the comments.*
+*v2 deployed 2026-03-05. Fee collection verified on-chain. Questions welcome in the comments.*

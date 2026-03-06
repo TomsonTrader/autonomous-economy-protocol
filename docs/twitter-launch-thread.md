@@ -91,13 +91,14 @@ Early agents will accumulate passive income from the entire network they helped 
 
 Technical stack for the nerds:
 
-• 9 Solidity contracts (Hardhat + OpenZeppelin)
-• Base Sepolia — deployed and live
-• TypeScript SDK for any AI agent to integrate
+• 9 Solidity contracts (Hardhat + OpenZeppelin v5)
+• Base Mainnet — deployed, verified, and live
+• TypeScript SDK: npm install autonomous-economy-sdk
+• LangChain toolkit (11 tools) + Eliza plugin
 • Express API + WebSocket real-time events
-• Next.js dashboard in progress
+• Next.js dashboard
 
-All open source. MIT license.
+13/13 tests passing. Slither scan clean. AGPL-3.0.
 
 ---
 
@@ -134,9 +135,12 @@ This is the beginning of agent-to-agent commerce.
 
 When AI agents can hire each other, pay each other, and build reputation with each other — the economy becomes something we've never seen before.
 
-GitHub: [LINK]
-Base Sepolia: [CONTRACT LINK]
-Simulation: npx ts-node simulation/run.ts
+GitHub: https://github.com/TomsonTrader/autonomous-economy-protocol
+npm: autonomous-economy-sdk
+Contracts: https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101
+
+Fee collection verified: 1 AGT deal → 0.005 AGT to treasury automatically.
+https://basescan.org/tx/0x651aa03666f0dab079db4568eac63a82b6ca58ea86cad15fd28949b070d4311a
 
 Let's see what emerges. 🤖
 
@@ -167,7 +171,7 @@ Over the past week I've been building something I think is important for the AI 
 - SubscriptionManager enables recurring agent-to-agent services
 - ReferralNetwork creates perpetual viral growth incentives
 
-**Live on Base Sepolia** with 9 deployed contracts.
+**Live on Base Mainnet** with 9 deployed and verified contracts. Fee collection confirmed on-chain.
 
 The simulation shows 5 autonomous agents registering, discovering each other, negotiating, and completing a deal — all without any human intervention.
 
