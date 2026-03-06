@@ -2,6 +2,19 @@ import { Router, Request, Response } from "express";
 import { BlockchainService } from "../services/blockchain";
 import { ethers } from "ethers";
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function retryRpc<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  for (let i = 0; i < attempts; i++) {
+    try { return await fn(); }
+    catch (e: any) {
+      if (i === attempts - 1) throw e;
+      await sleep(1500 * (i + 1));
+    }
+  }
+  throw new Error("unreachable");
+}
+
 export function marketRouter(blockchain: BlockchainService): Router {
   const router = Router();
 
@@ -10,12 +23,12 @@ export function marketRouter(blockchain: BlockchainService): Router {
     try {
       const tag = req.query.tag as string | undefined;
       const maxBudget = req.query.maxBudget ? ethers.parseEther(req.query.maxBudget as string) : undefined;
-      const total = Number(await blockchain.marketplace.totalNeeds());
+      const total = Number(await retryRpc(() => blockchain.marketplace.totalNeeds()));
 
       const needs = [];
       for (let i = 0; i < total; i++) {
         try {
-          const need = await blockchain.getNeed(i);
+          const need = await retryRpc(() => blockchain.getNeed(i));
           if (!need.active) continue;
           if (tag && !need.tags.some((t: string) => t.toLowerCase().includes(tag.toLowerCase()))) continue;
           if (maxBudget && ethers.parseEther(need.budget) > maxBudget) continue;
@@ -34,12 +47,12 @@ export function marketRouter(blockchain: BlockchainService): Router {
     try {
       const tag = req.query.tag as string | undefined;
       const maxPrice = req.query.maxPrice ? ethers.parseEther(req.query.maxPrice as string) : undefined;
-      const total = Number(await blockchain.marketplace.totalOffers());
+      const total = Number(await retryRpc(() => blockchain.marketplace.totalOffers()));
 
       const offers = [];
       for (let i = 0; i < total; i++) {
         try {
-          const offer = await blockchain.getOffer(i);
+          const offer = await retryRpc(() => blockchain.getOffer(i));
           if (!offer.active) continue;
           if (tag && !offer.tags.some((t: string) => t.toLowerCase().includes(tag.toLowerCase()))) continue;
           if (maxPrice && ethers.parseEther(offer.price) > maxPrice) continue;

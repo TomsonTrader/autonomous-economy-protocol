@@ -51,6 +51,20 @@ async function apiPost(path: string, body: unknown): Promise<any> {
   return data;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function retryCall<T>(fn: () => Promise<T>, attempts = 3, delayMs = 2000): Promise<T> {
+  for (let i = 0; i < attempts; i++) {
+    try { return await fn(); }
+    catch (e: any) {
+      if (i === attempts - 1) throw e;
+      const isRateLimit = e?.info?.error?.message?.includes("rate limit") || e?.message?.includes("rate limit");
+      await sleep(isRateLimit ? delayMs * 2 : delayMs);
+    }
+  }
+  throw new Error("unreachable");
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -98,13 +112,16 @@ async function main() {
   } catch (e) { fail("Agents API", e); }
 
   // ── 5. Needs and offers ───────────────────────────────────────────────────
+  await sleep(3000); // let Railway RPC rate-limit recover after agents query
   console.log("\n5. Needs & Offers");
   try {
-    const needs = await apiGet("/api/market/needs");
-    const offers = await apiGet("/api/market/offers");
+    const needs  = await retryCall(() => apiGet("/api/market/needs"),  3, 3000);
+    const offers = await retryCall(() => apiGet("/api/market/offers"), 3, 3000);
     ok("Needs published", `count=${needs.total ?? needs.needs?.length}`);
     ok("Offers published", `count=${offers.total ?? offers.offers?.length}`);
   } catch (e) { fail("Needs/Offers", e); }
+
+  await sleep(1500); // rate-limit buffer before on-chain calls
 
   // ── 6. On-chain: AgentRegistry ────────────────────────────────────────────
   console.log("\n6. On-chain registry read");
@@ -112,10 +129,12 @@ async function main() {
     const registry = new ethers.Contract(C.AgentRegistry, [
       "function getActiveAgents() view returns (address[])",
     ], provider);
-    const agents = await registry.getActiveAgents();
+    const agents = await retryCall(() => registry.getActiveAgents());
     if (agents.length === 0) throw new Error("No on-chain agents");
     ok("Registry on-chain", `${agents.length} agents`);
   } catch (e) { fail("Registry on-chain", e); }
+
+  await sleep(1000);
 
   // ── 7. On-chain: Marketplace totals ───────────────────────────────────────
   console.log("\n7. On-chain marketplace");
@@ -124,10 +143,14 @@ async function main() {
       "function totalNeeds() view returns (uint256)",
       "function totalOffers() view returns (uint256)",
     ], provider);
-    const [needs, offers] = await Promise.all([market.totalNeeds(), market.totalOffers()]);
+    const [needs, offers] = await retryCall(() =>
+      Promise.all([market.totalNeeds(), market.totalOffers()])
+    );
     if (needs === 0n && offers === 0n) throw new Error("Empty marketplace");
     ok("Marketplace on-chain", `needs=${needs} offers=${offers}`);
   } catch (e) { fail("Marketplace on-chain", e); }
+
+  await sleep(1000);
 
   // ── 8. On-chain: ReputationSystem ─────────────────────────────────────────
   console.log("\n8. Reputation system");
@@ -138,14 +161,17 @@ async function main() {
     const reputation = new ethers.Contract(C.ReputationSystem, [
       "function getReputation(address) view returns (uint256 score, uint256 totalDeals, uint256 successfulDeals, uint256 totalValueTransacted, uint256 lastUpdated)",
     ], provider);
-    const agents = await registry.getActiveAgents();
+    const agents = await retryCall(() => registry.getActiveAgents());
     let hasScore = false;
     for (const addr of agents.slice(0, 5)) {
-      const [score, , , ,] = await reputation.getReputation(addr);
+      await sleep(300); // avoid rate limit during loop
+      const [score] = await retryCall(() => reputation.getReputation(addr));
       if (score > 0n) { hasScore = true; break; }
     }
     ok("Reputation system", hasScore ? "At least 1 agent has score > 0" : "No scores yet (new protocol)");
   } catch (e) { fail("Reputation", e); }
+
+  await sleep(1500);
 
   // ── 9. On-chain: AgentVault ───────────────────────────────────────────────
   console.log("\n9. AgentVault (staking)");
@@ -154,7 +180,9 @@ async function main() {
       "function totalStaked() view returns (uint256)",
       "function yieldPool() view returns (uint256)",
     ], provider);
-    const [totalStaked, yieldPool] = await Promise.all([vault.totalStaked(), vault.yieldPool()]);
+    const [totalStaked, yieldPool] = await retryCall(() =>
+      Promise.all([vault.totalStaked(), vault.yieldPool()])
+    );
     ok("AgentVault on-chain", `staked=${ethers.formatEther(totalStaked)} AGT  yieldPool=${ethers.formatEther(yieldPool)} AGT`);
   } catch (e) { fail("AgentVault", e); }
 
