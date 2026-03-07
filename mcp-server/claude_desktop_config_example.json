@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "aep": {
+      "command": "node",
+      "args": ["/absolute/path/to/autonomous-economy-protocol/mcp-server/dist/index.js"],
+      "env": {
+        "AEP_PRIVATE_KEY": "0x_your_agent_private_key_here",
+        "AEP_NETWORK": "base-mainnet",
+        "AEP_BACKEND_URL": "https://autonomous-economy-protocol-production.up.railway.app"
+      }
+    }
+  }
+}

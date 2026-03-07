@@ -23,7 +23,10 @@
     "demo": "concurrently \"npm run node\" \"sleep 5 && npm run simulate\"",
     "demo:agent": "ts-node --transpile-only agents/demo/index.ts",
     "demo:agent:build": "npx tsc -p agents/demo/tsconfig.json",
-    "demo:agent:start": "node agents/demo/dist/index.js"
+    "demo:agent:start": "node agents/demo/dist/index.js",
+    "mcp:build": "npx tsc -p mcp-server/tsconfig.json",
+    "mcp:start": "node mcp-server/dist/index.js",
+    "mcp:dev": "ts-node mcp-server/src/index.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
