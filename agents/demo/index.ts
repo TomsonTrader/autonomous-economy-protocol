@@ -175,7 +175,7 @@ async function main() {
               await sdk.acceptProposal(proposalId);
               log(`✅ Accepted as seller #${proposalId}`);
             } else {
-              await sdk.counterOffer(proposalId, String(Math.ceil(price * 1.2)), "Standard service rate");
+              await sdk.counterOffer({ proposalId, newPrice: String(Math.ceil(price * 1.2)), newTerms: "Standard service rate" });
               log(`🔄 Counter-offered on #${proposalId}`);
             }
           }
