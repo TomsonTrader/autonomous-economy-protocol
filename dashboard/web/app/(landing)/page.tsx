@@ -312,7 +312,7 @@ const INTEGRATIONS = [
 
 const ROADMAP = [
   { q: "Q1 2026", items: ["9 contracts Base Mainnet ✅", "SDK v1.5.0 ✅", "x402 micropayments ✅", "30/30 tests ✅"], done: true },
-  { q: "Q2 2026", items: ["Uniswap V3 pool + swap widget", "Agent Launchpad", "Security Audit (Spearbit)", "MCP Server"], done: false },
+  { q: "Q2 2026", items: ["Uniswap V3 pool live ✅", "Swap widget embedded ✅", "Agent Launchpad", "Security Audit (Spearbit)"], done: false },
   { q: "Q3 2026", items: ["Bonding curve for AGT", "SDK Python", "Multichain (Optimism, Arbitrum)", "Season 1 Airdrop"], done: false },
   { q: "Q4 2026", items: ["10,000 active agents", "Series A / CEX listing", "Enterprise credential system", "DAO governance"], done: false },
 ];
@@ -601,59 +601,80 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Uniswap link */}
-        <div
-          style={{
-            background: "linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))",
-            border: "1px solid rgba(99,102,241,0.3)",
-            borderRadius: 16,
-            padding: "28px 32px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 16,
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Trade AGT on Uniswap</div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
-              AGT / USDC pool on Base Mainnet · Provide liquidity to earn trading fees
+        {/* Swap Widget + Pool Stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
+          {/* Pool stats */}
+          <div
+            style={{
+              background: "linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.08))",
+              border: "1px solid rgba(99,102,241,0.25)",
+              borderRadius: 16,
+              padding: "28px 28px",
+            }}
+          >
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 20 }}>
+              Live Pool · Uniswap V3 · Base
+            </div>
+            {[
+              { k: "Price", v: "$0.000001 / AGT" },
+              { k: "FDV", v: "$1,000" },
+              { k: "Market Cap", v: "$500" },
+              { k: "Liquidity", v: "$786" },
+              { k: "Pool", v: "0xe726...564B" },
+              { k: "Fee tier", v: "1%" },
+            ].map(({ k, v }) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)", padding: "10px 0", fontSize: 14 }}>
+                <span style={{ color: "rgba(255,255,255,0.4)" }}>{k}</span>
+                <span style={{ fontWeight: 600, color: "#a5b4fc" }}>{v}</span>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <a
+                href="https://dexscreener.com/base/0xe72646B25853e6300C80B029D3faCA63fd4e564B"
+                target="_blank"
+                rel="noopener"
+                style={{ flex: 1, textAlign: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)", padding: "10px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}
+              >
+                DexScreener ↗
+              </a>
+              <a
+                href="https://basescan.org/address/0xe72646B25853e6300C80B029D3faCA63fd4e564B"
+                target="_blank"
+                rel="noopener"
+                style={{ flex: 1, textAlign: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)", padding: "10px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}
+              >
+                Basescan ↗
+              </a>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 12 }}>
-            <a
-              href={`https://app.uniswap.org/swap?outputCurrency=0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101&chain=base`}
-              target="_blank"
-              rel="noopener"
-              style={{
-                background: "linear-gradient(135deg, #6366f1, #a855f7)",
-                color: "#fff",
-                padding: "12px 24px",
-                borderRadius: 8,
-                fontSize: 14,
-                fontWeight: 700,
-                textDecoration: "none",
-              }}
-            >
-              Buy AGT →
-            </a>
-            <a
-              href={`https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101`}
-              target="_blank"
-              rel="noopener"
-              style={{
-                color: "rgba(255,255,255,0.7)",
-                padding: "12px 24px",
-                borderRadius: 8,
-                fontSize: 14,
-                fontWeight: 600,
-                textDecoration: "none",
-                border: "1px solid rgba(255,255,255,0.12)",
-              }}
-            >
-              Basescan ↗
-            </a>
+
+          {/* Uniswap embedded swap */}
+          <div
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 16,
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>Buy AGT</span>
+              <a
+                href="https://app.uniswap.org/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101&chain=base"
+                target="_blank"
+                rel="noopener"
+                style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", textDecoration: "none" }}
+              >
+                Open in Uniswap ↗
+              </a>
+            </div>
+            <iframe
+              src="https://app.uniswap.org/#/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101&chain=base&theme=dark"
+              height="360"
+              width="100%"
+              style={{ border: "none", display: "block" }}
+              title="Swap AGT"
+            />
           </div>
         </div>
       </section>
