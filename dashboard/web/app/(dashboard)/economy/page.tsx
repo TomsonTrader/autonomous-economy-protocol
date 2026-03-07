@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { fetchActivity, fetchStats, fetchVaultStats, WS_URL } from "../../lib/api";
+import { fetchActivity, fetchStats, fetchVaultStats, WS_URL } from "../../../lib/api";
 
 interface PricePoint {
   time: string;

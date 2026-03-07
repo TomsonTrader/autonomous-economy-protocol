@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchAgents } from "../../lib/api";
+import { fetchAgents } from "../../../lib/api";
 
 interface Agent {
   address: string;

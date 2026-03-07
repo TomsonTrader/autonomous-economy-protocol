@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchVaultInfo, fetchVaultStats } from "../../lib/api";
+import { fetchVaultInfo, fetchVaultStats } from "../../../lib/api";
 
 interface VaultInfo {
   address: string;

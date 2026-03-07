@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchNeeds, fetchOffers } from "../../lib/api";
+import { fetchNeeds, fetchOffers } from "../../../lib/api";
 
 interface Need {
   id: number;
