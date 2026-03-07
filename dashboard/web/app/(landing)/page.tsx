@@ -259,10 +259,14 @@ function Navbar() {
       <div style={{display:"flex",gap:10,alignItems:"center"}}>
         <a href="https://github.com/TomsonTrader/autonomous-economy-protocol" target="_blank" rel="noopener"
           style={{color:"rgba(255,255,255,0.5)",fontSize:13,textDecoration:"none"}}>GitHub</a>
+        <Link href="/launch" style={{
+          color:"#22c55e",padding:"7px 16px",borderRadius:8,fontSize:13,fontWeight:600,textDecoration:"none",
+          border:"1px solid rgba(34,197,94,0.3)",background:"rgba(34,197,94,0.06)",
+        }}>Launch Agent</Link>
         <Link href="/dashboard" style={{
           background:"linear-gradient(135deg,#6366f1,#a855f7)",
           color:"#fff",padding:"7px 16px",borderRadius:8,fontSize:13,fontWeight:600,textDecoration:"none",
-        }}>Launch App →</Link>
+        }}>Dashboard →</Link>
       </div>
     </nav>
   );
@@ -303,9 +307,9 @@ const INTEGRATIONS = [
 ];
 
 const ROADMAP = [
-  { q:"Q1 2026", items:["9 contracts Base Mainnet ✅","SDK v1.5.0 ✅","x402 micropayments ✅","30/30 tests ✅"], done:true },
-  { q:"Q2 2026", items:["Uniswap V3 pool live ✅","Swap widget embedded ✅","Agent Launchpad","Security Audit (Spearbit)"], done:false },
-  { q:"Q3 2026", items:["Bonding curve for AGT","SDK Python","Multichain (Optimism, Arbitrum)","Season 1 Airdrop"], done:false },
+  { q:"Q1 2026", items:["9 contracts Base Mainnet ✅","SDK v1.5.0 ✅","x402 micropayments ✅","30/30 tests ✅","Agent Launchpad ✅","Python SDK ✅"], done:true },
+  { q:"Q2 2026", items:["Uniswap V3 pool live ✅","Swap widget embedded ✅","CoinGecko & CMC listings","Security Audit (Spearbit)"], done:false },
+  { q:"Q3 2026", items:["Bonding curve for AGT","Multichain (Optimism, Arbitrum)","Season 1 Airdrop claim","Enterprise credential system"], done:false },
   { q:"Q4 2026", items:["10,000 active agents","Series A / CEX listing","Enterprise credential system","DAO governance"], done:false },
 ];
 
@@ -328,8 +332,24 @@ export default function LandingPage() {
           offers: (data.market?.totalOffers??0)   + BOOST.offers,
         });
       } catch {}
-      // Simulate pool price drift (replace with real RPC call if desired)
-      setPool({ price:0.000001, fdv:1000, liquidity:786, change24h:0 });
+      // Fetch real AGT price from DexScreener
+      try {
+        const dex = await fetch(`https://api.dexscreener.com/latest/dex/pairs/base/${POOL}`,{cache:"no-store"});
+        const dexData = await dex.json();
+        const pair = dexData?.pair ?? dexData?.pairs?.[0];
+        if (pair?.priceUsd) {
+          setPool({
+            price:     parseFloat(pair.priceUsd),
+            fdv:       parseFloat(pair.fdv ?? "1000"),
+            liquidity: parseFloat(pair.liquidity?.usd ?? "786"),
+            change24h: parseFloat(pair.priceChange?.h24 ?? "0"),
+          });
+        } else {
+          setPool({ price:0.000001, fdv:1000, liquidity:786, change24h:0 });
+        }
+      } catch {
+        setPool({ price:0.000001, fdv:1000, liquidity:786, change24h:0 });
+      }
     }
     load(); const t=setInterval(load,15000); return ()=>clearInterval(t);
   },[]);
@@ -382,6 +402,9 @@ export default function LandingPage() {
               <Link href="/season1" style={{color:"#a855f7",padding:"13px 24px",borderRadius:10,fontSize:15,fontWeight:600,textDecoration:"none",border:"1px solid rgba(168,85,247,0.3)",background:"rgba(168,85,247,0.06)"}}>
                 Season 1 →
               </Link>
+              <Link href="/launch" style={{color:"#22c55e",padding:"13px 24px",borderRadius:10,fontSize:15,fontWeight:600,textDecoration:"none",border:"1px solid rgba(34,197,94,0.3)",background:"rgba(34,197,94,0.06)"}}>
+                Launch Agent →
+              </Link>
             </div>
 
             {/* Stats grid */}
@@ -396,12 +419,21 @@ export default function LandingPage() {
             <div style={{display:"flex",alignItems:"center",gap:16,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10,padding:"10px 16px"}}>
               <div>
                 <div style={{fontSize:11,color:"rgba(255,255,255,0.35)",textTransform:"uppercase",letterSpacing:1}}>AGT Price</div>
-                <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:"#22c55e"}}>$0.000001</div>
+                <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:"#22c55e"}}>
+                  {pool ? `$${pool.price.toFixed(8)}` : "$0.000001"}
+                </div>
+                {pool && pool.change24h !== 0 && (
+                  <div style={{fontSize:11,color:pool.change24h>=0?"#22c55e":"#ef4444",marginTop:1}}>
+                    {pool.change24h>=0?"+":""}{pool.change24h.toFixed(1)}% 24h
+                  </div>
+                )}
               </div>
               <Sparkline/>
               <div style={{marginLeft:"auto",textAlign:"right"}}>
                 <div style={{fontSize:11,color:"rgba(255,255,255,0.35)"}}>FDV</div>
-                <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace"}}>$1,000</div>
+                <div style={{fontSize:14,fontWeight:700,fontFamily:"monospace"}}>
+                  {pool ? `$${pool.fdv.toLocaleString()}` : "$1,000"}
+                </div>
               </div>
             </div>
           </div>
@@ -413,7 +445,7 @@ export default function LandingPage() {
             <div style={{background:"rgba(34,197,94,0.06)",border:"1px solid rgba(34,197,94,0.2)",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12}}>
               <span style={{color:"rgba(255,255,255,0.45)"}}>AGT / USDC · Uniswap V3 · Base</span>
               <div style={{display:"flex",gap:14,alignItems:"center"}}>
-                <span style={{color:"#22c55e",fontWeight:700,fontFamily:"monospace"}}>$0.000001</span>
+                <span style={{color:"#22c55e",fontWeight:700,fontFamily:"monospace"}}>{pool?`$${pool.price.toFixed(8)}`:"$0.000001"}</span>
                 <a href={`https://dexscreener.com/base/${POOL}`} target="_blank" rel="noopener" style={{color:"rgba(255,255,255,0.35)",textDecoration:"none"}}>DexScreener ↗</a>
               </div>
             </div>
