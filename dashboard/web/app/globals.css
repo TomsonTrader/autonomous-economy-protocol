@@ -3,20 +3,57 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0a0f1e;
-  --card: #111827;
-  --border: #1f2937;
-  --text: #f9fafb;
-  --muted: #6b7280;
-  --accent: #0ea5e9;
-  --green: #10b981;
+  --bg:     #09090b;
+  --card:   #0f0f12;
+  --card2:  #18181b;
+  --border: rgba(255,255,255,0.07);
+  --text:   #f4f4f5;
+  --muted:  rgba(255,255,255,0.4);
+  --accent: #6366f1;
+  --purple: #a855f7;
+  --green:  #22c55e;
   --yellow: #f59e0b;
-  --red: #ef4444;
-  --purple: #8b5cf6;
+  --red:    #ef4444;
+  --cyan:   #06b6d4;
 }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
+
+code, pre, .mono { font-family: 'SF Mono', 'Fira Code', monospace; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+a { color: inherit; text-decoration: none; transition: opacity .15s; }
+a:hover { opacity: .75; }
+
+input, textarea {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color .2s;
+}
+input:focus, textarea:focus { border-color: var(--accent); }
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity .15s, transform .1s;
+}
+button:hover { opacity: .85; }
+button:active { transform: scale(.98); }
+
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+@keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
