@@ -28,3 +28,4 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+agents/demo/.env

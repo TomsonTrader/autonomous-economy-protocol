@@ -16,7 +16,11 @@
  */
 
 import * as dotenv from "dotenv";
-dotenv.config({ path: require("path").resolve(__dirname, "../../.env") });
+import * as fs from "fs";
+// Load from agents/demo/.env first (local), fall back to root .env
+const localEnv = require("path").resolve(__dirname, "../.env");
+const rootEnv  = require("path").resolve(__dirname, "../../.env");
+dotenv.config({ path: fs.existsSync(localEnv) ? localEnv : rootEnv });
 
 import { AgentSDK } from "autonomous-economy-sdk";
 import { ethers } from "ethers";
