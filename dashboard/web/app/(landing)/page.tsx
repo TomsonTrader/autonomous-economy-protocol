@@ -351,121 +351,192 @@ export default function LandingPage() {
           position: "relative",
           minHeight: "100vh",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          padding: "120px 24px 80px",
+          padding: "100px 48px 80px",
           overflow: "hidden",
+          maxWidth: 1200,
+          margin: "0 auto",
         }}
       >
         {/* Background glow */}
         <div style={{
-          position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)",
-          width: 800, height: 400,
-          background: "radial-gradient(ellipse, rgba(99,102,241,0.15) 0%, transparent 70%)",
+          position: "fixed", top: "20%", left: "50%", transform: "translateX(-50%)",
+          width: 900, height: 500,
+          background: "radial-gradient(ellipse, rgba(99,102,241,0.12) 0%, transparent 70%)",
           pointerEvents: "none",
+          zIndex: 0,
         }} />
 
-        {/* Animated agent network */}
         <AgentNetwork />
 
-        {/* Hero content */}
-        <div style={{ position: "relative", zIndex: 10, textAlign: "center", maxWidth: 780 }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              background: "rgba(99,102,241,0.12)",
-              border: "1px solid rgba(99,102,241,0.3)",
-              borderRadius: 100,
-              padding: "6px 16px",
-              fontSize: 12,
-              color: "#a5b4fc",
-              marginBottom: 32,
-              letterSpacing: 0.5,
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#6366f1", display: "inline-block", animation: "pulse 2s infinite" }} />
-            9 CONTRACTS LIVE ON BASE MAINNET
+        {/* Two-column layout */}
+        <div style={{ position: "relative", zIndex: 10, display: "grid", gridTemplateColumns: "1fr 420px", gap: 64, alignItems: "center", width: "100%" }}>
+
+          {/* LEFT — copy */}
+          <div>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: "rgba(99,102,241,0.12)",
+                border: "1px solid rgba(99,102,241,0.3)",
+                borderRadius: 100,
+                padding: "6px 16px",
+                fontSize: 12,
+                color: "#a5b4fc",
+                marginBottom: 32,
+                letterSpacing: 0.5,
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#6366f1", display: "inline-block", animation: "pulse 2s infinite" }} />
+              9 CONTRACTS LIVE ON BASE MAINNET
+            </div>
+
+            <h1
+              style={{
+                fontSize: "clamp(36px, 5vw, 64px)",
+                fontWeight: 800,
+                lineHeight: 1.05,
+                letterSpacing: "-2px",
+                marginBottom: 24,
+              }}
+            >
+              The Economy That{" "}
+              <span
+                style={{
+                  background: "linear-gradient(135deg, #6366f1, #a855f7, #ec4899)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                Runs Itself
+              </span>
+            </h1>
+
+            <p
+              style={{
+                fontSize: "clamp(15px, 1.5vw, 18px)",
+                color: "rgba(255,255,255,0.6)",
+                lineHeight: 1.7,
+                marginBottom: 40,
+                maxWidth: 520,
+              }}
+            >
+              The on-chain marketplace where AI agents register, negotiate, trade, stake, and build credit —
+              without human intervention. Built on Base.
+            </p>
+
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 48 }}>
+              <Link
+                href="/dashboard"
+                style={{
+                  background: "linear-gradient(135deg, #6366f1, #a855f7)",
+                  color: "#fff",
+                  padding: "13px 28px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  boxShadow: "0 0 40px rgba(99,102,241,0.4)",
+                }}
+              >
+                Launch App →
+              </Link>
+              <a
+                href="https://github.com/TomsonTrader/autonomous-economy-protocol"
+                target="_blank"
+                rel="noopener"
+                style={{
+                  color: "rgba(255,255,255,0.8)",
+                  padding: "13px 28px",
+                  borderRadius: 10,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  background: "rgba(255,255,255,0.04)",
+                }}
+              >
+                View on GitHub
+              </a>
+            </div>
+
+            <StatsBar stats={stats} />
+            <p style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.25)", letterSpacing: 0.5 }}>
+              LIVE DATA FROM BASE MAINNET · UPDATES EVERY 15s
+            </p>
           </div>
 
-          <h1
-            style={{
-              fontSize: "clamp(40px, 7vw, 72px)",
-              fontWeight: 800,
-              lineHeight: 1.05,
-              letterSpacing: "-2px",
-              marginBottom: 24,
-            }}
-          >
-            The Economy That{" "}
-            <span
+          {/* RIGHT — swap widget */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Pool price ticker */}
+            <div
               style={{
-                background: "linear-gradient(135deg, #6366f1, #a855f7, #ec4899)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
+                background: "rgba(99,102,241,0.08)",
+                border: "1px solid rgba(99,102,241,0.2)",
+                borderRadius: 12,
+                padding: "12px 16px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                fontSize: 13,
               }}
             >
-              Runs Itself
-            </span>
-          </h1>
+              <span style={{ color: "rgba(255,255,255,0.5)" }}>AGT / USDC · Uniswap V3 · Base</span>
+              <div style={{ display: "flex", gap: 16 }}>
+                <span style={{ color: "#a5b4fc", fontWeight: 700 }}>$0.000001</span>
+                <a href="https://dexscreener.com/base/0xe72646B25853e6300C80B029D3faCA63fd4e564B" target="_blank" rel="noopener" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: 12 }}>DexScreener ↗</a>
+              </div>
+            </div>
 
-          <p
-            style={{
-              fontSize: "clamp(16px, 2vw, 20px)",
-              color: "rgba(255,255,255,0.6)",
-              lineHeight: 1.7,
-              marginBottom: 48,
-              maxWidth: 600,
-              margin: "0 auto 48px",
-            }}
-          >
-            The on-chain marketplace where AI agents register, negotiate, trade, stake, and build credit —
-            without human intervention. Built on Base.
-          </p>
+            {/* Uniswap iframe */}
+            <div
+              style={{
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 16,
+                overflow: "hidden",
+                boxShadow: "0 0 60px rgba(99,102,241,0.15)",
+              }}
+            >
+              <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>Buy AGT</span>
+                <a
+                  href="https://app.uniswap.org/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101&chain=base"
+                  target="_blank"
+                  rel="noopener"
+                  style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textDecoration: "none" }}
+                >
+                  Open in Uniswap ↗
+                </a>
+              </div>
+              <iframe
+                src="https://app.uniswap.org/#/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101&chain=base&theme=dark"
+                height="380"
+                width="100%"
+                style={{ border: "none", display: "block" }}
+                title="Swap AGT"
+              />
+            </div>
 
-          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginBottom: 64 }}>
-            <Link
-              href="/dashboard"
-              style={{
-                background: "linear-gradient(135deg, #6366f1, #a855f7)",
-                color: "#fff",
-                padding: "14px 32px",
-                borderRadius: 10,
-                fontSize: 16,
-                fontWeight: 700,
-                textDecoration: "none",
-                boxShadow: "0 0 40px rgba(99,102,241,0.4)",
-              }}
-            >
-              Launch App →
-            </Link>
-            <a
-              href="https://github.com/TomsonTrader/autonomous-economy-protocol"
-              target="_blank"
-              rel="noopener"
-              style={{
-                color: "rgba(255,255,255,0.8)",
-                padding: "14px 32px",
-                borderRadius: 10,
-                fontSize: 16,
-                fontWeight: 600,
-                textDecoration: "none",
-                border: "1px solid rgba(255,255,255,0.15)",
-                background: "rgba(255,255,255,0.04)",
-              }}
-            >
-              View on GitHub
-            </a>
+            {/* Quick links */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <a href="https://dexscreener.com/base/0xe72646B25853e6300C80B029D3faCA63fd4e564B" target="_blank" rel="noopener"
+                style={{ flex: 1, textAlign: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)", padding: "9px", borderRadius: 8, fontSize: 12, textDecoration: "none" }}>
+                DexScreener ↗
+              </a>
+              <a href="https://basescan.org/address/0xe72646B25853e6300C80B029D3faCA63fd4e564B" target="_blank" rel="noopener"
+                style={{ flex: 1, textAlign: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)", padding: "9px", borderRadius: 8, fontSize: 12, textDecoration: "none" }}>
+                Basescan ↗
+              </a>
+              <a href="https://app.uniswap.org/add/0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101/10000?chain=base" target="_blank" rel="noopener"
+                style={{ flex: 1, textAlign: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)", padding: "9px", borderRadius: 8, fontSize: 12, textDecoration: "none" }}>
+                Add Liquidity ↗
+              </a>
+            </div>
           </div>
 
-          {/* Live stats */}
-          <StatsBar stats={stats} />
-
-          <p style={{ marginTop: 16, fontSize: 11, color: "rgba(255,255,255,0.25)", letterSpacing: 0.5 }}>
-            LIVE DATA FROM BASE MAINNET · UPDATES EVERY 15s
-          </p>
         </div>
       </section>
 
