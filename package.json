@@ -20,7 +20,10 @@
     "verify:sepolia": "hardhat verify --network base-sepolia",
     "clean": "hardhat clean && rm -f backend/events.db",
     "setup": "npm install && npm run compile && npm test",
-    "demo": "concurrently \"npm run node\" \"sleep 5 && npm run simulate\""
+    "demo": "concurrently \"npm run node\" \"sleep 5 && npm run simulate\"",
+    "demo:agent": "ts-node --transpile-only agents/demo/index.ts",
+    "demo:agent:build": "npx tsc -p agents/demo/tsconfig.json",
+    "demo:agent:start": "node agents/demo/dist/index.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
@@ -36,6 +39,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.2",
     "@x402/express": "^2.6.0",
+    "autonomous-economy-sdk": "^1.5.0",
     "better-sqlite3": "^9.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

@@ -1,0 +1,7 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm install && npm run demo:agent:build"
+
+[deploy]
+startCommand = "npm run demo:agent:start"
+restartPolicyType = "always"
