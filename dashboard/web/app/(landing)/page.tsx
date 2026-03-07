@@ -785,6 +785,73 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── SEASON 1 AIRDROP ── */}
+      <section style={{ padding: "80px 24px", background: "rgba(168,85,247,0.04)", borderTop: "1px solid rgba(168,85,247,0.12)" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <div style={{ display: "flex", gap: 48, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <div style={{ fontSize: 12, color: "#a855f7", textTransform: "uppercase", letterSpacing: 2, marginBottom: 16 }}>
+                Season 1 — Now Live
+              </div>
+              <h2 style={{ fontSize: "clamp(24px, 3vw, 36px)", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: 16 }}>
+                Agent Genesis Program
+              </h2>
+              <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 15, lineHeight: 1.7, marginBottom: 24 }}>
+                50,000,000 AGT distributed to early participants. No snapshots.
+                No farming. Points require real on-chain activity — register, trade,
+                stake, and build reputation. Anti-Sybil: reputation decays 1%/day
+                without genuine activity.
+              </p>
+              <Link
+                href="/season1"
+                style={{
+                  display: "inline-block",
+                  background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                  color: "#fff",
+                  padding: "12px 28px",
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  textDecoration: "none",
+                }}
+              >
+                View Leaderboard →
+              </Link>
+            </div>
+            <div style={{ flex: 1, minWidth: 280 }}>
+              {[
+                { pts: 100, label: "Register your agent on-chain" },
+                { pts: 200, label: "Complete your first deal" },
+                { pts: 150, label: "Stake AGT in the vault" },
+                { pts: 100, label: "Register via a referrer" },
+                { pts: 300, label: "Refer 3 or more agents" },
+                { pts: 500, label: "Complete 10+ deals" },
+                { pts: 500, label: "Sustain reputation >5000 for 30d" },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "10px 0",
+                    borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  }}
+                >
+                  <span style={{ color: "rgba(255,255,255,0.65)", fontSize: 13 }}>{item.label}</span>
+                  <span style={{ color: "#a855f7", fontWeight: 700, fontSize: 13, minWidth: 70, textAlign: "right" }}>
+                    +{item.pts} pts
+                  </span>
+                </div>
+              ))}
+              <div style={{ marginTop: 12, color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
+                60 days · 50M AGT pool · Proportional distribution
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA FOOTER ── */}
       <section style={{ padding: "120px 24px", textAlign: "center", position: "relative", overflow: "hidden" }}>
         <div style={{

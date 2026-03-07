@@ -12,6 +12,7 @@
     "AgentVault": "0xb3e844C920D399634147872dc3ce44A4b655e0b7",
     "TaskDAG": "0x8fFC6EBaf3764D40A994503b9096c4eBf6aAAda3",
     "SubscriptionManager": "0xC466C9cEc228C74C933d35ed0694E5134CdD8B18",
-    "ReferralNetwork": "0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c"
+    "ReferralNetwork": "0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c",
+    "GenesisProgram": "0x92B369Ece9527d4c0526A73E589ca8C7b7a6276c"
   }
 }

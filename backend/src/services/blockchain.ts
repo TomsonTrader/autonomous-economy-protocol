@@ -88,6 +88,12 @@ const SUBSCRIPTION_ABI = [
   "event SubscriptionCancelled(uint256 indexed subId, address indexed by, uint256 refund)",
 ];
 
+const GENESIS_ABI = [
+  "function seasonInfo() view returns (bool started, bool ended, uint256 pool, uint256 start, uint256 end, uint256 totalPoints)",
+  "function getParticipant(address agent) view returns (tuple(uint256 points, bool creditedRegistration, bool creditedFirstDeal, bool creditedStake, bool creditedWithReferrer, bool creditedBeReferrer3, bool creditedTenDeals, bool creditedRepSustained, uint256 repAboveThresholdSince, bool claimed))",
+  "function getLeaderboard() view returns (address[] memory agents, uint256[] memory points)",
+];
+
 export class BlockchainService {
   provider: ethers.JsonRpcProvider;
   registry: ethers.Contract;
@@ -99,6 +105,7 @@ export class BlockchainService {
   referral: ethers.Contract | null = null;
   taskDAG: ethers.Contract | null = null;
   subscription: ethers.Contract | null = null;
+  genesis: ethers.Contract | null = null;
   deployment: DeploymentConfig;
 
   constructor() {
@@ -151,6 +158,8 @@ export class BlockchainService {
       this.taskDAG = new ethers.Contract(contracts.TaskDAG, TASKDAG_ABI, this.provider);
     if (contracts.SubscriptionManager)
       this.subscription = new ethers.Contract(contracts.SubscriptionManager, SUBSCRIPTION_ABI, this.provider);
+    if (contracts.GenesisProgram)
+      this.genesis = new ethers.Contract(contracts.GenesisProgram, GENESIS_ABI, this.provider);
   }
 
   async getAgentInfo(address: string) {

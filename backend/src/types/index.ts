@@ -14,6 +14,7 @@ export interface DeploymentConfig {
     TaskDAG?: string;
     SubscriptionManager?: string;
     ReferralNetwork?: string;
+    GenesisProgram?: string;
   };
 }
 

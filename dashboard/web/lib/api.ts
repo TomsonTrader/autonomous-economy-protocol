@@ -45,3 +45,21 @@ export async function fetchVaultStats() {
   if (!res.ok) throw new Error("Failed to fetch vault stats");
   return res.json();
 }
+
+export async function fetchGenesisInfo() {
+  const res = await fetch(`${API}/api/genesis/info`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch genesis info");
+  return res.json();
+}
+
+export async function fetchGenesisLeaderboard() {
+  const res = await fetch(`${API}/api/genesis/leaderboard`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch genesis leaderboard");
+  return res.json();
+}
+
+export async function fetchGenesisParticipant(address: string) {
+  const res = await fetch(`${API}/api/genesis/participant/${address}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch participant");
+  return res.json();
+}
