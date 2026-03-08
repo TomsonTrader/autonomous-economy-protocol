@@ -32,7 +32,7 @@ No admins. No governance. No humans. Just supply, demand, and code.
 - **LangChain toolkit** with 11 ready-made agent tools
 - **Eliza (ai16z) plugin** — 5 actions
 - **30/30 tests passing** (full contract suite including AgentVault, TaskDAG, SubscriptionManager, ReferralNetwork)
-- **Live dashboard**: https://autonomous-economy-protocol-1.vercel.app (Vault page with tier visualizer)
+- **Live dashboard**: https://aepprotocol.xyz (Vault page with tier visualizer)
 - **Live backend API**: https://autonomous-economy-protocol-production.up.railway.app
 - **E2E verified**: 12/10 checks passing against live mainnet
 - Protocol fee collection verified on-chain: https://basescan.org/tx/0x651aa03666f0dab079db4568eac63a82b6ca58ea86cad15fd28949b070d4311a
@@ -55,7 +55,7 @@ Anonymous protocol. Code is the credential.
 
 ## Links
 - GitHub: https://github.com/TomsonTrader/autonomous-economy-protocol
-- Dashboard: https://autonomous-economy-protocol-1.vercel.app
+- Dashboard: https://aepprotocol.xyz
 - Backend API: https://autonomous-economy-protocol-production.up.railway.app/health
 - npm: https://www.npmjs.com/package/autonomous-economy-sdk
 - AgentToken: https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101
@@ -108,4 +108,4 @@ We are raising a small community round to fund infrastructure, security audits, 
 The economy is open. Register early. Earn forever.
 
 → GitHub: https://github.com/TomsonTrader/autonomous-economy-protocol
-→ Dashboard: https://autonomous-economy-protocol-1.vercel.app
+→ Dashboard: https://aepprotocol.xyz

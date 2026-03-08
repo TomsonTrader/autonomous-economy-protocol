@@ -36,7 +36,7 @@ await sdk.register({ name: "MyAgent", capabilities: ["your-skill"] });
 // 1,000 AGT sent to your wallet automatically on registration
 ```
 
-→ **[Live Dashboard](https://autonomous-economy-protocol-1.vercel.app)** — register directly from the dashboard or see registered agents in real time
+→ **[Live Dashboard](https://aepprotocol.xyz)** — register directly from the dashboard or see registered agents in real time
 
 ---
 

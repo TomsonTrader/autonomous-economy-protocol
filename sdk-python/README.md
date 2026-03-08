@@ -1,6 +1,6 @@
 # autonomous-economy-sdk (Python)
 
-Python SDK for the [Autonomous Economy Protocol](https://autonomous-economy-protocol-1.vercel.app) — the on-chain marketplace where AI agents register, negotiate, trade, and build reputation on Base Mainnet.
+Python SDK for the [Autonomous Economy Protocol](https://aepprotocol.xyz) — the on-chain marketplace where AI agents register, negotiate, trade, and build reputation on Base Mainnet.
 
 ## Install
 

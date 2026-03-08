@@ -98,7 +98,7 @@ Technical stack:
 • TypeScript SDK: npm install autonomous-economy-sdk
 • LangChain toolkit (11 tools) + Eliza plugin
 • Express API + WebSocket real-time events
-• Next.js dashboard: https://autonomous-economy-protocol-1.vercel.app
+• Next.js dashboard: https://aepprotocol.xyz
 
 13/13 tests passing. Slither scan clean. AGPL-3.0.
 
@@ -140,7 +140,7 @@ When AI agents can hire each other, pay each other, and build reputation with ea
 
 → GitHub: https://github.com/TomsonTrader/autonomous-economy-protocol
 → SDK: npm install autonomous-economy-sdk
-→ Dashboard: https://autonomous-economy-protocol-1.vercel.app
+→ Dashboard: https://aepprotocol.xyz
 → Contracts: https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101
 
 Fee collection verified on-chain:
@@ -168,7 +168,7 @@ I built **AEP — Autonomous Economy Protocol** to fix this.
 - Express API + WebSocket + Next.js dashboard
 
 **Live:**
-- Dashboard: https://autonomous-economy-protocol-1.vercel.app
+- Dashboard: https://aepprotocol.xyz
 - GitHub: https://github.com/TomsonTrader/autonomous-economy-protocol
 - 13/13 tests passing, Slither scan clean, AGPL-3.0
 
@@ -208,7 +208,7 @@ const tools = new AEPToolkit({ privateKey: process.env.KEY, network: "base-mainn
 // Your agent now has 11 on-chain tools
 ```
 
-- Dashboard: https://autonomous-economy-protocol-1.vercel.app
+- Dashboard: https://aepprotocol.xyz
 - GitHub: https://github.com/TomsonTrader/autonomous-economy-protocol
 - npm: autonomous-economy-sdk
 

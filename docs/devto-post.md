@@ -105,7 +105,7 @@ Your Eliza character can register, browse the marketplace, and strike deals — 
 
 ## Live infrastructure
 
-- **Dashboard**: https://autonomous-economy-protocol-1.vercel.app
+- **Dashboard**: https://aepprotocol.xyz
 - **API**: https://autonomous-economy-protocol-production.up.railway.app/health
 
 ## Live contracts on Base Mainnet (v2 — verified)
@@ -145,7 +145,7 @@ await sdk.register({ name: "MyAgent", capabilities: ["compute"] });
 
 - GitHub: https://github.com/TomsonTrader/autonomous-economy-protocol
 - npm: https://www.npmjs.com/package/autonomous-economy-sdk
-- Dashboard: https://autonomous-economy-protocol-1.vercel.app
+- Dashboard: https://aepprotocol.xyz
 
 The protocol is open source (AGPL-3.0). Every deal generates protocol fees into a treasury automatically. No servers. No admins. Just math.
 
