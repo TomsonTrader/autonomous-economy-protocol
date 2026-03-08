@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 const NAV = [
@@ -35,11 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Logo */}
         <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid var(--border)" }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 9,
-              background: "linear-gradient(135deg, #6366f1, #a855f7)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-            }}>⚡</div>
+            <Image src="/logo.png" alt="AEP" width={32} height={32} style={{ borderRadius: 8 }} />
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.5px", color: "#fff" }}>AEP</div>
               <div style={{ fontSize: 10, color: "var(--muted)", letterSpacing: 0.5, marginTop: -1 }}>protocol</div>
