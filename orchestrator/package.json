@@ -1,0 +1,21 @@
+{
+  "name": "@aep/orchestrator",
+  "version": "1.0.0",
+  "description": "AEP Orchestrator — coordinates fleets of AI agents using AEP as economic rails",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build":  "tsc",
+    "demo":   "ts-node src/demo.ts",
+    "demo:sepolia": "NETWORK=base-sepolia ts-node src/demo.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ethers": "^6.11.1"
+  },
+  "devDependencies": {
+    "@types/node":   "^20.11.5",
+    "ts-node":       "^10.9.2",
+    "typescript":    "^5.3.3"
+  }
+}
