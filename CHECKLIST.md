@@ -129,7 +129,7 @@
 - [x] TaskDAG: 2 tests
 - [x] SubscriptionManager: 1 test
 - [x] GenesisProgram: 11 tests
-- [ ] ReferralNetwork: 0 tests ← **PENDIENTE**
+- [x] ReferralNetwork: 6 tests (5 nuevos edge cases — 2026-03-10)
 - [ ] SubscriptionManager: ampliar a 5+ tests
 - [ ] Backend: tests de integración API
 - [ ] SDK: tests unitarios (vitest)
@@ -212,7 +212,7 @@
 ### v3.1 — Calidad (próximas 2 semanas)
 - [ ] ReferralNetwork tests
 - [ ] SDK: subscription helpers + referral helpers
-- [ ] Backend: input validation middleware
+- [x] Backend: input validation middleware (validate.ts — 2026-03-10)
 - [ ] Backend: structured error codes
 - [ ] Python SDK: tipo hints + error handling
 - [ ] Monitoring: Sentry en Railway

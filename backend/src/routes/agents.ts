@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { BlockchainService } from "../services/blockchain";
-import { requireAddress, apiError } from "../middleware/validate";
+import { requireAddress, apiError, parseBlockchainError } from "../middleware/validate";
 
 export function agentsRouter(blockchain: BlockchainService): Router {
   const router = Router();
@@ -29,7 +29,7 @@ export function agentsRouter(blockchain: BlockchainService): Router {
 
       res.json({ agents: filtered, total: filtered.length });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      const e = parseBlockchainError(err); res.status(e.status).json({ error: true, code: e.code, message: e.message });
     }
   });
 
@@ -39,12 +39,12 @@ export function agentsRouter(blockchain: BlockchainService): Router {
       const { address } = req.params;
       const isRegistered = await blockchain.registry.isRegistered(address);
       if (!isRegistered) {
-        return res.status(404).json({ error: "Agent not found" });
+        return apiError(res, "AGENT_NOT_FOUND", "Agent is not registered on AEP", 404);
       }
       const agent = await blockchain.getAgentInfo(address);
       res.json(agent);
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      const e = parseBlockchainError(err); res.status(e.status).json({ error: true, code: e.code, message: e.message });
     }
   });
 

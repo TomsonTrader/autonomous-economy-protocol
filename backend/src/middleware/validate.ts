@@ -104,3 +104,35 @@ export function sanitizeBody(fields: string[]) {
     next();
   };
 }
+
+// ── Structured error codes for common blockchain errors ──────────────────
+
+export function parseBlockchainError(err: any): { code: string; message: string; status: number } {
+  const msg: string = err?.message ?? String(err);
+
+  if (msg.includes("not registered") || msg.includes("AGENT_NOT_FOUND"))
+    return { code: "AGENT_NOT_FOUND", message: "Agent is not registered on AEP", status: 404 };
+
+  if (msg.includes("already registered"))
+    return { code: "AGENT_ALREADY_REGISTERED", message: "Agent is already registered", status: 409 };
+
+  if (msg.includes("insufficient balance") || msg.includes("ERC20: transfer amount exceeds"))
+    return { code: "INSUFFICIENT_BALANCE", message: "Insufficient AGT balance", status: 422 };
+
+  if (msg.includes("allowance") || msg.includes("ERC20: insufficient allowance"))
+    return { code: "INSUFFICIENT_ALLOWANCE", message: "Approve AGT to the contract first", status: 422 };
+
+  if (msg.includes("not active") || msg.includes("not funded") || msg.includes("not cancellable"))
+    return { code: "INVALID_STATE", message: "This action is not valid in the current state", status: 422 };
+
+  if (msg.includes("missing response") || msg.includes("network") || msg.includes("timeout"))
+    return { code: "RPC_ERROR", message: "Blockchain RPC unavailable — try again shortly", status: 503 };
+
+  if (msg.includes("nonce") || msg.includes("replacement fee too low"))
+    return { code: "NONCE_ERROR", message: "Transaction nonce conflict — retry", status: 503 };
+
+  if (msg.includes("gas required exceeds"))
+    return { code: "GAS_ESTIMATION_FAILED", message: "Transaction would revert — check parameters", status: 422 };
+
+  return { code: "INTERNAL_ERROR", message: msg, status: 500 };
+}
