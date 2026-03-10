@@ -5,7 +5,7 @@ import { DeploymentConfig } from "../types";
 
 // Minimal ABIs for the contracts we need to call
 const REGISTRY_ABI = [
-  "function getAgent(address) view returns (tuple(string name, string[] capabilities, uint256 registeredAt, bool active))",
+  "function getAgent(address) view returns (tuple(string name, string[] capabilities, string metadataURI, uint256 registeredAt, bool active))",
   "function isRegistered(address) view returns (bool)",
   "function getActiveAgents() view returns (address[])",
   "function totalRegistered() view returns (uint256)",

@@ -4,6 +4,8 @@ dotenv.config({ path: require("path").join(__dirname, "../../.env") });
 
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import http from "http";
 import { BlockchainService } from "./services/blockchain";
 import { WebSocketService } from "./services/websocket";
@@ -61,7 +63,21 @@ async function main() {
 
   // Express app
   const app = express();
-  app.use(cors());
+  // Security headers
+  app.use(helmet({ contentSecurityPolicy: false }));
+
+  // CORS — allow dashboard + any agent integration
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || "https://aepprotocol.xyz,https://autonomous-economy-protocol-1.vercel.app").split(",");
+  app.use(cors({
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin) || origin.startsWith("http://localhost")) cb(null, true);
+      else cb(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  }));
+
+  // Rate limiting — 200 req/15min per IP (generous for agents)
+  app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false }));
   app.use(express.json());
 
   // Create HTTP server (needed for WebSocket)

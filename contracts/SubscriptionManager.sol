@@ -147,7 +147,7 @@ contract SubscriptionManager {
             sub.status = SubscriptionStatus.Expired;
         }
 
-        token.transfer(msg.sender, payment);
+        require(token.transfer(msg.sender, payment), "SubscriptionManager: payment failed");
         emit PeriodClaimed(subId, msg.sender, payment, sub.periodsRemaining);
     }
 
@@ -171,8 +171,8 @@ contract SubscriptionManager {
         sub.status = SubscriptionStatus.Cancelled;
         sub.periodsRemaining = 0;
 
-        if (providerOwed > 0) token.transfer(sub.provider, providerOwed);
-        if (subscriberRefund > 0) token.transfer(sub.subscriber, subscriberRefund);
+        if (providerOwed > 0) require(token.transfer(sub.provider, providerOwed), "SubscriptionManager: provider payment failed");
+        if (subscriberRefund > 0) require(token.transfer(sub.subscriber, subscriberRefund), "SubscriptionManager: refund failed");
 
         emit SubscriptionCancelled(subId, msg.sender, subscriberRefund);
     }
