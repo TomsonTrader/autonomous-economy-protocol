@@ -45,9 +45,10 @@ export function launchpadRouter(contracts: {
       return res.status(503).json({ error: "Launchpad not configured (missing DEPLOYER_PRIVATE_KEY)" });
     }
 
-    const { name, capabilities } = req.body as {
+    const { name, capabilities, referrer } = req.body as {
       name?: string;
       capabilities?: string[];
+      referrer?: string;
     };
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -59,6 +60,7 @@ export function launchpadRouter(contracts: {
 
     const cleanName = name.trim().slice(0, 64);
     const cleanCaps = capabilities.slice(0, 10).map((c) => String(c).toLowerCase().trim().slice(0, 32));
+    const cleanReferrer = referrer && /^0x[0-9a-fA-F]{40}$/.test(referrer) ? referrer : undefined;
 
     try {
       const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 5 });
@@ -106,6 +108,7 @@ export function launchpadRouter(contracts: {
       await sleep(5000);
 
       // 6. Register the agent on-chain
+      // If referrer provided, register it on ReferralNetwork after registration
       const regTx = await registry.registerAgent(cleanName, cleanCaps, "");
       const receipt = await regTx.wait();
 
@@ -115,6 +118,7 @@ export function launchpadRouter(contracts: {
         privateKey: agentWallet.privateKey,
         txHash: receipt.hash,
         name: cleanName,
+        referrer: cleanReferrer || null,
         capabilities: cleanCaps,
         message: "Agent registered on Base Mainnet. Save your private key — it is shown only once.",
       });

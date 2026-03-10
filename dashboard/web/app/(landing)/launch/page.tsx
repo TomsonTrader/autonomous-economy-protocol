@@ -39,6 +39,12 @@ function Badge({ label, selected, onClick }: { label: string; selected: boolean;
 }
 
 export default function LaunchPage() {
+  // Read referral address from URL (?ref=0x...)
+  const referralRef =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("ref") ?? ""
+      : "";
+  const [referrer] = useState(referralRef);
   const [step, setStep]       = useState<Step>("form");
   const [name, setName]       = useState("");
   const [caps, setCaps]       = useState<string[]>([]);
@@ -61,7 +67,7 @@ export default function LaunchPage() {
       const res = await fetch(`${API}/api/launchpad/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), capabilities: caps }),
+        body: JSON.stringify({ name: name.trim(), capabilities: caps, referrer: referrer || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Registration failed");
