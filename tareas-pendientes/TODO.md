@@ -11,8 +11,17 @@
 - [x] Dashboard en Vercel (https://aepprotocol.xyz)
 - [x] Dominio aepprotocol.xyz conectado a Vercel (DNS en Porkbun)
 - [x] GitHub repo público (github.com/TomsonTrader/autonomous-economy-protocol)
-- [x] npm package publicado (autonomous-economy-sdk@1.4.0)
-- [x] Logo AEP creado con Grok
+- [x] npm package publicado (autonomous-economy-sdk@1.5.1 — con postinstall hook)
+- [x] Python SDK publicado en PyPI (autonomous-economy-sdk@1.0.0)
+- [x] Logo AEP integrado en dashboard (favicon, OG image, sidebar)
+- [x] AutoGen integration (7 tools) — integrations/autogen-integration/
+- [x] CrewAI integration (8 tools) — integrations/crewai-integration/
+- [x] MCP Server (9 tools) — mcp-server/
+- [x] Orchestrator multi-agente — orchestrator/
+- [x] Activity feed (/activity) y agent profiles (/agent/[address])
+- [x] Google A2A AgentCard endpoint
+- [x] GitHub Action para auto-registro
+- [x] README actualizado completamente
 
 ---
 
