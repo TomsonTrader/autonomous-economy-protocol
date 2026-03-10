@@ -529,6 +529,59 @@ describe("Autonomous Economy Protocol", () => {
       const balAfter = await token.balanceOf(alice.address);
       expect(balAfter - balBefore).to.equal(commission);
     });
+
+    it("no referrer → no commission distributed (no revert)", async () => {
+      // bob has no referrer
+      const dealValue = ethers.parseEther("1000");
+      // Should not revert even with no referrer
+      await expect(referral.distributeCommissions(bob.address, dealValue)).to.not.be.reverted;
+      // No funds needed since nothing is distributed
+      const deployerData = await referral.getReferralData(deployer.address);
+      expect(deployerData.claimableEarnings).to.equal(0);
+    });
+
+    it("double registration is idempotent — first referrer wins", async () => {
+      // First referral: bob referred by alice
+      await referral.registerReferral(bob.address, alice.address);
+      // Second attempt with different referrer (carol) — should be ignored
+      await referral.registerReferral(bob.address, carol.address);
+
+      const bobData = await referral.getReferralData(bob.address);
+      expect(bobData.referrer).to.equal(alice.address); // alice remains
+    });
+
+    it("getNetworkSize returns direct + indirect count", async () => {
+      // alice → bob (direct), bob → carol (indirect of alice)
+      await referral.registerReferral(bob.address, alice.address);
+      await referral.registerReferral(carol.address, bob.address);
+
+      const size = await referral.getNetworkSize(alice.address);
+      expect(size).to.equal(2n); // bob (direct) + carol (indirect)
+    });
+
+    it("claimCommissions reverts when nothing to claim", async () => {
+      // alice has no earnings
+      await expect(
+        referral.connect(alice).claimCommissions()
+      ).to.be.revertedWith("ReferralNetwork: nothing to claim");
+    });
+
+    it("multiple deals accumulate earnings correctly", async () => {
+      await referral.registerReferral(bob.address, alice.address);
+
+      const dealValue = ethers.parseEther("500");
+      const commission = (dealValue * 100n) / 10_000n; // 5 AGT per deal
+
+      // Two deals
+      await token.approve(await referral.getAddress(), commission * 2n);
+      await referral.depositForCommissions(commission * 2n);
+      await referral.distributeCommissions(bob.address, dealValue);
+      await referral.distributeCommissions(bob.address, dealValue);
+
+      const aliceData = await referral.getReferralData(alice.address);
+      expect(aliceData.claimableEarnings).to.equal(commission * 2n);
+      expect(aliceData.totalEarned).to.equal(commission * 2n);
+    });
   });
 
   // ── SubscriptionManager ───────────────────────────────────────────────────

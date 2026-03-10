@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { apiError } from "../middleware/validate";
 import { BlockchainService } from "../services/blockchain";
 import { ethers } from "ethers";
 
@@ -22,7 +23,7 @@ export function marketRouter(blockchain: BlockchainService): Router {
   router.get("/needs", async (req: Request, res: Response) => {
     try {
       const tag = req.query.tag as string | undefined;
-      const maxBudget = req.query.maxBudget ? ethers.parseEther(req.query.maxBudget as string) : undefined;
+      const maxBudget = req.query.maxBudget ? (() => { try { return ethers.parseEther(req.query.maxBudget as string); } catch { return undefined; } })() : undefined;
       const total = Number(await retryRpc(() => blockchain.marketplace.totalNeeds()));
 
       const needs = [];
@@ -46,7 +47,7 @@ export function marketRouter(blockchain: BlockchainService): Router {
   router.get("/offers", async (req: Request, res: Response) => {
     try {
       const tag = req.query.tag as string | undefined;
-      const maxPrice = req.query.maxPrice ? ethers.parseEther(req.query.maxPrice as string) : undefined;
+      const maxPrice = req.query.maxPrice ? (() => { try { return ethers.parseEther(req.query.maxPrice as string); } catch { return undefined; } })() : undefined;
       const total = Number(await retryRpc(() => blockchain.marketplace.totalOffers()));
 
       const offers = [];

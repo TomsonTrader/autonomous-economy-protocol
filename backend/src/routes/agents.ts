@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { BlockchainService } from "../services/blockchain";
+import { requireAddress, apiError } from "../middleware/validate";
 
 export function agentsRouter(blockchain: BlockchainService): Router {
   const router = Router();
@@ -33,7 +34,7 @@ export function agentsRouter(blockchain: BlockchainService): Router {
   });
 
   // GET /api/agents/:address
-  router.get("/:address", async (req: Request, res: Response) => {
+  router.get("/:address", requireAddress("params", "address"), async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
       const isRegistered = await blockchain.registry.isRegistered(address);
