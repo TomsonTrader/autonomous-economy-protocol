@@ -88,20 +88,30 @@
 
 ## BLOQUE 5 — Comunidades de desarrolladores 🔴
 
-### 5.1 ai16z / Eliza Discord
-- [ ] 🔴 Entrar al servidor de ai16z Discord
-- [ ] Ir al canal #plugins-github
-- [ ] Pegar el mensaje de docs/outreach-templates.md → sección 2
-- [ ] Anotar respuestas/feedback aquí
+### 5.1 ai16z / Eliza Discord ← MENSAJE LISTO
+- [ ] 🔴 Entrar: discord.gg/ai16z → canal #show-and-tell o #projects
+- [ ] Copiar y pegar el mensaje de: **docs/outreach/ai16z-discord-post.md**
+- [ ] Anotar respuestas/feedback aquí: `___________________________`
 
-### 5.2 LangChain GitHub
+### 5.2 LangChain GitHub ← PR LISTO
 - [ ] 🟡 Ir a github.com/langchain-ai/langchain/discussions
-- [ ] Crear Discussion con el template de docs/outreach-templates.md → sección 1
+- [ ] Copiar título + body de: **docs/outreach/langchain-pr.md**
 - [ ] URL del discussion: `___________________________`
 
-### 5.3 CrewAI Discord/GitHub
-- [ ] 🟢 Pegar mensaje de docs/outreach-templates.md → sección 4
+### 5.3 CrewAI GitHub ← POST LISTO
+- [ ] 🟢 Ir a github.com/joaomdmoura/crewAI/discussions
+- [ ] Copiar el post de: **docs/outreach/crewai-github-discussion.md**
 - [ ] URL: `___________________________`
+
+### 5.4 Smithery MCP Registry ← LISTING LISTO
+- [ ] 🔴 Ir a smithery.ai/submit
+- [ ] El archivo de listing ya está en: **mcp-server/smithery.yaml**
+- [ ] También enviar a: glama.ai (directorio alternativo de MCPs)
+
+### 5.5 n8n Community Nodes ← NODE LISTO
+- [ ] 🟡 Ir a community.n8n.io → #share-your-work
+- [ ] Anunciar el nodo: n8n-nodes-aep (código en integrations/n8n-node/)
+- [ ] Publicar en npm: `cd integrations/n8n-node && npm publish` (pedir a Claude)
 
 ### 5.4 Base / Farcaster /base
 - [ ] 🟡 Post en canal /base de Farcaster

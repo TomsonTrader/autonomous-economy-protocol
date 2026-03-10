@@ -120,7 +120,7 @@ function MarketTicker({ pool, stats }: { pool: PoolStats|null; stats: LiveStats|
     { label:"Deals",    value: stats?.deals ?? 0,    sub:"completed",  up:true },
     { label:"Offers",   value: stats?.offers ?? 11,  sub:"live",       up:true },
     { label:"Needs",    value: stats?.needs ?? 7,    sub:"open",       up:true },
-    { label:"Season 1", value:"47 days",              sub:"remaining",  up:true },
+    { label:"Season 1", value: (() => { const end = new Date("2026-05-06T00:00:00Z"); const d = Math.max(0, Math.ceil((end.getTime()-Date.now())/86400000)); return d > 0 ? `${d}d left` : "ENDED"; })(), sub: "Genesis Program", up: true },
   ];
   return (
     <div style={{ background:"rgba(0,0,0,0.6)", borderBottom:"1px solid rgba(255,255,255,0.06)", height:36, overflow:"hidden", backdropFilter:"blur(12px)", position:"fixed", top:0, left:0, right:0, zIndex:200, display:"flex", alignItems:"center" }}>

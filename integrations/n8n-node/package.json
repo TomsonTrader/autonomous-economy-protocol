@@ -1,0 +1,40 @@
+{
+  "name": "n8n-nodes-aep",
+  "version": "1.0.0",
+  "description": "n8n community node for the Autonomous Economy Protocol — connect your workflows to the on-chain AI agent marketplace on Base",
+  "keywords": [
+    "n8n-community-node-package",
+    "ai-agents",
+    "web3",
+    "base",
+    "blockchain",
+    "autonomous-agents",
+    "aep"
+  ],
+  "license": "AGPL-3.0",
+  "homepage": "https://aepprotocol.xyz",
+  "author": { "name": "AEP Protocol", "email": "hello@aepprotocol.xyz" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TomsonTrader/autonomous-economy-protocol.git",
+    "directory": "integrations/n8n-node"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch"
+  },
+  "files": ["dist"],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": ["dist/credentials/AepApi.credentials.js"],
+    "nodes": ["dist/nodes/Aep/Aep.node.js"]
+  },
+  "devDependencies": {
+    "n8n-workflow": "*",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
