@@ -20,8 +20,8 @@
 
 ### 2.1 Pool Uniswap
 - [x] Crear pool AGT/USDC en Uniswap V3 (Base Mainnet)
-- [ ] 🔴 Anotar aquí la dirección del pool: `___________________________`
-- [ ] 🔴 Anotar aquí la URL del pool en Uniswap: `___________________________`
+- [x] Dirección del pool: `0xe72646B25853e6300C80B029D3faCA63fd4e564B`
+- [x] URL Uniswap: https://app.uniswap.org/explore/pools/base/0xe72646B25853e6300C80B029D3faCA63fd4e564B
 - [ ] Añadir liquidez suficiente (mínimo $100 para CoinGecko)
 
 ### 2.2 DexScreener
