@@ -120,6 +120,38 @@ async function main() {
     });
   });
 
+  // Public activity feed — last 50 indexed events (for /activity page)
+  app.get("/api/activity", async (_req, res) => {
+    try {
+      const events = indexer.getRecentEvents(50);
+      res.json({ events, count: events.length });
+    } catch (e: any) {
+      res.json({ events: [], count: 0 });
+    }
+  });
+
+  // Global stats (for /activity page and public SEO)
+  app.get("/api/stats", async (_req, res) => {
+    try {
+      const [agents, needs, offers] = await Promise.all([
+        blockchain.registry.getActiveAgents().catch(() => []),
+        blockchain.marketplace.getNeedCount ? blockchain.marketplace.getNeedCount().catch(() => 0) : Promise.resolve(0),
+        blockchain.marketplace.getOfferCount ? blockchain.marketplace.getOfferCount().catch(() => 0) : Promise.resolve(0),
+      ]);
+      res.json({
+        totalAgents:  (agents as string[]).length,
+        totalDeals:   indexer.getEventStats()["DealFunded"] ?? 0,
+        totalVolume:  "0",
+        activeNeeds:  needs,
+        activeOffers: offers,
+        network:      blockchain.deployment.network,
+        timestamp:    new Date().toISOString(),
+      });
+    } catch (e: any) {
+      res.json({ totalAgents: 0, totalDeals: 0, totalVolume: "0", error: e.message });
+    }
+  });
+
   // Start server
   server.listen(PORT, () => {
     console.log(`\n🚀 Backend running at http://localhost:${PORT}`);
