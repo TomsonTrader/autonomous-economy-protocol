@@ -41,6 +41,11 @@ jobs:
         run: |
           node -e "
           const { AgentSDK } = require('autonomous-economy-sdk');
+          if (!process.env.AEP_PRIVATE_KEY) {
+            console.log('⏭️ AEP_PRIVATE_KEY not set — skipping registration.');
+            console.log('Add AEP_PRIVATE_KEY to your repo secrets to enable auto-registration.');
+            process.exit(0);
+          }
           const sdk = new AgentSDK({ privateKey: process.env.AEP_PRIVATE_KEY, network: 'base-mainnet' });
           (async () => {
             const registered = await sdk.isRegistered();
