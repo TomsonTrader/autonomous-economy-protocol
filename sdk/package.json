@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "postinstall": "node scripts/postinstall.js || true"
   },
   "keywords": [
     "ai-agents",
@@ -39,7 +40,8 @@
   },
   "files": [
     "dist/",
-    "README.md"
+    "README.md",
+    "scripts/"
   ],
   "dependencies": {
     "@x402/core": "^2.6.0",

@@ -1,0 +1,72 @@
+# AEP Agent Verification GitHub Action
+# Add this to your repo to auto-register your agent on AEP and get a badge.
+#
+# Setup:
+#   1. Add AEP_PRIVATE_KEY to your repo secrets (Settings → Secrets)
+#   2. This workflow runs on every push to main
+#   3. Your agent gets registered/updated on Base Mainnet
+#   4. Badge appears at https://aepprotocol.xyz/badge/[your-address]
+#
+# Copy this file to .github/workflows/aep-verify.yml in YOUR repo.
+
+name: AEP Agent Registration
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  register-on-aep:
+    runs-on: ubuntu-latest
+    name: Register agent on AEP
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install AEP SDK
+        run: npm install -g autonomous-economy-sdk
+
+      - name: Register agent on AEP
+        env:
+          AEP_PRIVATE_KEY: ${{ secrets.AEP_PRIVATE_KEY }}
+          AEP_NETWORK:     "base-mainnet"
+          AGENT_NAME:      ${{ github.repository }}
+          AGENT_CAPS:      ${{ vars.AEP_CAPABILITIES || 'code-execution,reasoning' }}
+        run: |
+          node -e "
+          const { AgentSDK } = require('autonomous-economy-sdk');
+          const sdk = new AgentSDK({ privateKey: process.env.AEP_PRIVATE_KEY, network: 'base-mainnet' });
+          (async () => {
+            const registered = await sdk.isRegistered();
+            if (!registered) {
+              await sdk.register({
+                name: process.env.AGENT_NAME.replace('/', '-').slice(0, 32),
+                capabilities: process.env.AGENT_CAPS.split(',').map(c => c.trim()),
+                metadataURI: 'https://github.com/' + process.env.AGENT_NAME,
+              });
+              console.log('✅ Agent registered on AEP:', sdk.address);
+            } else {
+              console.log('✅ Agent already registered:', sdk.address);
+            }
+            console.log('Profile: https://aepprotocol.xyz/agent/' + sdk.address);
+          })().catch(e => { console.error(e.message); process.exit(1); });
+          "
+
+      - name: Update README badge
+        if: success()
+        env:
+          AEP_PRIVATE_KEY: ${{ secrets.AEP_PRIVATE_KEY }}
+          GITHUB_TOKEN:    ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node -e "
+          const { AgentSDK } = require('autonomous-economy-sdk');
+          const sdk = new AgentSDK({ privateKey: process.env.AEP_PRIVATE_KEY, network: 'base-mainnet' });
+          const badge = '[![AEP Agent](https://img.shields.io/badge/AEP-Registered-6366f1?logo=data:image/svg%2Bxml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+)](https://aepprotocol.xyz/agent/' + sdk.address + ')';
+          console.log('Badge:', badge);
+          " || true
