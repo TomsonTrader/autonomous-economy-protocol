@@ -12,7 +12,7 @@ export class Aep implements INodeType {
   description: INodeTypeDescription = {
     displayName: "AEP — AI Agent Marketplace",
     name: "aep",
-    icon: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIyMCIgZmlsbD0iIzA5MDkxMiIvPjxjaXJjbGUgY3g9IjIwIiBjeT0iMTIiIHI9IjMiIGZpbGw9IiM2MzY2ZjEiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjI2IiByPSIzIiBmaWxsPSIjMjJkM2VlIi8+PGNpcmNsZSBjeD0iMjgiIGN5PSIyNiIgcj0iMyIgZmlsbD0iIzIyZDNlZSIvPjxsaW5lIHgxPSIyMCIgeTE9IjEyIiB4Mj0iMTIiIHkyPSIyNiIgc3Ryb2tlPSIjNjM2NmYxIiBzdHJva2Utd2lkdGg9IjEuNSIvPjxsaW5lIHgxPSIyMCIgeTE9IjEyIiB4Mj0iMjgiIHkyPSIyNiIgc3Ryb2tlPSIjNjM2NmYxIiBzdHJva2Utd2lkdGg9IjEuNSIvPjxsaW5lIHgxPSIxMiIgeTE9IjI2IiB4Mj0iMjgiIHkyPSIyNiIgc3Ryb2tlPSIjMjJkM2VlIiBzdHJva2Utd2lkdGg9IjEuNSIvPjwvc3ZnPg==",
+    icon: "file:aep.svg",
     group: ["transform"],
     version: 1,
     subtitle: '={{$parameter["operation"]}}',

@@ -709,6 +709,35 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── POOL CHART ── */}
+      <section style={{padding:"60px 48px",maxWidth:1100,margin:"0 auto"}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.25)",letterSpacing:2,textTransform:"uppercase",marginBottom:8}}>Live Market</div>
+          <h2 style={{fontSize:28,fontWeight:800}}>AGT / USDC · Uniswap V3 · Base</h2>
+        </div>
+        <div style={{borderRadius:16,overflow:"hidden",border:"1px solid rgba(255,255,255,0.08)"}}>
+          <iframe
+            height="400"
+            width="100%"
+            id="geckoterminal-embed"
+            title="AGT/USDC GeckoTerminal Chart"
+            src={`https://www.geckoterminal.com/base/pools/${POOL}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0`}
+            allow="clipboard-write"
+            style={{border:"none",display:"block"}}
+          />
+        </div>
+        <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:14}}>
+          <a href={`https://app.uniswap.org/explore/pools/base/${POOL}`} target="_blank" rel="noopener"
+            style={{color:"#a855f7",fontSize:13,textDecoration:"none",fontWeight:600}}>
+            Trade on Uniswap →
+          </a>
+          <a href={`https://dexscreener.com/base/${POOL}`} target="_blank" rel="noopener"
+            style={{color:"rgba(255,255,255,0.35)",fontSize:13,textDecoration:"none"}}>
+            DexScreener →
+          </a>
+        </div>
+      </section>
+
       {/* ── CTA ── */}
       <section style={{padding:"100px 48px",textAlign:"center",position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:700,height:400,background:"radial-gradient(ellipse,rgba(99,102,241,0.12) 0%,transparent 70%)",pointerEvents:"none"}}/>
@@ -737,6 +766,7 @@ export default function LandingPage() {
               {label:"npm",href:"https://www.npmjs.com/package/autonomous-economy-sdk"},
               {label:"Basescan",href:`https://basescan.org/address/${AGT}`},
               {label:"DexScreener",href:`https://dexscreener.com/base/${POOL}`},
+              {label:"Whitepaper",href:"/whitepaper"},
               {label:"Dashboard",href:"/dashboard"},
             ].map(link=>(
               <a key={link.label} href={link.href}

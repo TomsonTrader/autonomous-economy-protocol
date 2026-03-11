@@ -14,9 +14,10 @@
 | Basescan | https://basescan.org/token/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101 |
 | Website | https://aepprotocol.xyz |
 | GitHub | https://github.com/TomsonTrader/autonomous-economy-protocol |
-| Twitter/X | (add when created) |
-| Telegram | (add when created) |
-| Discord | (add when created) |
+| Twitter/X | https://x.com/AEPprotocol |
+| Whitepaper | https://aepprotocol.xyz/whitepaper |
+| Telegram | (pending) |
+| Discord | (pending) |
 
 ---
 

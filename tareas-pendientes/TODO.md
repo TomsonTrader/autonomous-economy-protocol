@@ -31,7 +31,7 @@
 - [x] Crear pool AGT/USDC en Uniswap V3 (Base Mainnet)
 - [x] Dirección del pool: `0xe72646B25853e6300C80B029D3faCA63fd4e564B`
 - [x] URL Uniswap: https://app.uniswap.org/explore/pools/base/0xe72646B25853e6300C80B029D3faCA63fd4e564B
-- [ ] Añadir liquidez suficiente (mínimo $100 para CoinGecko)
+- [x] Añadir liquidez suficiente (mínimo $100 para CoinGecko)
 
 ### 2.2 DexScreener
 - [ ] 🟡 Ir a dexscreener.com/update-token-info
@@ -111,7 +111,7 @@
 ### 5.5 n8n Community Nodes ← NODE LISTO
 - [ ] 🟡 Ir a community.n8n.io → #share-your-work
 - [ ] Anunciar el nodo: n8n-nodes-aep (código en integrations/n8n-node/)
-- [ ] Publicar en npm: `cd integrations/n8n-node && npm publish` (pedir a Claude)
+- [x] Publicar en npm: `n8n-nodes-aep@1.0.0` live en npmjs.com ✅
 
 ### 5.4 Base / Farcaster /base
 - [ ] 🟡 Post en canal /base de Farcaster

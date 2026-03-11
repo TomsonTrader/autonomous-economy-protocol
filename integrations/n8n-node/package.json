@@ -21,7 +21,7 @@
   },
   "main": "index.js",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "tsc --project tsconfig.json && cp nodes/Aep/aep.svg dist/nodes/Aep/aep.svg",
     "dev": "tsc --project tsconfig.json --watch"
   },
   "files": ["dist"],
