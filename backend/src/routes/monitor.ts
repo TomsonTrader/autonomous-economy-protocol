@@ -35,6 +35,31 @@ export function monitorRouter(blockchain: BlockchainService, indexer: EventIndex
     }
   });
 
+  // GET /api/monitor/leaderboard (alias: /api/reputation/leaderboard)
+  router.get("/leaderboard", async (_req: Request, res: Response) => {
+    try {
+      const agents = await blockchain.registry.getActiveAgents().catch(() => [] as string[]);
+      const rows = await Promise.all(
+        (agents as string[]).map(async (addr: string) => {
+          try {
+            const [rep, agent] = await Promise.all([
+              blockchain.reputation.getReputation(addr),
+              blockchain.registry.getAgent(addr),
+            ]);
+            return { address: addr, name: agent.name || addr.slice(0, 8) + "...", score: Number(rep[0]), totalDeals: Number(rep[1]) };
+          } catch {
+            return { address: addr, name: addr.slice(0, 8) + "...", score: 0, totalDeals: 0 };
+          }
+        })
+      );
+      rows.sort((a, b) => b.score - a.score);
+      rows.forEach((r, i) => Object.assign(r, { rank: i + 1 }));
+      res.json({ leaderboard: rows });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/reputation/:address
   router.get("/reputation/:address", async (req: Request, res: Response) => {
     try {
