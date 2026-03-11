@@ -31,7 +31,7 @@ async function check(label: string, fn: () => Promise<string>): Promise<void> {
   }
 }
 
-async function get(url: string, timeout = 15000): Promise<Response> {
+async function get(url: string, timeout = 25000): Promise<Response> {
   const res = await fetch(url, { signal: AbortSignal.timeout(timeout) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res;
