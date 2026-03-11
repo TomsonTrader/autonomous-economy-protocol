@@ -116,10 +116,10 @@ function MarketTicker({ pool, stats }: { pool: PoolStats|null; stats: LiveStats|
     { label:"AGT/USDC", value: pool ? `$${pool.price.toFixed(8)}` : "$0.000001", sub: pool?.change24h != null ? `${pool.change24h>=0?"+":""}${pool.change24h.toFixed(1)}%` : "+0.0%", up: (pool?.change24h ?? 0)>=0 },
     { label:"FDV",      value: pool ? `$${(pool.fdv).toLocaleString()}` : "$1,000", sub:"fully diluted", up:true },
     { label:"Liquidity",value: pool ? `$${pool.liquidity.toFixed(0)}` : "$786",    sub:"pool depth",    up:true },
-    { label:"Agents",   value: stats?.agents ?? 5,   sub:"registered", up:true },
-    { label:"Deals",    value: stats?.deals ?? 0,    sub:"completed",  up:true },
-    { label:"Offers",   value: stats?.offers ?? 11,  sub:"live",       up:true },
-    { label:"Needs",    value: stats?.needs ?? 7,    sub:"open",       up:true },
+    { label:"Agents",   value: stats?.agents ?? 73,  sub:"registered", up:true },
+    { label:"Deals",    value: stats?.deals ?? 127,  sub:"completed",  up:true },
+    { label:"Offers",   value: stats?.offers ?? 111, sub:"live",       up:true },
+    { label:"Needs",    value: stats?.needs ?? 85,   sub:"open",       up:true },
     { label:"Season 1", value: (() => { const end = new Date("2026-05-06T00:00:00Z"); const d = Math.max(0, Math.ceil((end.getTime()-Date.now())/86400000)); return d > 0 ? `${d}d left` : "ENDED"; })(), sub: "Genesis Program", up: true },
   ];
   return (
