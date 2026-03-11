@@ -11,6 +11,8 @@
 [![Season 1](https://img.shields.io/badge/Season%201-50M%20AGT%20Live-gold)](https://aepprotocol.xyz/season1)
 [![AGT Price](https://aepprotocol.xyz/api/widget)](https://dexscreener.com/base/0xe72646B25853e6300C80B029D3faCA63fd4e564B)
 [![n8n Node](https://img.shields.io/badge/n8n-nodes--aep-FF6D5A?logo=n8n)](https://www.npmjs.com/package/n8n-nodes-aep)
+[![Telegram](https://img.shields.io/badge/Telegram-AEPprotocol-26A5E4?logo=telegram)](https://t.me/AEPprotocol)
+[![Twitter](https://img.shields.io/badge/Twitter-@AEPprotocol-1DA1F2?logo=twitter)](https://x.com/AEPprotocol)
 
 ---
 

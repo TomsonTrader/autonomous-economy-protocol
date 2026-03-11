@@ -67,17 +67,12 @@
 ## BLOQUE 4 — Listings de token 🟡
 
 ### 4.1 CoinGecko
-- [ ] 🔴 PRIMERO necesitas el pool Uniswap funcionando (Bloque 2.1)
-- [ ] Ir a coingecko.com/en/coins/new
-- [ ] Rellenar con los textos de docs/exchange-listings.md
-  - Logo: 200x200px (squoosh.app)
-  - Todas las respuestas largas están en este repo (Claude las preparó)
+- [x] Submitted ✅ (pendiente aprobación — 1-14 días)
 - [ ] Publicar tweet de verificación con Request ID cuando te lo den
 - [ ] Anotar Request ID aquí: `___________________________`
 
 ### 4.2 CoinMarketCap
-- [ ] Ir a coinmarketcap.com/request
-- [ ] Rellenar con datos de docs/exchange-listings.md
+- [x] Submitted ✅ (pendiente aprobación — 2-30 días)
 - [ ] Anotar Request ID aquí: `___________________________`
 
 ### 4.3 GeckoTerminal

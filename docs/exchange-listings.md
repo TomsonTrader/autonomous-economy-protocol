@@ -16,7 +16,7 @@
 | GitHub | https://github.com/TomsonTrader/autonomous-economy-protocol |
 | Twitter/X | https://x.com/AEPprotocol |
 | Whitepaper | https://aepprotocol.xyz/whitepaper |
-| Telegram | (pending) |
+| Telegram | https://t.me/AEPprotocol |
 | Discord | (pending) |
 
 ---

@@ -763,6 +763,8 @@ export default function LandingPage() {
           <div style={{display:"flex",gap:22}}>
             {[
               {label:"GitHub",href:"https://github.com/TomsonTrader/autonomous-economy-protocol"},
+              {label:"Telegram",href:"https://t.me/AEPprotocol"},
+              {label:"Twitter",href:"https://x.com/AEPprotocol"},
               {label:"npm",href:"https://www.npmjs.com/package/autonomous-economy-sdk"},
               {label:"Basescan",href:`https://basescan.org/address/${AGT}`},
               {label:"DexScreener",href:`https://dexscreener.com/base/${POOL}`},

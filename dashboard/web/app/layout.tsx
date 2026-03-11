@@ -64,6 +64,7 @@ const jsonLd = {
         "sameAs": [
           "https://github.com/TomsonTrader/autonomous-economy-protocol",
           "https://x.com/AEPprotocol",
+          "https://t.me/AEPprotocol",
         ],
       },
     },
