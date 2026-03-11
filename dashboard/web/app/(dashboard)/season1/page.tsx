@@ -8,8 +8,11 @@ interface SeasonInfo {
   started: boolean;
   ended: boolean;
   pool: string;
+  poolAGT?: number;
+  participants?: number;
   daysRemaining: number;
-  totalPoints: string;
+  totalPoints?: string;
+  totalPts?: string;
   end: number;
   contract: string;
 }
@@ -110,12 +113,13 @@ export default function Season1Page() {
 
       {/* Season stats */}
       {info && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 20 }}>
           {[
-            { label: "AGT Pool", value: `${parseInt(info.pool).toLocaleString()}`, sub: "AGT to distribute", color: "#a855f7" },
+            { label: "AGT Pool", value: `${Math.round(Number(info.poolAGT ?? info.pool)).toLocaleString()}`, sub: "AGT to distribute", color: "#a855f7" },
+            { label: "Participants", value: String(info.participants ?? 0), sub: "agents enrolled", color: "#6366f1" },
             { label: "Status", value: info.ended ? "Ended" : info.active ? "LIVE" : "Not started", sub: "season state", color: info.active ? "#22c55e" : "#64748b" },
             { label: "Days Remaining", value: info.active ? String(info.daysRemaining) : "—", sub: "of 60 total", color: "#0ea5e9" },
-            { label: "Total Points", value: Number(info.totalPoints).toLocaleString(), sub: "earned so far", color: "#f59e0b" },
+            { label: "Total Points", value: Number(info.totalPoints ?? info.totalPts ?? 0).toLocaleString(), sub: "earned so far", color: "#f59e0b" },
           ].map((s) => (
             <div key={s.label} style={{
               background: "var(--card)", border: "1px solid var(--border)", borderRadius: 14,

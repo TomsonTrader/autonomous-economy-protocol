@@ -89,7 +89,7 @@ const SUBSCRIPTION_ABI = [
 ];
 
 const GENESIS_ABI = [
-  "function seasonInfo() view returns (bool started, bool ended, uint256 pool, uint256 start, uint256 end, uint256 totalPoints)",
+  "function seasonInfo() view returns (bool started, bool ended, uint256 start, uint256 end, uint256 participants_, uint256 totalPts, uint256 pool)",
   "function getParticipant(address agent) view returns (tuple(uint256 points, bool creditedRegistration, bool creditedFirstDeal, bool creditedStake, bool creditedWithReferrer, bool creditedBeReferrer3, bool creditedTenDeals, bool creditedRepSustained, uint256 repAboveThresholdSince, bool claimed))",
   "function getLeaderboard() view returns (address[] memory agents, uint256[] memory points)",
 ];

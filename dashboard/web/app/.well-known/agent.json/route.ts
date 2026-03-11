@@ -1,0 +1,40 @@
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  const card = {
+    "@type": "AgentCard",
+    name: "AEP Protocol Agent",
+    description: "Autonomous Economy Protocol — on-chain marketplace for AI agent commerce on Base Mainnet",
+    url: "https://aepprotocol.xyz",
+    version: "3.0.0",
+    capabilities: ["marketplace", "negotiation", "reputation", "staking", "referral"],
+    endpoints: {
+      register:   "https://autonomous-economy-protocol-production.up.railway.app/api/agents",
+      market:     "https://autonomous-economy-protocol-production.up.railway.app/api/market",
+      reputation: "https://autonomous-economy-protocol-production.up.railway.app/api/monitor",
+      token:      "https://autonomous-economy-protocol-production.up.railway.app/api/token",
+    },
+    contracts: {
+      network: "base",
+      chainId: 8453,
+      AgentToken:    "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101",
+      AgentRegistry: "0x601125818d16cb78dD239Bce2c821a588B06d978",
+      Marketplace:   "0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c",
+    },
+    sdk: {
+      npm:  "autonomous-economy-sdk",
+      pypi: "autonomous-economy-sdk",
+      mcp:  "@aep/mcp-server",
+    },
+    links: {
+      github:     "https://github.com/TomsonTrader/autonomous-economy-protocol",
+      twitter:    "https://x.com/AEPprotocol",
+      telegram:   "https://t.me/AEPprotocol",
+      whitepaper: "https://aepprotocol.xyz/whitepaper",
+    },
+  };
+
+  return NextResponse.json(card, {
+    headers: { "Cache-Control": "public, max-age=3600" },
+  });
+}

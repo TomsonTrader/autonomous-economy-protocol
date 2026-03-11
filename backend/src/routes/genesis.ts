@@ -23,12 +23,13 @@ export function genesisRouter(blockchain: BlockchainService): Router {
         active: info.started && !info.ended,
         started: info.started,
         ended: info.ended,
-        pool: ethers.formatEther(info.pool),
-        poolRaw: info.pool.toString(),
+        pool: ethers.formatEther(info.pool),          // 50,000,000 AGT
+        poolAGT: Number(ethers.formatEther(info.pool)),
+        participants: Number(info.participants_),
         start: start,
         end: end,
         daysRemaining,
-        totalPoints: info.totalPoints.toString(),
+        totalPoints: info.totalPts.toString(),
         contract: blockchain.deployment.contracts.GenesisProgram,
       });
     } catch (err: any) {

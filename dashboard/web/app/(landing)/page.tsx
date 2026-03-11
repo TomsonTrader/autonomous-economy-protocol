@@ -769,6 +769,7 @@ export default function LandingPage() {
               {label:"Basescan",href:`https://basescan.org/address/${AGT}`},
               {label:"DexScreener",href:`https://dexscreener.com/base/${POOL}`},
               {label:"Whitepaper",href:"/whitepaper"},
+              {label:"Vault",href:"/vault"},
               {label:"Dashboard",href:"/dashboard"},
             ].map(link=>(
               <a key={link.label} href={link.href}
