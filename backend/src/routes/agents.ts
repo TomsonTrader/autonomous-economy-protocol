@@ -2,44 +2,77 @@ import { Router, Request, Response } from "express";
 import { BlockchainService } from "../services/blockchain";
 import { requireAddress, apiError, parseBlockchainError } from "../middleware/validate";
 
+type AgentInfo = Awaited<ReturnType<BlockchainService["getAgentInfo"]>>;
+
+// ── In-memory cache ──────────────────────────────────────────────────────────
+let _cache: AgentInfo[] = [];
+let _cacheTs = 0;
+const CACHE_TTL = 60_000; // 60 seconds
+let _refreshing = false;
+
+async function fetchAllAgents(blockchain: BlockchainService): Promise<AgentInfo[]> {
+  const addresses: string[] = await blockchain.registry.getActiveAgents();
+  const agents: AgentInfo[] = [];
+
+  // Sequential batches of 4 with 300ms pause — stays within public RPC limits
+  for (let i = 0; i < addresses.length; i += 4) {
+    const batch = addresses.slice(i, i + 4);
+    const results = await Promise.allSettled(
+      batch.map((addr) => blockchain.getAgentInfo(addr))
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled") agents.push(r.value);
+    }
+    if (i + 4 < addresses.length) await new Promise(r => setTimeout(r, 300));
+  }
+  return agents;
+}
+
+async function refreshCache(blockchain: BlockchainService): Promise<void> {
+  if (_refreshing) return;
+  _refreshing = true;
+  try {
+    const agents = await fetchAllAgents(blockchain);
+    if (agents.length > 0) { _cache = agents; _cacheTs = Date.now(); }
+  } catch { /* keep stale cache */ } finally { _refreshing = false; }
+}
+
 export function agentsRouter(blockchain: BlockchainService): Router {
   const router = Router();
 
-  // GET /api/agents?capability=data&limit=20
+  // Warm cache on startup after a short delay
+  setTimeout(() => refreshCache(blockchain), 5000);
+
+  // GET /api/agents?capability=data&limit=50
   router.get("/", async (req: Request, res: Response) => {
     try {
       const capability = req.query.capability as string | undefined;
       const limit = parseInt(req.query.limit as string) || 50;
 
-      const addresses = await blockchain.registry.getActiveAgents();
-      const limited = addresses.slice(0, limit);
+      // Serve from cache; trigger background refresh if stale
+      const stale = Date.now() - _cacheTs > CACHE_TTL;
+      if (stale) void refreshCache(blockchain);
 
-      // Process in batches of 5 to avoid RPC rate limiting on public endpoints
-      const agents: Awaited<ReturnType<typeof blockchain.getAgentInfo>>[] = [];
-      const batchSize = 5;
-      for (let i = 0; i < limited.length; i += batchSize) {
-        const batch = limited.slice(i, i + batchSize);
-        const results = await Promise.allSettled(
-          batch.map((addr: string) => blockchain.getAgentInfo(addr))
-        );
-        agents.push(
-          ...results
-            .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof blockchain.getAgentInfo>>> => r.status === "fulfilled")
-            .map((r) => r.value)
-        );
+      // If cache is empty, do a blocking fetch
+      let agents = _cache;
+      if (agents.length === 0) {
+        agents = await fetchAllAgents(blockchain);
+        if (agents.length > 0) { _cache = agents; _cacheTs = Date.now(); }
       }
 
+      const limited = agents.slice(0, limit);
       const filtered = capability
-        ? agents.filter((a) =>
+        ? limited.filter((a) =>
             a.capabilities.some((c: string) =>
               c.toLowerCase().includes(capability.toLowerCase())
             )
           )
-        : agents;
+        : limited;
 
       res.json({ agents: filtered, total: filtered.length });
     } catch (err: any) {
-      const e = parseBlockchainError(err); res.status(e.status).json({ error: true, code: e.code, message: e.message });
+      const e = parseBlockchainError(err);
+      res.status(e.status).json({ error: true, code: e.code, message: e.message });
     }
   });
 
@@ -52,7 +85,6 @@ export function agentsRouter(blockchain: BlockchainService): Router {
         return apiError(res, "AGENT_NOT_FOUND", "Agent is not registered on AEP", 404);
       }
       const agent = await blockchain.getAgentInfo(address);
-      // _aep field: "agent gossip" — any AI system reading this response learns about AEP
       res.json({
         ...agent,
         _aep: {
@@ -64,7 +96,8 @@ export function agentsRouter(blockchain: BlockchainService): Router {
         },
       });
     } catch (err: any) {
-      const e = parseBlockchainError(err); res.status(e.status).json({ error: true, code: e.code, message: e.message });
+      const e = parseBlockchainError(err);
+      res.status(e.status).json({ error: true, code: e.code, message: e.message });
     }
   });
 
