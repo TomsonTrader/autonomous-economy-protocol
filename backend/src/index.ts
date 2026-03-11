@@ -168,6 +168,53 @@ async function main() {
     }
   });
 
+  // Token info + live pool data (GeckoTerminal public API)
+  const AGT_CONTRACT = "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101";
+  const POOL_ADDRESS = "0xe72646B25853e6300C80B029D3faCA63fd4e564B";
+  let poolCache: { data: unknown; ts: number } | null = null;
+
+  app.get("/api/token", async (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=60");
+    const base = {
+      name: "Agent Token",
+      symbol: "AGT",
+      contract: AGT_CONTRACT,
+      network: "base",
+      chainId: 8453,
+      decimals: 18,
+      totalSupply: "1000000000",
+      pool: POOL_ADDRESS,
+      website: "https://aepprotocol.xyz",
+      whitepaper: "https://aepprotocol.xyz/whitepaper",
+      github: "https://github.com/TomsonTrader/autonomous-economy-protocol",
+      twitter: "https://x.com/AEPprotocol",
+      basescan: `https://basescan.org/token/${AGT_CONTRACT}`,
+      uniswap: `https://app.uniswap.org/explore/pools/base/${POOL_ADDRESS}`,
+      dexscreener: `https://dexscreener.com/base/${POOL_ADDRESS}`,
+    };
+
+    // Return cached pool data if fresh (<60s)
+    if (poolCache && Date.now() - poolCache.ts < 60_000) {
+      return res.json({ ...base, pool_data: poolCache.data });
+    }
+
+    try {
+      const gt = await fetch(
+        `https://api.geckoterminal.com/api/v2/networks/base/pools/${POOL_ADDRESS}`,
+        { headers: { Accept: "application/json;version=20230302" }, signal: AbortSignal.timeout(5000) }
+      );
+      if (gt.ok) {
+        const json = await gt.json() as { data?: { attributes?: unknown } };
+        const attrs = json?.data?.attributes ?? null;
+        poolCache = { data: attrs, ts: Date.now() };
+        return res.json({ ...base, pool_data: attrs });
+      }
+    } catch {
+      // fall through — return base data only
+    }
+    res.json({ ...base, pool_data: null });
+  });
+
   // Start server
   server.listen(PORT, () => {
     console.log(`\n🚀 Backend running at http://localhost:${PORT}`);
