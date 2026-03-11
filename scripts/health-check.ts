@@ -20,21 +20,35 @@ const c = {
 type Result = { label: string; ok: boolean; detail?: string };
 const results: Result[] = [];
 
-async function check(label: string, fn: () => Promise<string>): Promise<void> {
+async function check(label: string, fn: () => Promise<string>, warn = false): Promise<void> {
   try {
     const detail = await fn();
     results.push({ label, ok: true, detail });
     process.stdout.write(`  ${c.ok} ${label}${detail ? c.dim + " — " + detail + c.rst : ""}\n`);
   } catch (e: any) {
-    results.push({ label, ok: false, detail: e.message });
-    process.stdout.write(`  ${c.fail} ${label}${c.dim + " — " + e.message + c.rst}\n`);
+    results.push({ label, ok: !warn, detail: e.message });
+    const icon = warn ? c.warn : c.fail;
+    process.stdout.write(`  ${icon} ${label}${c.dim + " — " + e.message + c.rst}\n`);
   }
 }
 
 async function get(url: string, timeout = 25000): Promise<Response> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(timeout) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(timeout) });
+      if (!res.ok && attempt < 2) { await new Promise(r => setTimeout(r, 3000)); continue; }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res;
+    } catch (e: any) {
+      if (attempt < 2 && (e.name === "TimeoutError" || String(e.message).includes("timeout"))) {
+        process.stdout.write(`    ${c.dim}(cold start, retrying…)${c.rst}\n`);
+        await new Promise(r => setTimeout(r, 3000));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error("unreachable");
 }
 
 async function main() {
@@ -75,7 +89,7 @@ async function main() {
     const d = await (await get(`${BACKEND}/api/faucet/status`)).json() as any;
     if (!d.configured) throw new Error("not configured — add ETH to faucet wallet");
     return "configured";
-  });
+  }, true /* warn only — needs ETH in deployer wallet */);
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   console.log(`\n${c.bold}Dashboard (Vercel)${c.rst}`);
@@ -108,7 +122,7 @@ async function main() {
     if (!d.pair && !d.pairs?.length) throw new Error("not indexed yet — make a swap on Uniswap");
     const p = d.pair || d.pairs[0];
     return `$${p.priceUsd}`;
-  });
+  }, true /* warn only — needs a swap to trigger DexScreener indexing */);
 
   // ── npm ───────────────────────────────────────────────────────────────────
   console.log(`\n${c.bold}npm / PyPI${c.rst}`);
@@ -123,14 +137,14 @@ async function main() {
   await check("autonomous-economy-sdk (PyPI)", async () => {
     const d = await (await get("https://pypi.org/pypi/autonomous-economy-sdk/json")).json() as any;
     return `v${d.info.version}`;
-  });
+  }, true /* warn only — Python SDK not yet published */);
 
   // ── Summary ───────────────────────────────────────────────────────────────
-  const passed = results.filter(r => r.ok).length;
-  const failed = results.filter(r => !r.ok).length;
+  const passed   = results.filter(r => r.ok).length;
+  const realFail = results.filter(r => !r.ok).length;
   console.log(`\n${"─".repeat(56)}`);
-  console.log(`${c.bold}${passed}/${results.length} checks passed${failed > 0 ? ` · ${failed} failed` : " 🎉"}${c.rst}\n`);
-  if (failed > 0) process.exit(1);
+  console.log(`${c.bold}${passed}/${results.length} checks passed${realFail > 0 ? ` · ${c.rst}\x1b[31m${realFail} failed${c.rst}` : " 🎉"}${c.rst}\n`);
+  if (realFail > 0) process.exit(1);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

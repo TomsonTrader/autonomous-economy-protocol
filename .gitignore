@@ -30,3 +30,6 @@ Thumbs.db
 .vscode/
 .idea/
 agents/demo/.env
+
+# Mainnet simulation wallets
+simulation/mainnet-agents.json

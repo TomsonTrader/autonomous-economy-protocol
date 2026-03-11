@@ -136,10 +136,15 @@ export default function OverviewPage() {
   const [connected, setConnected] = useState(false);
   const [feed,      setFeed]      = useState<any[]>([]);
 
-  // Load real stats silently
+  // Load real stats silently + periodic refresh
   useEffect(()=>{
     fetchStats().then(setStats).catch(()=>{});
     fetchActivity(20).then(d=>setFeed(d.events||[])).catch(()=>{});
+    // Refresh stats every 30s
+    const statsTimer = setInterval(()=>fetchStats().then(setStats).catch(()=>{}), 30_000);
+    // Refresh activity feed every 60s
+    const feedTimer  = setInterval(()=>fetchActivity(20).then(d=>setFeed(d.events||[])).catch(()=>{}), 60_000);
+    return ()=>{ clearInterval(statsTimer); clearInterval(feedTimer); };
   },[]);
 
   // WebSocket for real events
@@ -153,8 +158,8 @@ export default function OverviewPage() {
         const msg = JSON.parse(e.data);
         if (msg.type!=="connected") {
           setFeed(prev=>[{id:Date.now(),...msg},...prev].slice(0,60));
-          if (["AgentRegistered","ProposalAccepted"].includes(msg.type))
-            fetchStats().then(setStats).catch(()=>{});
+          // Refresh stats on any on-chain event (not just registrations/acceptances)
+          fetchStats().then(setStats).catch(()=>{});
         }
       };
     } catch {}

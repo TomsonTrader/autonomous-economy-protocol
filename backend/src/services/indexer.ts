@@ -161,6 +161,50 @@ export class EventIndexer {
     console.log("[Indexer] Listening for on-chain events...");
   }
 
+  // Backfill from blockchain on startup so events.db survives Railway redeploys
+  async backfillFromChain(): Promise<void> {
+    const recent = (this.db.prepare("SELECT COUNT(*) as cnt FROM events WHERE timestamp > ?").get(
+      Math.floor(Date.now() / 1000) - 7200) as { cnt: number }).cnt;
+    if (recent > 0) { console.log(`[Indexer] ${recent} recent events in DB — skipping backfill`); return; }
+
+    console.log("[Indexer] Empty DB — backfilling from blockchain (last 4000 blocks)...");
+    const provider = this.blockchain.provider;
+    const currentBlock = await provider.getBlockNumber().catch(() => 0);
+    if (!currentBlock) return;
+    const fromBlock = Math.max(0, currentBlock - 4000);
+
+    const insertIfNew = (type: string, data: object, txHash?: string, blockNumber?: number) => {
+      if (txHash) {
+        const exists = (this.db.prepare("SELECT 1 FROM events WHERE tx_hash = ? AND type = ?").get(txHash, type));
+        if (exists) return;
+      }
+      this.db.prepare("INSERT INTO events (type, block_number, tx_hash, data) VALUES (?, ?, ?, ?)")
+        .run(type, blockNumber ?? null, txHash ?? null, JSON.stringify(data));
+    };
+
+    const chunk = 1000;
+    for (let start = fromBlock; start < currentBlock; start += chunk) {
+      const end = Math.min(start + chunk - 1, currentBlock);
+      try {
+        const [regEvs, needEvs, offerEvs, propEvs, accEvs] = await Promise.all([
+          this.blockchain.registry.queryFilter(this.blockchain.registry.filters.AgentRegistered?.() ?? {}, start, end).catch(() => []),
+          this.blockchain.marketplace.queryFilter(this.blockchain.marketplace.filters.NeedPublished?.() ?? {}, start, end).catch(() => []),
+          this.blockchain.marketplace.queryFilter(this.blockchain.marketplace.filters.OfferPublished?.() ?? {}, start, end).catch(() => []),
+          this.blockchain.engine.queryFilter(this.blockchain.engine.filters.ProposalCreated?.() ?? {}, start, end).catch(() => []),
+          this.blockchain.engine.queryFilter(this.blockchain.engine.filters.ProposalAccepted?.() ?? {}, start, end).catch(() => []),
+        ]);
+        for (const ev of regEvs  as any[]) insertIfNew("AgentRegistered",  { agent: ev.args[0], name: ev.args[1], capabilities: [...ev.args[2]] }, ev.transactionHash, ev.blockNumber);
+        for (const ev of needEvs  as any[]) insertIfNew("NeedPublished",   { needId: ev.args[0].toString(), publisher: ev.args[1], budget: ev.args[2].toString(), tags: [...ev.args[3]] }, ev.transactionHash, ev.blockNumber);
+        for (const ev of offerEvs as any[]) insertIfNew("OfferPublished",  { offerId: ev.args[0].toString(), publisher: ev.args[1], price: ev.args[2].toString(), tags: [...ev.args[3]] }, ev.transactionHash, ev.blockNumber);
+        for (const ev of propEvs  as any[]) insertIfNew("ProposalCreated", { proposalId: ev.args[0].toString(), needId: ev.args[1].toString(), offerId: ev.args[2].toString(), buyer: ev.args[3], seller: ev.args[4], price: ev.args[5].toString() }, ev.transactionHash, ev.blockNumber);
+        for (const ev of accEvs   as any[]) insertIfNew("ProposalAccepted",{ proposalId: ev.args[0].toString(), agreementContract: ev.args[1] }, ev.transactionHash, ev.blockNumber);
+      } catch { /* skip chunk on error */ }
+      await new Promise(r => setTimeout(r, 400));
+    }
+    const total = (this.db.prepare("SELECT COUNT(*) as cnt FROM events").get() as { cnt: number }).cnt;
+    console.log(`[Indexer] Backfill complete — ${total} events in DB`);
+  }
+
   getRecentEvents(limit = 50, type?: string) {
     const stmt = type
       ? this.db.prepare("SELECT * FROM events WHERE type = ? ORDER BY timestamp DESC LIMIT ?")

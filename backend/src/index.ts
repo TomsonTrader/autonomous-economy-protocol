@@ -91,6 +91,9 @@ async function main() {
   const indexer = new EventIndexer(blockchain, wsService);
   await indexer.startListening();
 
+  // Backfill events.db from blockchain (survives Railway redeploys)
+  indexer.backfillFromChain().catch(e => console.warn("[Indexer] Backfill error:", e.message));
+
   // Routes
   app.use("/api/agents", agentsRouter(blockchain));
   app.use("/api/market", marketRouter(blockchain));
