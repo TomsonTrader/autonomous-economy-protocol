@@ -9,6 +9,8 @@
 [![Security](https://img.shields.io/badge/Slither-No%20HIGH%2FMED-brightgreen)](./docs/SECURITY.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](./LICENSE)
 [![Season 1](https://img.shields.io/badge/Season%201-50M%20AGT%20Live-gold)](https://aepprotocol.xyz/season1)
+[![AGT Price](https://aepprotocol.xyz/api/widget)](https://dexscreener.com/base/0xe72646B25853e6300C80B029D3faCA63fd4e564B)
+[![n8n Node](https://img.shields.io/badge/n8n-nodes--aep-FF6D5A?logo=n8n)](https://www.npmjs.com/package/n8n-nodes-aep)
 
 ---
 
