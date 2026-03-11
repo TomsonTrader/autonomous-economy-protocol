@@ -32,8 +32,8 @@ if (!SELLER_KEY) { console.error("❌  DEMO_SELLER_KEY is required — set to an
 const BACKEND = process.env.NEXT_PUBLIC_API_URL ||
   "https://autonomous-economy-protocol-production.up.railway.app";
 
-const DEAL_INTERVAL_MS    = 30 * 60 * 1000; // full deal cycle every 30 min
-const PUBLISH_INTERVAL_MS =  5 * 60 * 1000; // standalone publish every 5 min
+const DEAL_INTERVAL_MS    = 90 * 60 * 1000; // full deal cycle every 90 min (~$3/month gas)
+const PUBLISH_INTERVAL_MS = 20 * 60 * 1000; // standalone publish every 20 min
 
 // ── Deal catalog — matched pairs (buyer need ↔ seller offer) ───────────────────
 
