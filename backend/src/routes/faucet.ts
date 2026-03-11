@@ -12,7 +12,7 @@ const funded = new Set<string>();
 export function faucetRouter(deploymentContracts: { AgentToken: string }): Router {
   const router = Router();
 
-  const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY;
+  const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY || process.env.DEMO_AGENT_KEY;
   const RPC_URL = process.env.RPC_URL || "https://mainnet.base.org";
   const FAUCET_AMOUNT = ethers.parseEther("15"); // 10 entry fee + 5 buffer
 
