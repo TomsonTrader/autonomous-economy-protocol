@@ -1,78 +1,127 @@
 /**
- * AEP Demo Agent — 24/7 Market Maker
+ * AEP Demo Agent — Full Deal Cycle Engine
  *
- * A live agent that runs permanently on Base Mainnet, publishing real
- * needs and offers to keep the marketplace active. It negotiates with
- * any agent that responds, completes deals, and builds reputation.
+ * Runs 2 wallets (buyer + seller) that orchestrate complete deals every 30 minutes:
+ *   seller publishes offer → buyer publishes need → buyer proposes →
+ *   seller accepts → buyer funds escrow → buyer confirms delivery → 💰
  *
- * This agent is the "heartbeat" of the protocol — it ensures the live
- * stats on the landing page always show real activity.
+ * This generates real on-chain events: NeedPublished, OfferPublished,
+ * ProposalCreated, ProposalAccepted, AgreementFunded, DeliveryConfirmed.
  *
- * Deploy on Railway as a worker service (separate from the backend).
- * Required env vars:
- *   DEMO_AGENT_KEY  — private key of a funded wallet (0.002+ ETH for gas)
- *
- * The agent calls the faucet on first run to get AGT for registration.
+ * Required Railway env vars:
+ *   DEMO_AGENT_KEY    — buyer wallet (funded with ETH + AGT)
+ *   DEMO_SELLER_KEY   — seller wallet (one of the simulation agents, has 1005 AGT)
  */
 
 import * as dotenv from "dotenv";
 import * as fs from "fs";
-// Load from agents/demo/.env first (local), fall back to root .env
 const localEnv = require("path").resolve(__dirname, "../.env");
 const rootEnv  = require("path").resolve(__dirname, "../../.env");
 dotenv.config({ path: fs.existsSync(localEnv) ? localEnv : rootEnv });
 
 import { AgentSDK } from "autonomous-economy-sdk";
-import { ethers } from "ethers";
 
-// ── Config ────────────────────────────────────────────────────────────────────
+// ── Config ─────────────────────────────────────────────────────────────────────
 
-const KEY = process.env.DEMO_AGENT_KEY;
-if (!KEY) {
-  console.error("❌  DEMO_AGENT_KEY env var is required");
-  process.exit(1);
-}
+const BUYER_KEY  = process.env.DEMO_AGENT_KEY;
+const SELLER_KEY = process.env.DEMO_SELLER_KEY;
+
+if (!BUYER_KEY) { console.error("❌  DEMO_AGENT_KEY is required"); process.exit(1); }
+if (!SELLER_KEY) { console.error("❌  DEMO_SELLER_KEY is required — set to any simulation agent key"); process.exit(1); }
 
 const BACKEND = process.env.NEXT_PUBLIC_API_URL ||
   "https://autonomous-economy-protocol-production.up.railway.app";
 
-const CYCLE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes between cycles
-const PROPOSAL_CHECK_MS = 2 * 60 * 1000; // check for proposals every 2 minutes
+const DEAL_INTERVAL_MS    = 30 * 60 * 1000; // full deal cycle every 30 min
+const PUBLISH_INTERVAL_MS =  5 * 60 * 1000; // standalone publish every 5 min
 
-// ── Real-world service catalog ─────────────────────────────────────────────────
+// ── Deal catalog — matched pairs (buyer need ↔ seller offer) ───────────────────
 
-const OFFERS_CATALOG = [
-  { desc: "Sentiment analysis of social media posts — returns JSON with score, entities, topics.", price: "40", tags: ["nlp", "sentiment", "analysis"] },
-  { desc: "Real-time ETH/BTC price feed with 1-minute resolution via CoinGecko API.", price: "25", tags: ["data", "pricing", "crypto"] },
-  { desc: "GPT-4 content summarization — 2000 words in, 200-word summary out.", price: "60", tags: ["llm", "summarize", "content"] },
-  { desc: "Web scraping service — returns structured JSON from any URL.", price: "35", tags: ["scraping", "data", "web"] },
-  { desc: "On-chain wallet reputation check — returns score + risk flags.", price: "20", tags: ["reputation", "wallet", "risk"] },
-  { desc: "Smart contract audit prelim scan — flags common vulnerabilities.", price: "150", tags: ["security", "audit", "solidity"] },
-  { desc: "Language translation EN↔ES↔FR — up to 10k characters.", price: "30", tags: ["translation", "nlp", "language"] },
-  { desc: "Image classification — returns top-5 labels with confidence scores.", price: "45", tags: ["vision", "classification", "ml"] },
+const DEAL_PAIRS = [
+  {
+    tags:      ["data", "pricing", "crypto"],
+    needDesc:  "Need real-time ETH/BTC/SOL price feed, 5-minute updates, JSON format",
+    budget:    "30",
+    offerDesc: "Crypto price feed via CoinGecko + Chainlink, 1-minute resolution, 99.9% uptime",
+    price:     "25",
+  },
+  {
+    tags:      ["nlp", "sentiment", "analysis"],
+    needDesc:  "Need sentiment analysis of last 100 ETH-related tweets — bullish/bearish score",
+    budget:    "50",
+    offerDesc: "NLP sentiment analysis of social media posts, returns JSON with score and entities",
+    price:     "40",
+  },
+  {
+    tags:      ["data", "analytics", "onchain"],
+    needDesc:  "Need weekly on-chain analytics report: TVL, volume, active wallets for 5 DeFi protocols",
+    budget:    "70",
+    offerDesc: "Automated DeFi analytics report — TVL, fees, user count from 20+ protocols, weekly",
+    price:     "55",
+  },
+  {
+    tags:      ["security", "audit", "solidity"],
+    needDesc:  "Need smart contract prelim security scan — reentrancy, overflow, access control",
+    budget:    "120",
+    offerDesc: "Smart contract prelim audit — 12 vulnerability patterns, report within 4h",
+    price:     "100",
+  },
+  {
+    tags:      ["translation", "nlp", "language"],
+    needDesc:  "Need English → Spanish translation of 3,000-word DeFi whitepaper section",
+    budget:    "45",
+    offerDesc: "Professional EN↔ES↔FR↔DE translation up to 15k characters, preserves formatting",
+    price:     "35",
+  },
+  {
+    tags:      ["gpu-compute", "inference", "ml"],
+    needDesc:  "Need GPU inference for 500 image classification requests, sub-500ms latency",
+    budget:    "80",
+    offerDesc: "GPU cluster: ResNet-50 + CLIP inference, top-5 labels with confidence scores",
+    price:     "65",
+  },
+  {
+    tags:      ["data", "scraping", "web"],
+    needDesc:  "Need structured JSON extraction from 20 DeFi protocol websites — TVL, APY, volume",
+    budget:    "40",
+    offerDesc: "Web scraping service — structured JSON from any URL, handles JS-rendered pages",
+    price:     "32",
+  },
+  {
+    tags:      ["oracle", "price-feed"],
+    needDesc:  "Need AGT/ETH oracle price feed updated every 60 seconds with 24h change",
+    budget:    "35",
+    offerDesc: "High-frequency oracle, 1-second resolution, cryptographic proofs included",
+    price:     "28",
+  },
 ];
 
-const NEEDS_CATALOG = [
-  { desc: "Need ETH/BTC price feed updated every 5 minutes — JSON format.", budget: "30", tags: ["data", "pricing", "crypto"] },
-  { desc: "Need sentiment analysis of latest 100 Ethereum tweets.", budget: "50", tags: ["nlp", "sentiment", "twitter"] },
-  { desc: "Need smart contract ABI extracted from a Basescan address.", budget: "20", tags: ["solidity", "data", "web3"] },
-  { desc: "Need a 500-word blog post about autonomous AI agents in DeFi.", budget: "70", tags: ["content", "writing", "ai"] },
-  { desc: "Need wallet risk scoring for 10 addresses — fraud detection.", budget: "40", tags: ["risk", "wallet", "security"] },
-  { desc: "Need on-chain transaction classification — DeFi vs CEX vs NFT.", budget: "35", tags: ["data", "analysis", "onchain"] },
+// Standalone publishes (no matching partner needed)
+const SOLO_OFFERS = [
+  { desc: "Wallet reputation check — risk score, fraud flags, on-chain history summary", price: "20", tags: ["reputation", "wallet", "risk"] },
+  { desc: "GPT-4o content summarization — 3,000 words in, 250-word executive summary out", price: "60", tags: ["llm", "summarize", "content"] },
+  { desc: "Cross-chain arbitrage bot monitoring — alerts + profit calculations in real-time", price: "90", tags: ["arbitrage", "defi", "monitoring"] },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const SOLO_NEEDS = [
+  { desc: "Need portfolio rebalancing strategy for 5 DeFi positions — optimal weights", budget: "55", tags: ["defi", "analytics", "rebalancing"] },
+  { desc: "Need Base blockchain transaction indexer for custom ERC-20 token events", budget: "85", tags: ["data", "onchain", "indexing"] },
+  { desc: "Need social sentiment feed for AGT token — Twitter + Farcaster + Telegram", budget: "45", tags: ["sentiment", "nlp", "social"] },
+];
+
+// ── Logging ────────────────────────────────────────────────────────────────────
 
 function log(msg: string) {
-  const ts = new Date().toISOString();
-  console.log(`[${ts}] [DemoAgent] ${msg}`);
+  console.log(`[${new Date().toISOString()}] [DemoAgent] ${msg}`);
 }
 
 async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function callFaucet(address: string): Promise<boolean> {
+// ── Faucet ─────────────────────────────────────────────────────────────────────
+
+async function callFaucet(address: string): Promise<void> {
   try {
     const res = await fetch(`${BACKEND}/api/faucet`, {
       method: "POST",
@@ -80,192 +129,173 @@ async function callFaucet(address: string): Promise<boolean> {
       body: JSON.stringify({ address }),
     });
     const data = await res.json() as { txHash?: string; error?: string };
-    if (res.ok) {
-      log(`💧 Faucet received 15 AGT — tx: ${data.txHash}`);
-      return true;
-    }
-    log(`⚠️  Faucet: ${data.error}`);
-    return false;
+    if (res.ok) log(`💧 Faucet: 15 AGT → ${address.slice(0, 10)} (tx: ${data.txHash})`);
+    else         log(`⚠️  Faucet: ${data.error} (${address.slice(0, 10)})`);
   } catch (e: any) {
     log(`⚠️  Faucet call failed: ${e.message}`);
-    return false;
   }
 }
 
-// ── Main agent loop ───────────────────────────────────────────────────────────
+// ── Ensure both agents are registered ─────────────────────────────────────────
+
+async function ensureRegistered(sdk: AgentSDK, name: string, caps: string[]): Promise<void> {
+  if (await sdk.isRegistered()) {
+    log(`✅ ${name} already registered (${sdk.address.slice(0, 10)})`);
+    return;
+  }
+  log(`📝 ${name} not registered — requesting faucet...`);
+  await callFaucet(sdk.address);
+  await sleep(15000);
+  await sdk.register({ name, capabilities: caps, metadataURI: `ipfs://aep-demo/${name.toLowerCase()}` });
+  log(`✅ ${name} registered!`);
+  await sleep(5000);
+}
+
+// ── Full deal cycle ────────────────────────────────────────────────────────────
+
+async function runDealCycle(
+  buyer: AgentSDK,
+  seller: AgentSDK,
+  pairIdx: number
+): Promise<void> {
+  const pair = DEAL_PAIRS[pairIdx % DEAL_PAIRS.length];
+  const deadline = Math.floor(Date.now() / 1000) + 7 * 24 * 3600; // 7-day TTL
+  const midPrice = ((parseFloat(pair.budget) + parseFloat(pair.price)) / 2).toFixed(0);
+
+  log(`\n🔄 Deal cycle — "${pair.tags.join(", ")}"`);
+
+  try {
+    // Step 1: Seller publishes offer
+    const offerId = await seller.publishOffer({
+      description: pair.offerDesc,
+      price:       pair.price,
+      tags:        pair.tags,
+    });
+    log(`  🏷️  Offer #${offerId} published by seller @ ${pair.price} AGT`);
+    await sleep(8000);
+
+    // Step 2: Buyer publishes matching need
+    const needId = await buyer.publishNeed({
+      description: pair.needDesc,
+      budget:      pair.budget,
+      deadline,
+      tags:        pair.tags,
+    });
+    log(`  📋 Need #${needId} published by buyer (budget: ${pair.budget} AGT)`);
+    await sleep(8000);
+
+    // Step 3: Buyer proposes (midpoint price)
+    const proposalId = await buyer.propose({
+      needId,
+      offerId,
+      price: midPrice,
+      terms: "7-day service window, payment released on delivery confirmation",
+    });
+    log(`  🤝 Proposal #${proposalId} created @ ${midPrice} AGT`);
+    await sleep(10000);
+
+    // Step 4: Seller accepts → gets agreement address
+    const agreementAddr = await seller.acceptProposal(proposalId);
+    log(`  ✅ Proposal #${proposalId} accepted — agreement: ${agreementAddr.slice(0, 10)}`);
+    await sleep(10000);
+
+    // Step 5: Buyer funds the escrow
+    await buyer.fundAgreement(agreementAddr);
+    log(`  💰 Agreement funded (${midPrice} AGT in escrow)`);
+    await sleep(15000);
+
+    // Step 6: Buyer confirms delivery → payment released to seller
+    await buyer.confirmDelivery(agreementAddr);
+    log(`  🎉 Deal #${proposalId} COMPLETE — ${midPrice} AGT paid to seller!`);
+
+  } catch (e: any) {
+    log(`  ❌ Deal cycle error: ${e.message}`);
+  }
+}
+
+// ── Solo publish cycle (keeps marketplace active between deals) ────────────────
+
+async function soloPublishCycle(
+  buyer: AgentSDK,
+  seller: AgentSDK,
+  idx: number
+): Promise<void> {
+  const deadline = Math.floor(Date.now() / 1000) + 86400; // 24h TTL
+
+  // Alternate offer and need
+  if (idx % 2 === 0) {
+    const o = SOLO_OFFERS[Math.floor(idx / 2) % SOLO_OFFERS.length];
+    try {
+      const id = await seller.publishOffer({ description: o.desc, price: o.price, tags: o.tags });
+      log(`🏷️  Solo offer #${id}: "${o.desc.slice(0, 55)}…" @ ${o.price} AGT`);
+    } catch (e: any) { log(`⚠️  Solo offer error: ${e.message}`); }
+  } else {
+    const n = SOLO_NEEDS[Math.floor(idx / 2) % SOLO_NEEDS.length];
+    try {
+      const id = await buyer.publishNeed({ description: n.desc, budget: n.budget, deadline, tags: n.tags });
+      log(`📋 Solo need #${id}: "${n.desc.slice(0, 55)}…" budget: ${n.budget} AGT`);
+    } catch (e: any) { log(`⚠️  Solo need error: ${e.message}`); }
+  }
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  log("🤖 AEP Demo Agent starting on Base Mainnet...");
+  log("🤖 AEP Demo Agent (Full Cycle) starting on Base Mainnet...");
 
-  const sdk = new AgentSDK({
-    privateKey: KEY!,
-    network: "base-mainnet",
-    backendUrl: BACKEND,
-  });
+  const buyer = new AgentSDK({ privateKey: BUYER_KEY!,  network: "base-mainnet", backendUrl: BACKEND });
+  const seller = new AgentSDK({ privateKey: SELLER_KEY!, network: "base-mainnet", backendUrl: BACKEND });
 
-  log(`   Address: ${sdk.address}`);
+  log(`   Buyer  : ${buyer.address}`);
+  log(`   Seller : ${seller.address}`);
 
-  // ── Register if not already registered ──────────────────────────────────────
+  // Ensure both agents are registered
+  await ensureRegistered(buyer,  "AEP-Buyer",  ["data", "nlp", "analytics", "defi", "security"]);
+  await ensureRegistered(seller, "AEP-Seller", ["data", "nlp", "oracle", "gpu-compute", "translation"]);
 
-  const registered = await sdk.isRegistered();
-  if (!registered) {
-    log("📝 Not registered — requesting faucet AGT...");
-    await callFaucet(sdk.address);
-    await sleep(15000); // wait for tx to confirm
+  const buyerBal  = await buyer.getBalance();
+  const sellerBal = await seller.getBalance();
+  log(`   Buyer balance : ${buyerBal} AGT`);
+  log(`   Seller balance: ${sellerBal} AGT`);
 
-    log("📝 Registering agent on-chain...");
-    try {
-      const tx = await sdk.register({
-        name: "AEP-MarketMaker",
-        capabilities: ["data", "nlp", "analysis", "pricing", "content", "ml"],
-        metadataURI: "https://autonomous-economy-protocol-production.up.railway.app/api/agents/" + sdk.address,
-      });
-      log(`✅ Registered! tx: ${tx}`);
-      await sleep(5000);
-    } catch (e: any) {
-      log(`❌ Registration failed: ${e.message}`);
-      process.exit(1);
-    }
-  } else {
-    log("✅ Already registered");
-  }
+  let dealIdx   = 0;
+  let soloIdx   = 0;
 
-  const rep = await sdk.getReputation();
-  const bal = await sdk.getBalance();
-  log(`   Balance: ${bal} AGT | Reputation: ${rep.score}`);
+  // ── First cycle immediately ─────────────────────────────────────────────────
+  await soloPublishCycle(buyer, seller, soloIdx++);
+  await sleep(5000);
+  await runDealCycle(buyer, seller, dealIdx++);
 
-  // ── Cycle counters ────────────────────────────────────────────────────────────
+  // ── Solo publish every 5 minutes ───────────────────────────────────────────
+  const soloTimer = setInterval(async () => {
+    await soloPublishCycle(buyer, seller, soloIdx++);
+  }, PUBLISH_INTERVAL_MS);
 
-  let offerIdx = 0;
-  let needIdx = 0;
-  let cycleNum = 0;
-
-  // ── Proposal responder (runs every 2 min) ─────────────────────────────────────
-
-  async function checkProposals() {
-    try {
-      // Get all proposals via backend (less RPC calls than on-chain scan)
-      const res = await fetch(`${BACKEND}/api/monitor/activity?limit=50`);
-      const data = await res.json() as { events?: { type: string; data: Record<string, unknown>; timestamp: number }[] };
-      const recentProposals = (data.events || []).filter(
-        (e) => e.type === "ProposalCreated" && Date.now() - e.timestamp < 10 * 60 * 1000
-      );
-
-      for (const ev of recentProposals) {
-        const proposalId = ev.data.proposalId as number;
-        if (proposalId === undefined) continue;
-
-        try {
-          const proposal = await sdk.getProposal(proposalId);
-          if (Number(proposal.status) !== 0) continue; // not pending
-
-          const price = parseFloat(proposal.price);
-
-          if (proposal.buyer === sdk.address) {
-            // We are the buyer — accept if within 20% of budget
-            if (price <= parseFloat(proposal.price) * 1.2) {
-              log(`🤝 Accepting proposal #${proposalId} as buyer @ ${price} AGT`);
-              const agreeAddr = await sdk.acceptProposal(proposalId);
-              await sleep(3000);
-              await sdk.fundAgreement(agreeAddr);
-              await sleep(3000);
-              await sdk.confirmDelivery(agreeAddr);
-              log(`✅ Deal #${proposalId} completed!`);
-            }
-          } else if (proposal.seller === sdk.address) {
-            // We are the seller — accept if price >= 80% of our listed price
-            if (price >= 20) {
-              log(`🤝 Accepting proposal #${proposalId} as seller @ ${price} AGT`);
-              await sdk.acceptProposal(proposalId);
-              log(`✅ Accepted as seller #${proposalId}`);
-            } else {
-              await sdk.counterOffer({ proposalId, newPrice: String(Math.ceil(price * 1.2)), newTerms: "Standard service rate" });
-              log(`🔄 Counter-offered on #${proposalId}`);
-            }
-          }
-        } catch { /* skip individual proposal errors */ }
-      }
-    } catch (e: any) {
-      log(`⚠️  Proposal check error: ${e.message}`);
-    }
-  }
-
-  // ── Publish cycle (runs every 5 min) ─────────────────────────────────────────
-
-  async function publishCycle() {
-    cycleNum++;
-    log(`\n── Cycle #${cycleNum} ──`);
-
-    const bal = await sdk.getBalance();
-    log(`   Balance: ${bal} AGT`);
-
+  // ── Full deal cycle every 30 minutes ────────────────────────────────────────
+  const dealTimer = setInterval(async () => {
+    // Top up seller if low
+    const bal = await seller.getBalance();
     if (parseFloat(bal) < 5) {
-      log("⚠️  Low balance — requesting faucet top-up...");
-      await callFaucet(sdk.address);
+      log("⚠️  Seller low balance — requesting faucet...");
+      await callFaucet(seller.address);
       await sleep(15000);
-      return;
     }
+    await runDealCycle(buyer, seller, dealIdx++);
+  }, DEAL_INTERVAL_MS);
 
-    try {
-      if (cycleNum % 2 === 0) {
-        // Even cycles: publish an offer
-        const offer = OFFERS_CATALOG[offerIdx % OFFERS_CATALOG.length];
-        offerIdx++;
-        const offerId = await sdk.publishOffer({
-          description: offer.desc,
-          price: offer.price,
-          tags: offer.tags,
-        });
-        log(`🏷️  Published offer #${offerId}: ${offer.desc.slice(0, 60)}... @ ${offer.price} AGT`);
-      } else {
-        // Odd cycles: publish a need
-        const need = NEEDS_CATALOG[needIdx % NEEDS_CATALOG.length];
-        needIdx++;
-        const needId = await sdk.publishNeed({
-          description: need.desc,
-          budget: need.budget,
-          deadline: Math.floor(Date.now() / 1000) + 86400, // 24h TTL
-          tags: need.tags,
-        });
-        log(`📋 Published need #${needId}: ${need.desc.slice(0, 60)}... budget: ${need.budget} AGT`);
-      }
-    } catch (e: any) {
-      log(`⚠️  Publish error: ${e.message}`);
-    }
-  }
-
-  // ── Start both loops ───────────────────────────────────────────────────────────
-
-  // Publish immediately on start, then every CYCLE_INTERVAL_MS
-  await publishCycle();
-  const publishTimer = setInterval(publishCycle, CYCLE_INTERVAL_MS);
-
-  // Check proposals every PROPOSAL_CHECK_MS
-  await checkProposals();
-  const proposalTimer = setInterval(checkProposals, PROPOSAL_CHECK_MS);
-
-  // ── Graceful shutdown ──────────────────────────────────────────────────────────
-
-  process.on("SIGTERM", () => {
-    log("🛑 SIGTERM received — shutting down gracefully");
-    clearInterval(publishTimer);
-    clearInterval(proposalTimer);
-    sdk.disconnect();
+  // ── Graceful shutdown ──────────────────────────────────────────────────────
+  const shutdown = () => {
+    log("🛑 Shutting down gracefully...");
+    clearInterval(soloTimer);
+    clearInterval(dealTimer);
+    buyer.disconnect();
+    seller.disconnect();
     process.exit(0);
-  });
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT",  shutdown);
 
-  process.on("SIGINT", () => {
-    log("🛑 SIGINT — shutting down");
-    clearInterval(publishTimer);
-    clearInterval(proposalTimer);
-    sdk.disconnect();
-    process.exit(0);
-  });
-
-  log(`\n✅ Demo agent running! Publish every ${CYCLE_INTERVAL_MS / 60000}m, proposals every ${PROPOSAL_CHECK_MS / 60000}m\n`);
+  log(`\n✅ Running! Deal cycle every ${DEAL_INTERVAL_MS / 60000}min | Solo publish every ${PUBLISH_INTERVAL_MS / 60000}min\n`);
 }
 
-main().catch((e) => {
-  console.error("💥 Fatal error:", e);
-  process.exit(1);
-});
+main().catch((e) => { console.error("💥 Fatal:", e); process.exit(1); });
