@@ -6,14 +6,61 @@ const TOKEN_ABI = [
   "function balanceOf(address) view returns (uint256)",
 ];
 
-// In-memory set of addresses that already received pre-registration AGT
+// In-memory set of addresses that already received AGT
 const funded = new Set<string>();
+
+// Singleton wallet + nonce counter — avoids nonce collisions on concurrent requests
+let _wallet: ethers.Wallet | null = null;
+let _token: ethers.Contract | null = null;
+let _nonce = -1;
+const _queue: Array<() => void> = [];
+let _busy = false;
+
+async function getWallet(contractAddress: string): Promise<{ wallet: ethers.Wallet; token: ethers.Contract }> {
+  if (_wallet && _token) return { wallet: _wallet, token: _token };
+  const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY || process.env.DEMO_AGENT_KEY;
+  if (!PRIVATE_KEY) throw new Error("not configured");
+  const RPC_URL = process.env.RPC_URL || "https://mainnet.base.org";
+  const provider = new ethers.JsonRpcProvider(RPC_URL, 8453, { batchMaxCount: 1 });
+  _wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+  _token  = new ethers.Contract(contractAddress, TOKEN_ABI, _wallet);
+  _nonce  = await provider.getTransactionCount(_wallet.address);
+  return { wallet: _wallet, token: _token };
+}
+
+// Serial queue: ensures one tx at a time, incrementing nonce locally
+async function sendQueued(to: string, amount: bigint, contractAddress: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    _queue.push(async () => {
+      try {
+        const { token } = await getWallet(contractAddress);
+        const tx = await token.transfer(to, amount, { nonce: _nonce++ });
+        await tx.wait();
+        resolve(tx.hash);
+      } catch (e: any) {
+        // On error reset nonce so next call re-fetches it
+        _nonce = -1;
+        _wallet = null;
+        _token  = null;
+        reject(e);
+      }
+    });
+    if (!_busy) void drain();
+  });
+}
+
+async function drain() {
+  if (_busy || _queue.length === 0) return;
+  _busy = true;
+  while (_queue.length > 0) {
+    const fn = _queue.shift()!;
+    await fn();
+  }
+  _busy = false;
+}
 
 export function faucetRouter(deploymentContracts: { AgentToken: string }): Router {
   const router = Router();
-
-  const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY || process.env.DEMO_AGENT_KEY;
-  const RPC_URL = process.env.RPC_URL || "https://mainnet.base.org";
   const FAUCET_AMOUNT = ethers.parseEther("15"); // 10 entry fee + 5 buffer
 
   router.post("/", async (req: Request, res: Response) => {
@@ -29,46 +76,43 @@ export function faucetRouter(deploymentContracts: { AgentToken: string }): Route
       return res.status(429).json({ error: "Address already funded" });
     }
 
+    const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY || process.env.DEMO_AGENT_KEY;
     if (!PRIVATE_KEY) {
       return res.status(503).json({ error: "Faucet not configured" });
     }
 
     try {
-      const provider = new ethers.JsonRpcProvider(RPC_URL);
-      const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-      const token = new ethers.Contract(deploymentContracts.AgentToken, TOKEN_ABI, wallet);
-
-      // Check faucet wallet balance
-      const balance: bigint = await token.balanceOf(wallet.address);
+      const { token } = await getWallet(deploymentContracts.AgentToken);
+      const balance: bigint = await token.balanceOf(_wallet!.address);
       if (balance < FAUCET_AMOUNT) {
         return res.status(503).json({ error: "Faucet depleted" });
       }
 
-      const tx = await token.transfer(address, FAUCET_AMOUNT);
-      await tx.wait();
-
+      // Mark as funded before sending to prevent double-spend on concurrent requests
       funded.add(normalized);
+
+      const txHash = await sendQueued(address, FAUCET_AMOUNT, deploymentContracts.AgentToken);
 
       return res.json({
         success: true,
-        txHash: tx.hash,
+        txHash,
         amount: "15",
         message: "15 AGT sent. Use 10 to register, keep 5 as buffer.",
       });
     } catch (err: any) {
+      funded.delete(normalized); // rollback if tx failed
       console.error("[Faucet] Error:", err.message);
       return res.status(500).json({ error: "Faucet transaction failed" });
     }
   });
 
   router.get("/status", async (_req: Request, res: Response) => {
+    const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY || process.env.DEMO_AGENT_KEY;
     if (!PRIVATE_KEY) {
       return res.json({ configured: false });
     }
     try {
-      const provider = new ethers.JsonRpcProvider(RPC_URL);
-      const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-      const token = new ethers.Contract(deploymentContracts.AgentToken, TOKEN_ABI, wallet);
+      const { wallet, token } = await getWallet(deploymentContracts.AgentToken);
       const balance: bigint = await token.balanceOf(wallet.address);
       return res.json({
         configured: true,
