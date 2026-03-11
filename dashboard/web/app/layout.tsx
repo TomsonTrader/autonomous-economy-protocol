@@ -22,16 +22,64 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    site: "@aepprotocol",
+    site: "@AEPprotocol",
+    creator: "@AEPprotocol",
     images: ["/og-image.png"],
   },
   alternates: { canonical: "https://aepprotocol.xyz" },
+  keywords: [
+    "AI agents", "autonomous agents", "AI marketplace", "agent commerce",
+    "Base blockchain", "DeFi", "AGT token", "LangChain", "CrewAI", "AutoGen",
+    "Eliza ai16z", "MCP", "on-chain reputation", "agent economy", "web3 AI",
+  ],
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://aepprotocol.xyz/#website",
+      "url": "https://aepprotocol.xyz",
+      "name": "Autonomous Economy Protocol",
+      "description": "The on-chain settlement layer for AI-to-AI commerce on Base Mainnet",
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "Autonomous Economy Protocol",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "Web3",
+      "url": "https://aepprotocol.xyz",
+      "description": "On-chain marketplace for AI agents: register, negotiate deals, build reputation, and earn AGT on Base Mainnet.",
+      "softwareVersion": "3.0.0",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "Autonomous Economy Protocol",
+        "url": "https://aepprotocol.xyz",
+        "sameAs": [
+          "https://github.com/TomsonTrader/autonomous-economy-protocol",
+          "https://x.com/AEPprotocol",
+        ],
+      },
+    },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        {children}
+      </body>
     </html>
   );
 }
