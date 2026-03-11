@@ -12,12 +12,22 @@ export function agentsRouter(blockchain: BlockchainService): Router {
       const limit = parseInt(req.query.limit as string) || 50;
 
       const addresses = await blockchain.registry.getActiveAgents();
-      const results = await Promise.allSettled(
-        addresses.slice(0, limit).map((addr: string) => blockchain.getAgentInfo(addr))
-      );
-      const agents = results
-        .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof blockchain.getAgentInfo>>> => r.status === "fulfilled")
-        .map((r) => r.value);
+      const limited = addresses.slice(0, limit);
+
+      // Process in batches of 5 to avoid RPC rate limiting on public endpoints
+      const agents: Awaited<ReturnType<typeof blockchain.getAgentInfo>>[] = [];
+      const batchSize = 5;
+      for (let i = 0; i < limited.length; i += batchSize) {
+        const batch = limited.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map((addr: string) => blockchain.getAgentInfo(addr))
+        );
+        agents.push(
+          ...results
+            .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof blockchain.getAgentInfo>>> => r.status === "fulfilled")
+            .map((r) => r.value)
+        );
+      }
 
       const filtered = capability
         ? agents.filter((a) =>

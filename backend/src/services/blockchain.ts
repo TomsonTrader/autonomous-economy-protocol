@@ -163,13 +163,17 @@ export class BlockchainService {
   }
 
   async getAgentInfo(address: string) {
-    const [agent, reputation, balance] = await Promise.allSettled([
-      this.registry.getAgent(address),
+    // Retry getAgent up to 2 times — RPC calls can fail transiently
+    let agentRaw: any = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try { agentRaw = await this.registry.getAgent(address); break; } catch { if (attempt === 0) await new Promise(r => setTimeout(r, 600)); }
+    }
+    const [reputation, balance] = await Promise.allSettled([
       this.reputation.getReputation(address),
       this.token.balanceOf(address),
     ]);
 
-    const agentData = agent.status === "fulfilled" ? agent.value : null;
+    const agentData = agentRaw;
     const repData   = reputation.status === "fulfilled" ? reputation.value : null;
     const bal       = balance.status === "fulfilled" ? balance.value : 0n;
 
