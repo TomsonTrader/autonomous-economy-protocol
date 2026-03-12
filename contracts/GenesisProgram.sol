@@ -31,12 +31,15 @@ interface IGenesisReferral {
 }
 
 /**
- * @title GenesisProgram — Season 1 Anti-Sybil Airdrop
+ * @title GenesisProgram v2 — Season 1 Anti-Sybil Airdrop with Vesting
  * @notice Points earned only by real on-chain activity.
  *   100 — register | 200 — first deal | 150 — stake
  *   100 — with referrer | 300 — refer 3+ | 500 — 10+ deals
  *   500 — rep >5000 for 30 days
- * Pool: 50,000,000 AGT (5% of supply). Claim = (pts/total) * pool
+ * Pool: 50,000,000 AGT (5% of supply).
+ * Claim = (pts/total) * pool, capped at 1M AGT per wallet.
+ * Vesting: 25% immediate, 75% linear over 180 days.
+ * Claim window opens 30 days after season ends (time to build liquidity).
  */
 contract GenesisProgram is Ownable, ReentrancyGuard {
 
@@ -50,6 +53,16 @@ contract GenesisProgram is Ownable, ReentrancyGuard {
     uint256 public constant SEASON_DURATION = 60 days;
     uint256 public constant MIN_REP_SCORE   = 5000;
     uint256 public constant MIN_REP_DAYS    = 30 days;
+
+    // Tokenomics protection
+    uint256 public constant CLAIM_DELAY     = 30 days;   // after season ends — time to build Uniswap liquidity
+    uint256 public constant IMMEDIATE_BPS   = 2500;      // 25% at claim (basis points)
+    uint256 public constant VESTING_PERIOD  = 180 days;  // 75% vests linearly over 6 months
+    uint256 public constant MAX_CLAIM       = 1_000_000 ether; // anti-whale: 2% of pool per wallet
+
+    // Emergency withdraw timelock (owner safety net)
+    uint256 public constant EMERGENCY_TIMELOCK = 7 days;
+    uint256 public emergencyWithdrawAt; // 0 = not requested
 
     uint256 public constant PTS_REGISTER      = 100;
     uint256 public constant PTS_FIRST_DEAL    = 200;
@@ -73,7 +86,14 @@ contract GenesisProgram is Ownable, ReentrancyGuard {
         uint256 repAboveThresholdSince;
     }
 
+    struct VestingSchedule {
+        uint256 total;      // 75% of allocation — vests linearly over VESTING_PERIOD
+        uint256 released;   // already claimed from vesting
+        uint256 startTime;  // when claim() was called (vesting clock starts here)
+    }
+
     mapping(address => Participant) public participants;
+    mapping(address => VestingSchedule) public vestingSchedules;
     address[] public participantList;
     uint256 public totalPoints;
     uint256 public seasonStart;
@@ -84,7 +104,10 @@ contract GenesisProgram is Ownable, ReentrancyGuard {
     event PointsAwarded(address indexed agent, string action, uint256 points, uint256 total);
     event SeasonStarted(uint256 start, uint256 end, uint256 pool);
     event SeasonEnded(uint256 totalParticipants, uint256 totalPoints);
-    event Claimed(address indexed agent, uint256 points, uint256 agtAmount);
+    event Claimed(address indexed agent, uint256 points, uint256 immediateAgt, uint256 vestedAgt);
+    event VestedClaimed(address indexed agent, uint256 amount, uint256 remaining);
+    event EmergencyWithdrawRequested(uint256 executeAfter);
+    event EmergencyWithdrawExecuted(uint256 amount);
 
     constructor(
         address _agt, address _registry, address _reputation,
@@ -96,6 +119,8 @@ contract GenesisProgram is Ownable, ReentrancyGuard {
         vault      = IGenesisVault(_vault);
         referral   = IGenesisReferral(_referral);
     }
+
+    // ── Season lifecycle ─────────────────────────────────────────────────────
 
     function startSeason() external onlyOwner {
         require(!seasonStarted, "Already started");
@@ -112,10 +137,35 @@ contract GenesisProgram is Ownable, ReentrancyGuard {
         emit SeasonEnded(participantList.length, totalPoints);
     }
 
+    /// @notice Recover tokens after season ended + 90 days (standard path)
     function recoverUnclaimed() external onlyOwner {
         require(seasonEnded && block.timestamp > seasonEnd + 90 days, "Too early");
-        agt.transfer(owner(), agt.balanceOf(address(this)));
+        uint256 balance = agt.balanceOf(address(this));
+        require(balance > 0, "Nothing to recover");
+        agt.transfer(owner(), balance);
     }
+
+    // ── Emergency withdraw (7-day timelock) ──────────────────────────────────
+
+    function requestEmergencyWithdraw() external onlyOwner {
+        emergencyWithdrawAt = block.timestamp + EMERGENCY_TIMELOCK;
+        emit EmergencyWithdrawRequested(emergencyWithdrawAt);
+    }
+
+    function cancelEmergencyWithdraw() external onlyOwner {
+        emergencyWithdrawAt = 0;
+    }
+
+    function executeEmergencyWithdraw() external onlyOwner {
+        require(emergencyWithdrawAt != 0 && block.timestamp >= emergencyWithdrawAt, "Timelock not expired");
+        emergencyWithdrawAt = 0;
+        uint256 balance = agt.balanceOf(address(this));
+        require(balance > 0, "Nothing to withdraw");
+        agt.transfer(owner(), balance);
+        emit EmergencyWithdrawExecuted(balance);
+    }
+
+    // ── Points ───────────────────────────────────────────────────────────────
 
     function syncPoints(address agent) external {
         require(seasonStarted && !seasonEnded && block.timestamp <= seasonEnd, "Season not active");
@@ -185,16 +235,64 @@ contract GenesisProgram is Ownable, ReentrancyGuard {
         totalPoints += earned;
     }
 
+    // ── Claims ───────────────────────────────────────────────────────────────
+
+    /**
+     * @notice Claim airdrop allocation.
+     * 25% transferred immediately; 75% stored in vesting schedule (180 days linear).
+     * Window opens CLAIM_DELAY (30 days) after season ends.
+     */
     function claim() external nonReentrant {
         require(seasonEnded, "Season not ended yet");
+        require(block.timestamp >= seasonEnd + CLAIM_DELAY, "Claim window not open yet");
         Participant storage p = participants[msg.sender];
         require(p.points > 0, "No points earned");
         require(!p.claimed, "Already claimed");
+
         p.claimed   = true;
         p.claimedAt = block.timestamp;
-        uint256 amount = (p.points * SEASON_POOL) / totalPoints;
-        require(agt.transfer(msg.sender, amount), "Transfer failed");
-        emit Claimed(msg.sender, p.points, amount);
+
+        uint256 total = (p.points * SEASON_POOL) / totalPoints;
+        if (total > MAX_CLAIM) total = MAX_CLAIM; // anti-whale cap
+
+        uint256 immediate = (total * IMMEDIATE_BPS) / 10_000;
+        uint256 vested    = total - immediate;
+
+        vestingSchedules[msg.sender] = VestingSchedule({
+            total:     vested,
+            released:  0,
+            startTime: block.timestamp
+        });
+
+        require(agt.transfer(msg.sender, immediate), "Transfer failed");
+        emit Claimed(msg.sender, p.points, immediate, vested);
+    }
+
+    /**
+     * @notice Claim the linearly-unlocked portion of vesting schedule.
+     * Call as many times as desired; only unlocked amount transfers.
+     */
+    function claimVested() external nonReentrant {
+        VestingSchedule storage v = vestingSchedules[msg.sender];
+        require(v.total > 0, "No vesting schedule");
+
+        uint256 elapsed  = block.timestamp - v.startTime;
+        uint256 unlocked = elapsed >= VESTING_PERIOD
+            ? v.total
+            : (v.total * elapsed) / VESTING_PERIOD;
+
+        uint256 claimable = unlocked - v.released;
+        require(claimable > 0, "Nothing to claim yet");
+
+        v.released += claimable;
+        require(agt.transfer(msg.sender, claimable), "Transfer failed");
+        emit VestedClaimed(msg.sender, claimable, v.total - v.released);
+    }
+
+    // ── Views ────────────────────────────────────────────────────────────────
+
+    function claimWindowOpen() external view returns (bool) {
+        return seasonEnded && block.timestamp >= seasonEnd + CLAIM_DELAY;
     }
 
     function getParticipant(address agent) external view returns (
@@ -203,8 +301,25 @@ contract GenesisProgram is Ownable, ReentrancyGuard {
         Participant storage p = participants[agent];
         points       = p.points;
         claimed      = p.claimed;
-        estimatedAGT = totalPoints > 0 ? (p.points * SEASON_POOL) / totalPoints : 0;
+        uint256 raw  = totalPoints > 0 ? (p.points * SEASON_POOL) / totalPoints : 0;
+        estimatedAGT = raw > MAX_CLAIM ? MAX_CLAIM : raw;
         daysLeft     = seasonEnd > block.timestamp ? (seasonEnd - block.timestamp) / 1 days : 0;
+    }
+
+    function getVesting(address agent) external view returns (
+        uint256 total, uint256 released, uint256 claimable, uint256 startTime
+    ) {
+        VestingSchedule storage v = vestingSchedules[agent];
+        total     = v.total;
+        released  = v.released;
+        startTime = v.startTime;
+        if (v.total > 0 && v.startTime > 0) {
+            uint256 elapsed  = block.timestamp - v.startTime;
+            uint256 unlocked = elapsed >= VESTING_PERIOD
+                ? v.total
+                : (v.total * elapsed) / VESTING_PERIOD;
+            claimable = unlocked > v.released ? unlocked - v.released : 0;
+        }
     }
 
     function getLeaderboard() external view returns (address[] memory addrs, uint256[] memory pts) {
