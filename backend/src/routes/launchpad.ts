@@ -40,7 +40,14 @@ export function launchpadRouter(contracts: {
    * ⚠️  The private key is returned ONCE and never stored. If lost, the
    *     agent address still exists on-chain but becomes uncontrollable.
    */
-  router.post("/create", async (req: Request, res: Response) => {
+  // DEPRECATED — use POST /api/faucet + MetaMask flow instead
+  router.post("/create", async (_req: Request, res: Response) => {
+    return res.status(410).json({
+      error: "This endpoint is deprecated. Use the /launch page with MetaMask — the protocol no longer funds agent wallets with ETH.",
+    });
+  });
+
+  router.post("/create_disabled", async (req: Request, res: Response) => {
     if (!PRIVATE_KEY) {
       return res.status(503).json({ error: "Launchpad not configured (missing DEPLOYER_PRIVATE_KEY)" });
     }
