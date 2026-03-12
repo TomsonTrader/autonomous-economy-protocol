@@ -11,6 +11,7 @@ const NAV = [
   { href: "/economy",   label: "Economy",   icon: "📈" },
   { href: "/vault",     label: "Vault",     icon: "🔒" },
   { href: "/season1",   label: "Season 1",  icon: "🏆" },
+  { href: "/referral",  label: "Referral",  icon: "🔗" },
   { href: "/admin",     label: "Panel",     icon: "📊" },
 ];
 

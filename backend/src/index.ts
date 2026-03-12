@@ -18,6 +18,7 @@ import { vaultRouter } from "./routes/vault";
 import { premiumRouter } from "./routes/premium";
 import { genesisRouter } from "./routes/genesis";
 import { launchpadRouter } from "./routes/launchpad";
+import { referralRouter } from "./routes/referral";
 
 // x402 — HTTP micropayment middleware (Coinbase)
 // Loaded with require() to avoid ESM/CJS type conflicts
@@ -106,6 +107,7 @@ async function main() {
   app.use("/api/faucet", faucetRouter(blockchain.deployment.contracts));
   app.use("/api/vault", vaultRouter(blockchain));
   app.use("/api/genesis", genesisRouter(blockchain));
+  app.use("/api/referral", referralRouter(blockchain));
   app.use("/api/launchpad", launchpadRouter(blockchain.deployment.contracts));
 
   // x402 — premium routes gated by USDC micropayments (0.001 USDC / request)
