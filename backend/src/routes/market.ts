@@ -75,8 +75,8 @@ async function refreshOffers(blockchain: BlockchainService): Promise<void> {
 export function marketRouter(blockchain: BlockchainService): Router {
   const router = Router();
 
-  // Warm caches on startup
-  setTimeout(() => { void refreshNeeds(blockchain); void refreshOffers(blockchain); }, 8000);
+  // Warm caches on startup — 15s delay for Railway cold-start RPC stability
+  setTimeout(() => { void refreshNeeds(blockchain); void refreshOffers(blockchain); }, 15000);
 
   // GET /api/market/needs?tag=data&maxBudget=100
   router.get("/needs", async (req: Request, res: Response) => {
@@ -86,7 +86,10 @@ export function marketRouter(blockchain: BlockchainService): Router {
 
       if (Date.now() - _needsTs > TTL) void refreshNeeds(blockchain);
       let needs = _needs;
-      if (needs.length === 0) { needs = await loadAllNeeds(blockchain); _needs = needs; _needsTs = Date.now(); }
+      if (needs.length === 0) {
+        try { needs = await loadAllNeeds(blockchain); _needs = needs; _needsTs = Date.now(); }
+        catch { needs = _needs; } // serve stale on RPC error
+      }
 
       const filtered = needs.filter(n => {
         if (!n.active) return false;
@@ -109,7 +112,10 @@ export function marketRouter(blockchain: BlockchainService): Router {
 
       if (Date.now() - _offersTs > TTL) void refreshOffers(blockchain);
       let offers = _offers;
-      if (offers.length === 0) { offers = await loadAllOffers(blockchain); _offers = offers; _offersTs = Date.now(); }
+      if (offers.length === 0) {
+        try { offers = await loadAllOffers(blockchain); _offers = offers; _offersTs = Date.now(); }
+        catch { offers = _offers; } // serve stale on RPC error
+      }
 
       const filtered = offers.filter(o => {
         if (!o.active) return false;

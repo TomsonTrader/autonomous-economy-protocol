@@ -10,8 +10,20 @@ let _cacheTs = 0;
 const CACHE_TTL = 60_000; // 60 seconds
 let _refreshing = false;
 
+async function getActiveAgentsWithRetry(blockchain: BlockchainService): Promise<string[]> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await blockchain.registry.getActiveAgents();
+    } catch {
+      if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+  return [];
+}
+
 async function fetchAllAgents(blockchain: BlockchainService): Promise<AgentInfo[]> {
-  const addresses: string[] = await blockchain.registry.getActiveAgents();
+  const addresses: string[] = await getActiveAgentsWithRetry(blockchain);
+  if (addresses.length === 0) return [];
   const agents: AgentInfo[] = [];
 
   // Sequential batches of 4 with 300ms pause — stays within public RPC limits
@@ -40,8 +52,8 @@ async function refreshCache(blockchain: BlockchainService): Promise<void> {
 export function agentsRouter(blockchain: BlockchainService): Router {
   const router = Router();
 
-  // Warm cache on startup after a short delay
-  setTimeout(() => refreshCache(blockchain), 5000);
+  // Warm cache on startup — 12s delay gives Railway time to fully initialize RPC connections
+  setTimeout(() => refreshCache(blockchain), 12000);
 
   // GET /api/agents?capability=data&limit=50
   router.get("/", async (req: Request, res: Response) => {
@@ -53,12 +65,14 @@ export function agentsRouter(blockchain: BlockchainService): Router {
       const stale = Date.now() - _cacheTs > CACHE_TTL;
       if (stale) void refreshCache(blockchain);
 
-      // If cache is empty, do a blocking fetch
+      // If cache is empty, do a blocking fetch (with retries)
       let agents = _cache;
       if (agents.length === 0) {
         agents = await fetchAllAgents(blockchain);
         if (agents.length > 0) { _cache = agents; _cacheTs = Date.now(); }
       }
+      // Always serve stale cache rather than empty response
+      if (agents.length === 0 && _cache.length > 0) agents = _cache;
 
       const limited = agents.slice(0, limit);
       const filtered = capability
