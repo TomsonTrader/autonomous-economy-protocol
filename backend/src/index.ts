@@ -7,9 +7,11 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import http from "http";
+import * as path from "path";
 import { BlockchainService } from "./services/blockchain";
 import { WebSocketService } from "./services/websocket";
 import { EventIndexer } from "./services/indexer";
+import { ManagedAgentService } from "./services/managedAgents";
 import { agentsRouter } from "./routes/agents";
 import { marketRouter } from "./routes/market";
 import { monitorRouter } from "./routes/monitor";
@@ -98,6 +100,13 @@ async function main() {
 
   // Periodic sync every 5 minutes — keeps SQLite fresh without hammering RPC
   setInterval(() => indexer.syncFromChain().catch(() => {}), 5 * 60_000);
+
+  // Managed agents — load persisted configs and start background loops
+  const managedAgentConfigPath = path.join(__dirname, "../../../managed-agents.json");
+  const managedAgentService = new ManagedAgentService(
+    process.env.BACKEND_URL || "https://autonomous-economy-protocol-production.up.railway.app"
+  );
+  await managedAgentService.start(managedAgentConfigPath);
 
   // Routes
   app.use("/api/agents", agentsRouter(blockchain, indexer));
