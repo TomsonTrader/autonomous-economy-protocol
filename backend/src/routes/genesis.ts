@@ -19,18 +19,27 @@ export function genesisRouter(blockchain: BlockchainService): Router {
         ? Math.max(0, Math.ceil((end - now) / 86400))
         : 0;
 
+      const claimDelay = 30 * 86400; // 30 days
+      const claimWindowOpensAt = end + claimDelay;
+      const claimWindowOpen = info.ended && now >= claimWindowOpensAt;
+
       return res.json({
         active: info.started && !info.ended,
         started: info.started,
         ended: info.ended,
-        pool: ethers.formatEther(info.pool),          // 50,000,000 AGT
+        pool: ethers.formatEther(info.pool),
         poolAGT: Number(ethers.formatEther(info.pool)),
         participants: Number(info.participants_),
-        start: start,
-        end: end,
+        start,
+        end,
         daysRemaining,
         totalPoints: info.totalPts.toString(),
         contract: blockchain.deployment.contracts.GenesisProgram,
+        // v2 tokenomics
+        claimWindowOpensAt,
+        claimWindowOpen,
+        vesting: { immediatePercent: 25, vestedPercent: 75, vestingDays: 180 },
+        antiWhaleCap: "1000000",
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
@@ -87,17 +96,29 @@ export function genesisRouter(blockchain: BlockchainService): Router {
       const p = await blockchain.genesis.getParticipant(address);
       return res.json({
         address,
-        points: Number(p.points),
-        breakdown: {
-          registration: p.creditedRegistration ? 100 : 0,
-          firstDeal:    p.creditedFirstDeal ? 200 : 0,
-          stake:        p.creditedStake ? 150 : 0,
-          withReferrer: p.creditedWithReferrer ? 100 : 0,
-          beReferrer3:  p.creditedBeReferrer3 ? 300 : 0,
-          tenDeals:     p.creditedTenDeals ? 500 : 0,
-          repSustained: p.creditedRepSustained ? 500 : 0,
-        },
-        claimed: p.claimed,
+        points:       Number(p.points),
+        estimatedAGT: ethers.formatEther(p.estimatedAGT),
+        claimed:      p.claimed,
+        daysLeft:     Number(p.daysLeft),
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/genesis/participant/:address/vesting
+  router.get("/participant/:address/vesting", async (req, res) => {
+    try {
+      if (!blockchain.genesis) return res.json({ found: false });
+      const { address } = req.params;
+      const v = await blockchain.genesis.getVesting(address);
+      return res.json({
+        address,
+        total:     ethers.formatEther(v.total),
+        released:  ethers.formatEther(v.released),
+        claimable: ethers.formatEther(v.claimable),
+        startTime: Number(v.startTime),
+        vestingEndsAt: Number(v.startTime) + 180 * 86400,
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });

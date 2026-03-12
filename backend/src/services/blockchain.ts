@@ -90,8 +90,10 @@ const SUBSCRIPTION_ABI = [
 
 const GENESIS_ABI = [
   "function seasonInfo() view returns (bool started, bool ended, uint256 start, uint256 end, uint256 participants_, uint256 totalPts, uint256 pool)",
-  "function getParticipant(address agent) view returns (tuple(uint256 points, bool creditedRegistration, bool creditedFirstDeal, bool creditedStake, bool creditedWithReferrer, bool creditedBeReferrer3, bool creditedTenDeals, bool creditedRepSustained, uint256 repAboveThresholdSince, bool claimed))",
-  "function getLeaderboard() view returns (address[] memory agents, uint256[] memory points)",
+  "function getParticipant(address agent) view returns (uint256 points, bool claimed, uint256 estimatedAGT, uint256 daysLeft)",
+  "function getVesting(address agent) view returns (uint256 total, uint256 released, uint256 claimable, uint256 startTime)",
+  "function getLeaderboard() view returns (address[] memory addrs, uint256[] memory pts)",
+  "function claimWindowOpen() view returns (bool)",
 ];
 
 export class BlockchainService {
