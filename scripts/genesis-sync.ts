@@ -11,7 +11,8 @@ const GENESIS_V2 = "0xf47DE94831E4791a6Bf5E0CCf247Ed0c058129a3";
 const DEPLOYER_KEY = process.env.DEPLOYER_PRIVATE_KEY!;
 
 async function main() {
-  const provider = new ethers.JsonRpcProvider("https://mainnet.base.org");
+  const rpcUrl = process.env.BASE_MAINNET_RPC || "https://mainnet.base.org";
+  const provider = new ethers.JsonRpcProvider(rpcUrl, undefined, { staticNetwork: true, batchMaxCount: 5 });
   const wallet   = new ethers.Wallet(DEPLOYER_KEY, provider);
 
   const registry = new ethers.Contract(REGISTRY, [
@@ -112,7 +113,7 @@ async function main() {
       });
       const receipt = await tx.wait();
       const pts = await genesis.getParticipant(addr);
-      const name = agentData[addr].agent.name;
+      const name = agentData[addr].name;
       console.log(`✅ ${name} — ${pts.points} pts | tx: ${tx.hash}`);
 
       // Decode PointsAwarded events
