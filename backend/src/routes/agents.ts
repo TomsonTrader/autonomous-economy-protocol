@@ -1,89 +1,29 @@
 import { Router, Request, Response } from "express";
 import { BlockchainService } from "../services/blockchain";
+import { EventIndexer } from "../services/indexer";
 import { requireAddress, apiError, parseBlockchainError } from "../middleware/validate";
 
-type AgentInfo = Awaited<ReturnType<BlockchainService["getAgentInfo"]>>;
-
-// ── In-memory cache ──────────────────────────────────────────────────────────
-let _cache: AgentInfo[] = [];
-let _cacheTs = 0;
-const CACHE_TTL = 60_000; // 60 seconds
-let _refreshing = false;
-
-async function getActiveAgentsWithRetry(blockchain: BlockchainService): Promise<string[]> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      return await blockchain.registry.getActiveAgents();
-    } catch {
-      if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-    }
-  }
-  return [];
-}
-
-async function fetchAllAgents(blockchain: BlockchainService): Promise<AgentInfo[]> {
-  const addresses: string[] = await getActiveAgentsWithRetry(blockchain);
-  if (addresses.length === 0) return [];
-  const agents: AgentInfo[] = [];
-
-  // Sequential batches of 4 with 300ms pause — stays within public RPC limits
-  for (let i = 0; i < addresses.length; i += 4) {
-    const batch = addresses.slice(i, i + 4);
-    const results = await Promise.allSettled(
-      batch.map((addr) => blockchain.getAgentInfo(addr))
-    );
-    for (const r of results) {
-      if (r.status === "fulfilled") agents.push(r.value);
-    }
-    if (i + 4 < addresses.length) await new Promise(r => setTimeout(r, 300));
-  }
-  return agents;
-}
-
-async function refreshCache(blockchain: BlockchainService): Promise<void> {
-  if (_refreshing) return;
-  _refreshing = true;
-  try {
-    const agents = await fetchAllAgents(blockchain);
-    if (agents.length > 0) { _cache = agents; _cacheTs = Date.now(); }
-  } catch { /* keep stale cache */ } finally { _refreshing = false; }
-}
-
-export function agentsRouter(blockchain: BlockchainService): Router {
+export function agentsRouter(blockchain: BlockchainService, indexer: EventIndexer): Router {
   const router = Router();
-
-  // Warm cache on startup — 12s delay gives Railway time to fully initialize RPC connections
-  setTimeout(() => refreshCache(blockchain), 12000);
 
   // GET /api/agents?capability=data&limit=50
   router.get("/", async (req: Request, res: Response) => {
     try {
       const capability = req.query.capability as string | undefined;
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limit = parseInt(req.query.limit as string) || 100;
 
-      // Serve from cache; trigger background refresh if stale
-      const stale = Date.now() - _cacheTs > CACHE_TTL;
-      if (stale) void refreshCache(blockchain);
+      // Always read from SQLite — always fast, always available
+      let agents = indexer.getStoredAgents();
 
-      // If cache is empty, do a blocking fetch (with retries)
-      let agents = _cache;
-      if (agents.length === 0) {
-        agents = await fetchAllAgents(blockchain);
-        if (agents.length > 0) { _cache = agents; _cacheTs = Date.now(); }
-      }
-      // Always serve stale cache rather than empty response
-      if (agents.length === 0 && _cache.length > 0) agents = _cache;
-
-      const limited = agents.slice(0, limit);
-      const filtered = capability
-        ? limited.filter((a) =>
-            a.capabilities.some((c: string) =>
-              c.toLowerCase().includes(capability.toLowerCase())
-            )
+      if (capability) {
+        agents = agents.filter((a: any) =>
+          (a.capabilities as string[])?.some((c: string) =>
+            c.toLowerCase().includes(capability.toLowerCase())
           )
-        : limited;
+        );
+      }
 
-      res.json({ agents: filtered, total: filtered.length });
+      res.json({ agents: agents.slice(0, limit), total: agents.length });
     } catch (err: any) {
       const e = parseBlockchainError(err);
       res.status(e.status).json({ error: true, code: e.code, message: e.message });
@@ -94,7 +34,7 @@ export function agentsRouter(blockchain: BlockchainService): Router {
   router.get("/:address", requireAddress("params", "address"), async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
-      const isRegistered = await blockchain.registry.isRegistered(address);
+      const isRegistered = await blockchain.registry.isRegistered(address).catch(() => false);
       if (!isRegistered) {
         return apiError(res, "AGENT_NOT_FOUND", "Agent is not registered on AEP", 404);
       }

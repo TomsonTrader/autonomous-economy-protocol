@@ -17,18 +17,23 @@ export function monitorRouter(blockchain: BlockchainService, indexer: EventIndex
     }
   });
 
-  // GET /api/monitor/stats
-  router.get("/stats", async (req: Request, res: Response) => {
+  // GET /api/monitor/stats — served from SQLite (always fast, no RPC needed)
+  router.get("/stats", (_req: Request, res: Response) => {
     try {
-      const [marketStats, eventStats] = await Promise.all([
-        blockchain.getMarketStats(),
-        Promise.resolve(indexer.getEventStats()),
-      ]);
+      const stored = indexer.getStoredStats();
+      const eventStats = indexer.getEventStats();
       res.json({
-        market: marketStats,
-        events: eventStats,
-        network: blockchain.deployment.network,
+        market: {
+          totalAgents:    stored.agents,
+          activeAgents:   stored.agents,
+          totalNeeds:     stored.needs,
+          totalOffers:    stored.offers,
+          totalProposals: stored.proposals,
+        },
+        events:     eventStats,
+        network:    blockchain.deployment.network,
         deployedAt: blockchain.deployment.deployedAt,
+        lastSync:   stored.lastSync,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

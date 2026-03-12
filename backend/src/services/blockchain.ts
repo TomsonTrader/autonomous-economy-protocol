@@ -225,6 +225,23 @@ export class BlockchainService {
     };
   }
 
+  async getProposal(proposalId: number) {
+    try {
+      const p = await this.engine.getProposal(proposalId);
+      return {
+        id: proposalId,
+        needId:   Number(p.needId),
+        offerId:  Number(p.offerId),
+        buyer:    p.buyer,
+        seller:   p.seller,
+        price:    ethers.formatEther(p.price),
+        terms:    p.terms,
+        status:   Number(p.status),
+        createdAt: Number(p.createdAt),
+      };
+    } catch { return null; }
+  }
+
   async getMarketStats() {
     const [totalNeeds, totalOffers, totalProposals, activeAgents] = await Promise.all([
       this.marketplace.totalNeeds(),

@@ -91,12 +91,16 @@ async function main() {
   const indexer = new EventIndexer(blockchain, wsService);
   await indexer.startListening();
 
-  // Backfill events.db from blockchain (survives Railway redeploys)
-  indexer.backfillFromChain().catch(e => console.warn("[Indexer] Backfill error:", e.message));
+  // Full sync: blockchain → SQLite on startup (non-blocking)
+  // First sync at 10s to let RPC settle after cold start
+  setTimeout(() => indexer.syncFromChain().catch(e => console.warn("[DataStore] Startup sync error:", e.message)), 10_000);
+
+  // Periodic sync every 5 minutes — keeps SQLite fresh without hammering RPC
+  setInterval(() => indexer.syncFromChain().catch(() => {}), 5 * 60_000);
 
   // Routes
-  app.use("/api/agents", agentsRouter(blockchain));
-  app.use("/api/market", marketRouter(blockchain));
+  app.use("/api/agents", agentsRouter(blockchain, indexer));
+  app.use("/api/market", marketRouter(blockchain, indexer));
   app.use("/api/monitor", monitorRouter(blockchain, indexer));
   app.use("/api/reputation", monitorRouter(blockchain, indexer));
   app.use("/api/faucet", faucetRouter(blockchain.deployment.contracts));

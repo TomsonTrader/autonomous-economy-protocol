@@ -3,91 +3,307 @@ import * as path from "path";
 import { BlockchainService } from "./blockchain";
 import { WebSocketService } from "./websocket";
 
+// DB path: use Railway Volume if configured (DB_PATH=/data/aep.db),
+// otherwise fall back to project root so local dev still works.
+function resolveDbPath(): string {
+  if (process.env.DB_PATH) return process.env.DB_PATH;
+  return path.join(__dirname, "../../aep.db");
+}
+
 export class EventIndexer {
   private db: Database.Database;
   private blockchain: BlockchainService;
   private ws: WebSocketService;
+  private _syncing = false;
 
   constructor(blockchain: BlockchainService, ws: WebSocketService) {
     this.blockchain = blockchain;
     this.ws = ws;
-
-    const dbPath = path.join(__dirname, "../../events.db");
-    this.db = new Database(dbPath);
+    this.db = new Database(resolveDbPath());
+    this.db.pragma("journal_mode = WAL");   // safe concurrent reads
+    this.db.pragma("synchronous = NORMAL"); // faster writes, still crash-safe
     this._initDb();
   }
 
+  // ── Schema ─────────────────────────────────────────────────────────────────
+
   private _initDb() {
     this.db.exec(`
+      -- Raw blockchain events log
       CREATE TABLE IF NOT EXISTS events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type TEXT NOT NULL,
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        type         TEXT    NOT NULL,
         block_number INTEGER,
-        tx_hash TEXT,
-        data TEXT NOT NULL,
-        timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+        tx_hash      TEXT,
+        data         TEXT    NOT NULL,
+        timestamp    INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       );
-      CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
+      CREATE INDEX IF NOT EXISTS idx_events_type      ON events(type);
       CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+
+      -- Full snapshots of blockchain state (survives redeploys)
+      CREATE TABLE IF NOT EXISTS agents (
+        address    TEXT PRIMARY KEY,
+        data       TEXT NOT NULL,
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS needs (
+        id         INTEGER PRIMARY KEY,
+        data       TEXT    NOT NULL,
+        active     INTEGER NOT NULL DEFAULT 1,
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS offers (
+        id         INTEGER PRIMARY KEY,
+        data       TEXT    NOT NULL,
+        active     INTEGER NOT NULL DEFAULT 1,
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS proposals (
+        id         INTEGER PRIMARY KEY,
+        data       TEXT    NOT NULL,
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
+
+      -- Single-row metadata
+      CREATE TABLE IF NOT EXISTS meta (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `);
   }
 
+  // ── Event log ──────────────────────────────────────────────────────────────
+
   private saveEvent(type: string, data: Record<string, unknown>, txHash?: string, blockNumber?: number) {
-    const stmt = this.db.prepare(
+    this.db.prepare(
       "INSERT INTO events (type, block_number, tx_hash, data) VALUES (?, ?, ?, ?)"
-    );
-    stmt.run(type, blockNumber ?? null, txHash ?? null, JSON.stringify(data));
+    ).run(type, blockNumber ?? null, txHash ?? null, JSON.stringify(data));
     this.ws.broadcastEvent(type, data);
   }
 
+  getRecentEvents(limit = 50, type?: string) {
+    const stmt = type
+      ? this.db.prepare("SELECT * FROM events WHERE type = ? ORDER BY timestamp DESC LIMIT ?")
+      : this.db.prepare("SELECT * FROM events ORDER BY timestamp DESC LIMIT ?");
+    const rows = type ? stmt.all(type, limit) : stmt.all(limit);
+    return rows.map((row: any) => ({ ...row, data: JSON.parse(row.data) }));
+  }
+
+  getEventStats() {
+    const counts = this.db
+      .prepare("SELECT type, COUNT(*) as count FROM events GROUP BY type")
+      .all() as Array<{ type: string; count: number }>;
+    return Object.fromEntries(counts.map(r => [r.type, r.count]));
+  }
+
+  // ── Snapshot reads (always fast, from SQLite) ──────────────────────────────
+
+  getStoredAgents(): any[] {
+    return (this.db.prepare("SELECT data FROM agents ORDER BY updated_at DESC").all() as any[])
+      .map(r => JSON.parse(r.data));
+  }
+
+  getStoredNeeds(activeOnly = false): any[] {
+    const sql = activeOnly
+      ? "SELECT data FROM needs WHERE active = 1 ORDER BY id DESC"
+      : "SELECT data FROM needs ORDER BY id DESC";
+    return (this.db.prepare(sql).all() as any[]).map(r => JSON.parse(r.data));
+  }
+
+  getStoredOffers(activeOnly = false): any[] {
+    const sql = activeOnly
+      ? "SELECT data FROM offers WHERE active = 1 ORDER BY id DESC"
+      : "SELECT data FROM offers ORDER BY id DESC";
+    return (this.db.prepare(sql).all() as any[]).map(r => JSON.parse(r.data));
+  }
+
+  getStoredProposals(): any[] {
+    return (this.db.prepare("SELECT data FROM proposals ORDER BY id DESC").all() as any[])
+      .map(r => JSON.parse(r.data));
+  }
+
+  getStoredStats() {
+    const agents    = (this.db.prepare("SELECT COUNT(*) as n FROM agents").get() as any).n;
+    const needs     = (this.db.prepare("SELECT COUNT(*) as n FROM needs WHERE active=1").get() as any).n;
+    const offers    = (this.db.prepare("SELECT COUNT(*) as n FROM offers WHERE active=1").get() as any).n;
+    const proposals = (this.db.prepare("SELECT COUNT(*) as n FROM proposals").get() as any).n;
+    const lastSync  = (this.db.prepare("SELECT value FROM meta WHERE key='last_sync'").get() as any)?.value ?? null;
+    return { agents, needs, offers, proposals, lastSync };
+  }
+
+  // ── Full sync from blockchain → SQLite ─────────────────────────────────────
+
+  async syncFromChain(): Promise<void> {
+    if (this._syncing) return;
+    this._syncing = true;
+    console.log("[DataStore] Starting full sync from blockchain...");
+
+    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+    try {
+      // ── Agents ──────────────────────────────────────────────────────────────
+      let addresses: string[] = [];
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { addresses = await this.blockchain.registry.getActiveAgents(); break; }
+        catch { await sleep(1500 * (attempt + 1)); }
+      }
+
+      const upsertAgent = this.db.prepare(
+        "INSERT INTO agents (address, data, updated_at) VALUES (?, ?, strftime('%s','now')) ON CONFLICT(address) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at"
+      );
+
+      for (let i = 0; i < addresses.length; i += 4) {
+        const batch = addresses.slice(i, i + 4);
+        const results = await Promise.allSettled(
+          batch.map(addr => this.blockchain.getAgentInfo(addr))
+        );
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            upsertAgent.run(r.value.address, JSON.stringify(r.value));
+          }
+        }
+        if (i + 4 < addresses.length) await sleep(300);
+      }
+      console.log(`[DataStore] Synced ${addresses.length} agents`);
+
+      // ── Needs ──────────────────────────────────────────────────────────────
+      let totalNeeds = 0;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { totalNeeds = Number(await this.blockchain.marketplace.totalNeeds()); break; }
+        catch { await sleep(1000); }
+      }
+
+      const upsertNeed = this.db.prepare(
+        "INSERT INTO needs (id, data, active, updated_at) VALUES (?, ?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET data=excluded.data, active=excluded.active, updated_at=excluded.updated_at"
+      );
+
+      for (let i = 0; i < totalNeeds; i++) {
+        try {
+          const need = await this.blockchain.getNeed(i);
+          upsertNeed.run(i, JSON.stringify(need), need.active ? 1 : 0);
+        } catch { /* skip */ }
+        if (i > 0 && i % 10 === 0) await sleep(200);
+      }
+      console.log(`[DataStore] Synced ${totalNeeds} needs`);
+
+      // ── Offers ─────────────────────────────────────────────────────────────
+      let totalOffers = 0;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { totalOffers = Number(await this.blockchain.marketplace.totalOffers()); break; }
+        catch { await sleep(1000); }
+      }
+
+      const upsertOffer = this.db.prepare(
+        "INSERT INTO offers (id, data, active, updated_at) VALUES (?, ?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET data=excluded.data, active=excluded.active, updated_at=excluded.updated_at"
+      );
+
+      for (let i = 0; i < totalOffers; i++) {
+        try {
+          const offer = await this.blockchain.getOffer(i);
+          upsertOffer.run(i, JSON.stringify(offer), offer.active ? 1 : 0);
+        } catch { /* skip */ }
+        if (i > 0 && i % 10 === 0) await sleep(200);
+      }
+      console.log(`[DataStore] Synced ${totalOffers} offers`);
+
+      // ── Proposals ──────────────────────────────────────────────────────────
+      let totalProposals = 0;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { totalProposals = Number(await this.blockchain.engine.totalProposals()); break; }
+        catch { await sleep(1000); }
+      }
+
+      const upsertProposal = this.db.prepare(
+        "INSERT INTO proposals (id, data, updated_at) VALUES (?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at"
+      );
+
+      for (let i = 0; i < totalProposals; i++) {
+        try {
+          const proposal = await this.blockchain.getProposal(i);
+          if (proposal) upsertProposal.run(i, JSON.stringify(proposal));
+        } catch { /* skip */ }
+        if (i > 0 && i % 10 === 0) await sleep(200);
+      }
+      console.log(`[DataStore] Synced ${totalProposals} proposals`);
+
+      // Mark last sync time
+      this.db.prepare("INSERT INTO meta (key,value) VALUES ('last_sync',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+        .run(new Date().toISOString());
+
+      const stats = this.getStoredStats();
+      console.log(`[DataStore] Sync complete — agents:${stats.agents} needs:${stats.needs} offers:${stats.offers} proposals:${stats.proposals}`);
+
+    } catch (e: any) {
+      console.warn("[DataStore] Sync error:", e.message);
+    } finally {
+      this._syncing = false;
+    }
+  }
+
+  // ── Blockchain event listeners ─────────────────────────────────────────────
+
   async startListening() {
     const { registry, marketplace, engine } = this.blockchain;
-
     console.log("[Indexer] Starting event listeners...");
 
     registry.on("AgentRegistered", (agent: string, name: string, capabilities: string[], event: { log: { transactionHash: string; blockNumber: number } }) => {
       console.log(`[Event] AgentRegistered: ${name} (${agent})`);
       this.saveEvent("AgentRegistered", { agent, name, capabilities }, event.log.transactionHash, event.log.blockNumber);
+      // Re-sync this agent into snapshot
+      this.blockchain.getAgentInfo(agent).then(info => {
+        this.db.prepare("INSERT INTO agents (address, data, updated_at) VALUES (?, ?, strftime('%s','now')) ON CONFLICT(address) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at")
+          .run(agent, JSON.stringify(info));
+      }).catch(() => {});
     });
 
     marketplace.on("NeedPublished", (needId: bigint, publisher: string, budget: bigint, tags: string[], event: { log: { transactionHash: string; blockNumber: number } }) => {
       console.log(`[Event] NeedPublished: #${needId} by ${publisher}`);
-      this.saveEvent("NeedPublished", {
-        needId: needId.toString(),
-        publisher,
-        budget: budget.toString(),
-        tags,
-      }, event.log.transactionHash, event.log.blockNumber);
+      const data = { needId: needId.toString(), publisher, budget: budget.toString(), tags };
+      this.saveEvent("NeedPublished", data, event.log.transactionHash, event.log.blockNumber);
+      // Sync need into snapshot
+      const id = Number(needId);
+      this.blockchain.getNeed(id).then(need => {
+        this.db.prepare("INSERT INTO needs (id, data, active, updated_at) VALUES (?, ?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET data=excluded.data, active=excluded.active, updated_at=excluded.updated_at")
+          .run(id, JSON.stringify(need), need.active ? 1 : 0);
+      }).catch(() => {});
     });
 
     marketplace.on("OfferPublished", (offerId: bigint, publisher: string, price: bigint, tags: string[], event: { log: { transactionHash: string; blockNumber: number } }) => {
       console.log(`[Event] OfferPublished: #${offerId} by ${publisher}`);
-      this.saveEvent("OfferPublished", {
-        offerId: offerId.toString(),
-        publisher,
-        price: price.toString(),
-        tags,
-      }, event.log.transactionHash, event.log.blockNumber);
+      const data = { offerId: offerId.toString(), publisher, price: price.toString(), tags };
+      this.saveEvent("OfferPublished", data, event.log.transactionHash, event.log.blockNumber);
+      // Sync offer into snapshot
+      const id = Number(offerId);
+      this.blockchain.getOffer(id).then(offer => {
+        this.db.prepare("INSERT INTO offers (id, data, active, updated_at) VALUES (?, ?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET data=excluded.data, active=excluded.active, updated_at=excluded.updated_at")
+          .run(id, JSON.stringify(offer), offer.active ? 1 : 0);
+      }).catch(() => {});
     });
 
     engine.on("ProposalCreated", (proposalId: bigint, needId: bigint, offerId: bigint, buyer: string, seller: string, price: bigint, event: { log: { transactionHash: string; blockNumber: number } }) => {
       console.log(`[Event] ProposalCreated: #${proposalId} ${buyer} → ${seller}`);
-      this.saveEvent("ProposalCreated", {
-        proposalId: proposalId.toString(),
-        needId: needId.toString(),
-        offerId: offerId.toString(),
-        buyer,
-        seller,
-        price: price.toString(),
-      }, event.log.transactionHash, event.log.blockNumber);
+      const data = { proposalId: proposalId.toString(), needId: needId.toString(), offerId: offerId.toString(), buyer, seller, price: price.toString() };
+      this.saveEvent("ProposalCreated", data, event.log.transactionHash, event.log.blockNumber);
+      const id = Number(proposalId);
+      this.blockchain.getProposal(id).then(p => {
+        if (p) this.db.prepare("INSERT INTO proposals (id, data, updated_at) VALUES (?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at")
+          .run(id, JSON.stringify(p));
+      }).catch(() => {});
     });
 
     engine.on("ProposalAccepted", (proposalId: bigint, agreementContract: string, event: { log: { transactionHash: string; blockNumber: number } }) => {
       console.log(`[Event] ProposalAccepted: #${proposalId} → ${agreementContract}`);
-      this.saveEvent("ProposalAccepted", {
-        proposalId: proposalId.toString(),
-        agreementContract,
-      }, event.log.transactionHash, event.log.blockNumber);
+      this.saveEvent("ProposalAccepted", { proposalId: proposalId.toString(), agreementContract }, event.log.transactionHash, event.log.blockNumber);
+      // Update proposal snapshot
+      const id = Number(proposalId);
+      this.blockchain.getProposal(id).then(p => {
+        if (p) this.db.prepare("INSERT INTO proposals (id, data, updated_at) VALUES (?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at")
+          .run(id, JSON.stringify(p));
+      }).catch(() => {});
     });
 
     engine.on("CounterOffered", (newProposalId: bigint, parentProposalId: bigint, newPrice: bigint, event: { log: { transactionHash: string; blockNumber: number } }) => {
@@ -100,7 +316,6 @@ export class EventIndexer {
 
     const { vault, referral, taskDAG, subscription } = this.blockchain;
 
-    // ── AgentVault events ──────────────────────────────────────────────────
     if (vault) {
       vault.on("Staked", (agent: string, amount: bigint, tier: number, event: any) => {
         this.saveEvent("Staked", { agent, amount: amount.toString(), tier }, event.log.transactionHash, event.log.blockNumber);
@@ -116,7 +331,6 @@ export class EventIndexer {
       });
     }
 
-    // ── ReferralNetwork events ─────────────────────────────────────────────
     if (referral) {
       referral.on("ReferralRegistered", (agent: string, referrerAddr: string, event: any) => {
         this.saveEvent("ReferralRegistered", { agent, referrer: referrerAddr }, event.log.transactionHash, event.log.blockNumber);
@@ -126,7 +340,6 @@ export class EventIndexer {
       });
     }
 
-    // ── TaskDAG events ─────────────────────────────────────────────────────
     if (taskDAG) {
       taskDAG.on("TaskCreated", (taskId: bigint, orchestrator: string, budget: bigint, parentId: bigint, event: any) => {
         this.saveEvent("TaskCreated", { taskId: taskId.toString(), orchestrator, budget: budget.toString(), parentId: parentId.toString() }, event.log.transactionHash, event.log.blockNumber);
@@ -139,7 +352,6 @@ export class EventIndexer {
       });
     }
 
-    // ── SubscriptionManager events ─────────────────────────────────────────
     if (subscription) {
       subscription.on("SubscriptionCreated", (subId: bigint, subscriber: string, provider: string, pricePerPeriod: bigint, periodDuration: bigint, totalPeriods: bigint, event: any) => {
         this.saveEvent("SubscriptionCreated", { subId: subId.toString(), subscriber, provider, pricePerPeriod: pricePerPeriod.toString(), periodDuration: periodDuration.toString(), totalPeriods: totalPeriods.toString() }, event.log.transactionHash, event.log.blockNumber);
@@ -149,7 +361,7 @@ export class EventIndexer {
       });
     }
 
-    // Suppress "filter not found" polling noise common on remote RPCs
+    // Suppress "filter not found" polling noise
     for (const contract of [registry, marketplace, engine]) {
       (contract.provider as any)?.on?.("error", (err: any) => {
         const msg: string = err?.error?.message ?? err?.message ?? "";
@@ -161,66 +373,15 @@ export class EventIndexer {
     console.log("[Indexer] Listening for on-chain events...");
   }
 
-  // Backfill from blockchain on startup so events.db survives Railway redeploys
+  // ── Legacy backfill (events only — kept for compatibility) ─────────────────
   async backfillFromChain(): Promise<void> {
     const recent = (this.db.prepare("SELECT COUNT(*) as cnt FROM events WHERE timestamp > ?").get(
       Math.floor(Date.now() / 1000) - 7200) as { cnt: number }).cnt;
-    if (recent > 0) { console.log(`[Indexer] ${recent} recent events in DB — skipping backfill`); return; }
-
-    console.log("[Indexer] Empty DB — backfilling from blockchain (last 4000 blocks)...");
-    const provider = this.blockchain.provider;
-    const currentBlock = await provider.getBlockNumber().catch(() => 0);
-    if (!currentBlock) return;
-    const fromBlock = Math.max(0, currentBlock - 4000);
-
-    const insertIfNew = (type: string, data: object, txHash?: string, blockNumber?: number) => {
-      if (txHash) {
-        const exists = (this.db.prepare("SELECT 1 FROM events WHERE tx_hash = ? AND type = ?").get(txHash, type));
-        if (exists) return;
-      }
-      this.db.prepare("INSERT INTO events (type, block_number, tx_hash, data) VALUES (?, ?, ?, ?)")
-        .run(type, blockNumber ?? null, txHash ?? null, JSON.stringify(data));
-    };
-
-    const chunk = 1000;
-    for (let start = fromBlock; start < currentBlock; start += chunk) {
-      const end = Math.min(start + chunk - 1, currentBlock);
-      try {
-        const [regEvs, needEvs, offerEvs, propEvs, accEvs] = await Promise.all([
-          this.blockchain.registry.queryFilter(this.blockchain.registry.filters.AgentRegistered?.() ?? {}, start, end).catch(() => []),
-          this.blockchain.marketplace.queryFilter(this.blockchain.marketplace.filters.NeedPublished?.() ?? {}, start, end).catch(() => []),
-          this.blockchain.marketplace.queryFilter(this.blockchain.marketplace.filters.OfferPublished?.() ?? {}, start, end).catch(() => []),
-          this.blockchain.engine.queryFilter(this.blockchain.engine.filters.ProposalCreated?.() ?? {}, start, end).catch(() => []),
-          this.blockchain.engine.queryFilter(this.blockchain.engine.filters.ProposalAccepted?.() ?? {}, start, end).catch(() => []),
-        ]);
-        for (const ev of regEvs  as any[]) insertIfNew("AgentRegistered",  { agent: ev.args[0], name: ev.args[1], capabilities: [...ev.args[2]] }, ev.transactionHash, ev.blockNumber);
-        for (const ev of needEvs  as any[]) insertIfNew("NeedPublished",   { needId: ev.args[0].toString(), publisher: ev.args[1], budget: ev.args[2].toString(), tags: [...ev.args[3]] }, ev.transactionHash, ev.blockNumber);
-        for (const ev of offerEvs as any[]) insertIfNew("OfferPublished",  { offerId: ev.args[0].toString(), publisher: ev.args[1], price: ev.args[2].toString(), tags: [...ev.args[3]] }, ev.transactionHash, ev.blockNumber);
-        for (const ev of propEvs  as any[]) insertIfNew("ProposalCreated", { proposalId: ev.args[0].toString(), needId: ev.args[1].toString(), offerId: ev.args[2].toString(), buyer: ev.args[3], seller: ev.args[4], price: ev.args[5].toString() }, ev.transactionHash, ev.blockNumber);
-        for (const ev of accEvs   as any[]) insertIfNew("ProposalAccepted",{ proposalId: ev.args[0].toString(), agreementContract: ev.args[1] }, ev.transactionHash, ev.blockNumber);
-      } catch { /* skip chunk on error */ }
-      await new Promise(r => setTimeout(r, 400));
+    if (recent > 0) {
+      console.log(`[Indexer] ${recent} recent events in DB`);
+      return;
     }
-    const total = (this.db.prepare("SELECT COUNT(*) as cnt FROM events").get() as { cnt: number }).cnt;
-    console.log(`[Indexer] Backfill complete — ${total} events in DB`);
-  }
-
-  getRecentEvents(limit = 50, type?: string) {
-    const stmt = type
-      ? this.db.prepare("SELECT * FROM events WHERE type = ? ORDER BY timestamp DESC LIMIT ?")
-      : this.db.prepare("SELECT * FROM events ORDER BY timestamp DESC LIMIT ?");
-
-    const rows = type ? stmt.all(type, limit) : stmt.all(limit);
-    return rows.map((row: any) => ({
-      ...row,
-      data: JSON.parse(row.data),
-    }));
-  }
-
-  getEventStats() {
-    const counts = this.db
-      .prepare("SELECT type, COUNT(*) as count FROM events GROUP BY type")
-      .all() as Array<{ type: string; count: number }>;
-    return Object.fromEntries(counts.map((r) => [r.type, r.count]));
+    // If events table is also empty, full sync handles everything
+    console.log("[Indexer] No recent events — full sync will populate DB");
   }
 }
