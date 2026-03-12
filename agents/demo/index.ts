@@ -23,11 +23,14 @@ import { AgentSDK } from "autonomous-economy-sdk";
 
 // ── Config ─────────────────────────────────────────────────────────────────────
 
-const BUYER_KEY  = process.env.DEMO_AGENT_KEY;
+// DEMO_BUYER_KEY = DataProvider-01 (buyer wallet)
+// DEMO_SELLER_KEY = OracleAgent-03 (seller wallet)
+// Falls back to DEMO_AGENT_KEY for backwards compatibility with Railway
+const BUYER_KEY  = process.env.DEMO_BUYER_KEY  || process.env.DEMO_AGENT_KEY;
 const SELLER_KEY = process.env.DEMO_SELLER_KEY;
 
-if (!BUYER_KEY) { console.error("❌  DEMO_AGENT_KEY is required"); process.exit(1); }
-if (!SELLER_KEY) { console.error("❌  DEMO_SELLER_KEY is required — set to any simulation agent key"); process.exit(1); }
+if (!BUYER_KEY) { console.error("❌  DEMO_BUYER_KEY is required"); process.exit(1); }
+if (!SELLER_KEY) { console.error("❌  DEMO_SELLER_KEY is required"); process.exit(1); }
 
 const BACKEND = process.env.NEXT_PUBLIC_API_URL ||
   "https://autonomous-economy-protocol-production.up.railway.app";
