@@ -81,16 +81,18 @@ export default function AdminPage() {
   const [sections, setSections] = useState<Section[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const [livePrice, setLivePrice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     // Fetch all sources in parallel
-    const [stats, genesis, vaultStats, github, moltbook, backendHealth] = await Promise.all([
+    const [stats, genesis, vaultStats, github, moltbook, backendHealth, tokenData] = await Promise.all([
       safeFetch(`${API}/api/monitor/stats`),
       safeFetch(`${API}/api/genesis/info`),
       safeFetch(`${API}/api/vault/stats`),
       safeFetch(`https://api.github.com/repos/${GITHUB_REPO}`),
       safeFetch(`https://www.moltbook.com/api/v1/agents/profile?name=${MOLTBOOK_AGENT}`),
       safeFetch(`${API}/api/health`).then(r => r !== null),
+      safeFetch(`${API}/api/token`),
     ]);
 
     const fmtAGT = (v: string | number) => {
@@ -178,14 +180,14 @@ export default function AdminPage() {
         metrics: [
           {
             label: "Precio AGT",
-            value: "0.000001 USDC",
-            sub: "pool Uniswap V3",
+            value: tokenData?.price ? `$${Number(tokenData.price).toFixed(7)}` : "0.000001 USDC",
+            sub: tokenData?.change24h !== undefined ? `${Number(tokenData.change24h) >= 0 ? "+" : ""}${Number(tokenData.change24h).toFixed(1)}% 24h` : "pool Uniswap V3",
             color: "#22c55e",
             href: `https://dexscreener.com/base/${UNISWAP_POOL}`,
           },
           {
             label: "Pool Uniswap",
-            value: "~$400",
+            value: tokenData?.liquidity ? `$${Math.round(Number(tokenData.liquidity)).toLocaleString()}` : "~$400",
             sub: "liquidez total",
             href: `https://app.uniswap.org/explore/pools/base/${UNISWAP_POOL}`,
           },
@@ -276,6 +278,7 @@ export default function AdminPage() {
       },
     ];
 
+    if (tokenData?.price) setLivePrice(`$${Number(tokenData.price).toFixed(7)}`);
     setSections(newSections);
     setLastUpdated(new Date());
     setLoading(false);
@@ -325,7 +328,7 @@ export default function AdminPage() {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 28 }}>
         <Chip color="#22c55e">Base Mainnet</Chip>
         <Chip color="#6366f1">Season 1 LIVE</Chip>
-        <Chip color="#f59e0b">AGT $0.000001</Chip>
+        <Chip color="#f59e0b">AGT {livePrice ?? "$0.000001"}</Chip>
         <Chip color="#22c55e">Backend Online</Chip>
         <Chip color="#a855f7">Moltbook @aepprotocol</Chip>
       </div>
