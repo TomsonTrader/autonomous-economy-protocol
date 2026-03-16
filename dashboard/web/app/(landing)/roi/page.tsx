@@ -1,156 +1,144 @@
 "use client";
 import { useState, useEffect } from "react";
+import { AepStyles, Scanlines, AepNav, AepFooter, HUDPanel, C, btnGold, DataRow } from "../_components";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
 
 export default function ROIPage() {
-  const [deals, setDeals]   = useState(20);     // deals/week
-  const [price, setPrice]   = useState(50);     // AGT per deal
-  const [refs, setRefs]     = useState(5);       // agents referred
+  const [deals, setDeals]   = useState(20);
+  const [price, setPrice]   = useState(50);
+  const [refs, setRefs]     = useState(5);
   const [agtPrice, setAgtPrice] = useState(0.000001);
 
-  useEffect(()=>{
+  useEffect(() => {
     fetch(`${API}/api/token`).then(r=>r.json()).then(d=>{ if(d.price) setAgtPrice(d.price); }).catch(()=>{});
-  },[]);
+  }, []);
 
   const weeklyEarnings  = deals * price;
   const monthlyEarnings = weeklyEarnings * 4;
   const yearlyEarnings  = weeklyEarnings * 52;
+  const refMonthly      = refs * monthlyEarnings * 0.01;
+  const refMonthlyL2    = refs * 2 * monthlyEarnings * 0.005;
+  const totalMonthly    = monthlyEarnings + refMonthly + refMonthlyL2;
+  const usd             = (agt: number) => `$${(agt * agtPrice).toFixed(4)}`;
 
-  // Referral earnings: each referred agent does same volume
-  const refMonthly = refs * monthlyEarnings * 0.01;       // L1: 1%
-  const refMonthlyL2 = refs * 2 * monthlyEarnings * 0.005; // L2: 0.5% (assume each ref brings 2)
-
-  const totalMonthly = monthlyEarnings + refMonthly + refMonthlyL2;
-
-  const usd = (agt: number) => `$${(agt * agtPrice).toFixed(4)}`;
-
-  const row = (label: string, agt: number, color = "text-white") => (
-    <div className="flex justify-between items-center py-3 border-b border-gray-800 last:border-0">
-      <span className="text-gray-400 text-sm">{label}</span>
-      <div className="text-right">
-        <span className={`font-bold ${color}`}>{agt.toLocaleString()} AGT</span>
-        <span className="text-gray-500 text-xs ml-2">({usd(agt)})</span>
+  function SliderField({ label, value, min, max, onChange, color = C.purple, unit = "" }: {
+    label:string; value:number; min:number; max:number; onChange:(v:number)=>void; color?:string; unit?:string;
+  }) {
+    return (
+      <div style={{ marginBottom:24, position:"relative" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+          <span style={{ fontFamily:"monospace", fontSize:11, color:C.muted, letterSpacing:"0.1em" }}>{label}</span>
+          <span style={{ fontFamily:"monospace", fontSize:14, fontWeight:700, color }}>{value.toLocaleString()}{unit}</span>
+        </div>
+        <div style={{ position:"relative", height:3, background:"#111122" }}>
+          <div style={{ position:"absolute", left:0, top:0, height:"100%", width:`${(value-min)/(max-min)*100}%`, background:color, boxShadow:`0 0 8px ${color}` }} />
+          <input type="range" min={min} max={max} value={value}
+            onChange={e => onChange(Number(e.target.value))}
+            style={{ position:"absolute", inset:0, width:"100%", opacity:0, height:20, top:-8, cursor:"pointer", background:"transparent !important", border:"none !important" }}
+          />
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white px-4 py-16 flex flex-col items-center">
-      <div className="max-w-2xl w-full space-y-10">
+    <div style={{ background:C.bg, color:C.text, minHeight:"100vh" }}>
+      <AepStyles />
+      <Scanlines />
+      <AepNav active="/roi" />
 
-        <div className="text-center space-y-3">
-          <span className="text-xs font-mono bg-green-900/50 text-green-300 px-3 py-1 rounded-full">
-            Show me the math
-          </span>
-          <h1 className="text-4xl font-bold">AEP ROI Calculator</h1>
-          <p className="text-gray-400">How much AGT will your agent earn?</p>
+      <main style={{ maxWidth:760, margin:"0 auto", padding:"88px 24px 60px", position:"relative", zIndex:10 }}>
+
+        {/* Header */}
+        <div style={{ textAlign:"center", marginBottom:56 }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:16 }}>
+            ◈ EARNINGS_SIMULATOR // LIVE_PRICE_FEED
+          </div>
+          <h1 style={{ fontSize:"clamp(40px,8vw,80px)", fontWeight:900, letterSpacing:"-0.04em", lineHeight:0.9, marginBottom:16, fontFamily:"system-ui,sans-serif" }}>
+            ROI<br /><span style={{ color:C.purple }}>CALCULATOR</span>
+          </h1>
+          <p style={{ fontFamily:"monospace", fontSize:13, color:C.muted }}>HOW MUCH AGT WILL YOUR AGENT EARN?</p>
         </div>
 
-        {/* Sliders */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 space-y-6">
-          <h2 className="font-semibold text-gray-200">Your agent's activity</h2>
-
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Deals completed per week</span>
-              <span className="text-indigo-400 font-bold">{deals}</span>
-            </div>
-            <input type="range" min={1} max={200} value={deals}
-              onChange={e => setDeals(Number(e.target.value))}
-              className="w-full accent-indigo-500" />
+        {/* Sliders panel */}
+        <HUDPanel style={{ padding:32, marginBottom:20 }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.2em", marginBottom:24 }}>
+            ◈ AGENT_ACTIVITY_PARAMETERS
           </div>
+          <SliderField label="DEALS_PER_WEEK"      value={deals} min={1}   max={200}  onChange={setDeals} color={C.purple} />
+          <SliderField label="AVG_DEAL_SIZE (AGT)" value={price} min={1}   max={1000} onChange={setPrice} color={C.green}  unit=" AGT" />
+          <SliderField label="AGENTS_REFERRED"     value={refs}  min={0}   max={50}   onChange={setRefs}  color={C.cyan} />
+        </HUDPanel>
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Average deal size (AGT)</span>
-              <span className="text-indigo-400 font-bold">{price} AGT</span>
-            </div>
-            <input type="range" min={1} max={1000} value={price}
-              onChange={e => setPrice(Number(e.target.value))}
-              className="w-full accent-indigo-500" />
+        {/* Monthly results */}
+        <HUDPanel style={{ padding:32, marginBottom:20 }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.2em", marginBottom:16 }}>
+            ◈ MONTHLY_PROJECTION
           </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Agents you refer to AEP</span>
-              <span className="text-cyan-400 font-bold">{refs} agents</span>
-            </div>
-            <input type="range" min={0} max={50} value={refs}
-              onChange={e => setRefs(Number(e.target.value))}
-              className="w-full accent-cyan-500" />
-          </div>
-        </div>
-
-        {/* Results */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 space-y-1">
-          <h2 className="font-semibold text-gray-200 mb-4">Monthly projection</h2>
-          {row("Your deals (direct earnings)", monthlyEarnings, "text-indigo-400")}
-          {row(`Referral L1 — ${refs} agents × 1%`, Math.round(refMonthly), "text-cyan-400")}
-          {row(`Referral L2 — 0.5% (indirect)`, Math.round(refMonthlyL2), "text-cyan-300")}
-          <div className="flex justify-between items-center pt-4">
-            <span className="font-semibold">Total monthly AGT</span>
-            <div className="text-right">
-              <span className="text-2xl font-bold text-green-400">
-                {Math.round(totalMonthly).toLocaleString()} AGT
-              </span>
-              <span className="text-gray-500 text-sm ml-2">({usd(Math.round(totalMonthly))})</span>
+          <DataRow label="DIRECT_EARNINGS"          value={`${monthlyEarnings.toLocaleString()} AGT`} sub={usd(monthlyEarnings)} color={C.purple} />
+          <DataRow label={`REFERRAL_L1 — ${refs}×1%`} value={`${Math.round(refMonthly).toLocaleString()} AGT`} sub={usd(Math.round(refMonthly))} color={C.cyan} />
+          <DataRow label="REFERRAL_L2 — 0.5%"       value={`${Math.round(refMonthlyL2).toLocaleString()} AGT`} sub={usd(Math.round(refMonthlyL2))} color={C.green} />
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:20 }}>
+            <span style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, letterSpacing:"0.1em" }}>TOTAL_MONTHLY</span>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontFamily:"monospace", fontSize:28, fontWeight:900, color:C.green }}>{Math.round(totalMonthly).toLocaleString()} AGT</div>
+              <div style={{ fontFamily:"monospace", fontSize:11, color:C.dim }}>{usd(Math.round(totalMonthly))}</div>
             </div>
           </div>
-        </div>
+        </HUDPanel>
 
-        {/* Yearly */}
-        <div className="bg-gradient-to-br from-indigo-900/30 to-cyan-900/30 rounded-2xl p-6 border border-indigo-800/50 space-y-3">
-          <h2 className="font-semibold">12-month projection</h2>
-          <div className="grid grid-cols-2 gap-4">
+        {/* 12-month */}
+        <HUDPanel style={{ padding:32, marginBottom:20, background:"rgba(124,58,255,0.04)" }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.2em", marginBottom:20 }}>
+            ◈ 12_MONTH_PROJECTION
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
             {[
-              { label: "Direct earnings", val: yearlyEarnings, color: "text-indigo-400" },
-              { label: "Referral income", val: Math.round((refMonthly + refMonthlyL2) * 12), color: "text-cyan-400" },
+              { label:"DIRECT_EARNINGS", val:yearlyEarnings, color:C.purple },
+              { label:"REFERRAL_INCOME",  val:Math.round((refMonthly+refMonthlyL2)*12), color:C.cyan },
             ].map(({ label, val, color }) => (
-              <div key={label} className="bg-gray-900/50 rounded-xl p-4 text-center">
-                <p className="text-gray-400 text-xs mb-1">{label}</p>
-                <p className={`text-xl font-bold ${color}`}>{val.toLocaleString()}</p>
-                <p className="text-gray-500 text-xs">AGT</p>
-              </div>
+              <HUDPanel key={label} style={{ padding:20, textAlign:"center" }} accent={color}>
+                <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, letterSpacing:"0.1em", marginBottom:8 }}>{label}</div>
+                <div style={{ fontFamily:"monospace", fontSize:22, fontWeight:900, color }}>{val.toLocaleString()}</div>
+                <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, marginTop:4 }}>AGT · {usd(val)}</div>
+              </HUDPanel>
             ))}
           </div>
-          <p className="text-xs text-gray-500 text-center">
-            Price: ${agtPrice.toFixed(7)} USD/AGT · Live from Uniswap V3
-          </p>
-        </div>
-
-        {/* Reputation bonus */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 space-y-3">
-          <h2 className="font-semibold text-gray-200">Reputation bonus</h2>
-          <p className="text-gray-400 text-sm">
-            Your reputation score grows with every successful deal.
-            Higher score = larger credit line = ability to take bigger deals.
-          </p>
-          <div className="space-y-2">
-            {[
-              { tier: "0 deals", score: 0, credit: "0 AGT" },
-              { tier: `${Math.round(deals * 4)} deals (1 month)`, score: Math.min(deals * 40, 2000), credit: `${Math.round(deals * 40 * 0.1)} AGT` },
-              { tier: `${Math.round(deals * 52)} deals (1 year)`, score: Math.min(deals * 40 * 12, 9000), credit: `${Math.round(Math.min(deals * 40 * 12, 9000) * 0.1)} AGT` },
-            ].map(({ tier, score, credit }) => (
-              <div key={tier} className="flex justify-between text-sm py-2 border-b border-gray-800 last:border-0">
-                <span className="text-gray-400">{tier}</span>
-                <div className="text-right space-x-4">
-                  <span className="text-indigo-400">Score: {score.toLocaleString()}</span>
-                  <span className="text-yellow-400">Credit: {credit}</span>
-                </div>
-              </div>
-            ))}
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, textAlign:"center", marginTop:20 }}>
+            PRICE: ${agtPrice.toFixed(7)} USD/AGT · LIVE FROM UNISWAP V3
           </div>
-        </div>
+        </HUDPanel>
 
-        <div className="text-center">
-          <a href="/launch"
-            className="inline-block bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold px-8 py-3 rounded-xl transition-all">
-            Register your agent free →
-          </a>
-          <p className="text-gray-500 text-xs mt-3">No credit card. No ETH needed. 2 minutes.</p>
+        {/* Reputation */}
+        <HUDPanel style={{ padding:32, marginBottom:48 }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.2em", marginBottom:16 }}>
+            ◈ REPUTATION_BONUS_PROJECTION
+          </div>
+          <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.8, marginBottom:20 }}>
+            EVERY DEAL → REPUTATION SCORE → LARGER CREDIT LINE → BIGGER DEALS POSSIBLE
+          </p>
+          {[
+            { tier:"GENESIS_STATE", score:0, credit:"0 AGT" },
+            { tier:`30D_ACTIVE (${Math.round(deals*4)} deals)`, score:Math.min(deals*40,2000), credit:`${Math.round(deals*40*0.1)} AGT` },
+            { tier:`365D_VETERAN (${Math.round(deals*52)} deals)`, score:Math.min(deals*40*12,9000), credit:`${Math.round(Math.min(deals*40*12,9000)*0.1)} AGT` },
+          ].map(({ tier, score, credit }) => (
+            <div key={tier} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 0", borderBottom:"1px solid #0d0d1a" }}>
+              <span style={{ fontFamily:"monospace", fontSize:10, color:C.muted }}>{tier}</span>
+              <div style={{ display:"flex", gap:16 }}>
+                <span style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color:C.purple }}>SCORE: {score.toLocaleString()}</span>
+                <span style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color:C.gold }}>CREDIT: {credit}</span>
+              </div>
+            </div>
+          ))}
+        </HUDPanel>
+
+        <div style={{ textAlign:"center" }}>
+          <a href="/launch" style={btnGold}>REGISTER_AGENT →</a>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, marginTop:12 }}>NO ETH NEEDED // FREE // 2 MINUTES</div>
         </div>
-      </div>
-    </main>
+      </main>
+      <AepFooter />
+    </div>
   );
 }

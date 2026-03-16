@@ -5,10 +5,9 @@ import Link from "next/link";
 import { ethers } from "ethers";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
+import { AepStyles, Scanlines, HUDPanel, C, btnGold, Tag } from "../_components";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
-
-// Base Mainnet contract addresses
 const AGT_ADDRESS      = "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101";
 const REGISTRY_ADDRESS = "0x601125818d16cb78dD239Bce2c821a588B06d978";
 
@@ -22,103 +21,57 @@ const REGISTRY_ABI = [
   "function isRegistered(address) view returns (bool)",
 ];
 
-const ALL_CAPS = [
-  "nlp", "data", "analysis", "pricing", "content", "ml",
-  "security", "vision", "translation", "risk", "defi", "web3",
-  "scraping", "audit", "trading", "search",
-];
+const ALL_CAPS = ["nlp","data","analysis","pricing","content","ml","security","vision","translation","risk","defi","web3","scraping","audit","trading","search"];
 
-// ── Types ────────────────────────────────────────────────────────────────────
-type Mode = "select" | "dev" | "managed";
-type DevStep = "form" | "connect" | "faucet" | "needeth" | "approve" | "register" | "done" | "error";
+type Mode        = "select" | "dev" | "managed";
+type DevStep     = "form" | "connect" | "faucet" | "needeth" | "approve" | "register" | "done" | "error";
 type ManagedStep = "template" | "configure" | "launching" | "done" | "error";
 
-interface Template {
-  id: string;
-  name: string;
-  description: string;
-  earnings: string;
-  icon: string;
-  tags: string[];
-}
+interface Template { id:string; name:string; description:string; earnings:string; icon:string; tags:string[] }
 
 const TEMPLATES: Template[] = [
-  {
-    id: "data-provider",
-    name: "DataProvider",
-    description: "Sells on-chain analytics data to other agents and dApps. Tracks DeFi TVL, volume, and wallet activity.",
-    earnings: "25 AGT per request",
-    icon: "D",
-    tags: ["data", "analytics", "onchain"],
-  },
-  {
-    id: "content-agent",
-    name: "ContentAgent",
-    description: "Generates content, summaries, and translations on demand. DeFi terminology aware.",
-    earnings: "40 AGT per request",
-    icon: "C",
-    tags: ["content", "nlp", "translation"],
-  },
-  {
-    id: "oracle-agent",
-    name: "OracleAgent",
-    description: "Provides price feeds and market data with cryptographic proofs. ETH, BTC, SOL and more.",
-    earnings: "20 AGT per request",
-    icon: "O",
-    tags: ["pricing", "oracle", "market"],
-  },
-  {
-    id: "audit-bot",
-    name: "AuditBot",
-    description: "Runs smart contract security scans — reentrancy, overflow, access control, and 12+ vulnerability patterns.",
-    earnings: "100 AGT per request",
-    icon: "A",
-    tags: ["security", "audit", "solidity"],
-  },
+  { id:"data-provider",  name:"DataProvider",  description:"Sells on-chain analytics data to other agents and dApps. Tracks DeFi TVL, volume, and wallet activity.", earnings:"25 AGT per request",  icon:"D", tags:["data","analytics","onchain"] },
+  { id:"content-agent",  name:"ContentAgent",  description:"Generates content, summaries, and translations on demand. DeFi terminology aware.",                        earnings:"40 AGT per request",  icon:"C", tags:["content","nlp","translation"] },
+  { id:"oracle-agent",   name:"OracleAgent",   description:"Provides price feeds and market data with cryptographic proofs. ETH, BTC, SOL and more.",                  earnings:"20 AGT per request",  icon:"O", tags:["pricing","oracle","market"] },
+  { id:"audit-bot",      name:"AuditBot",      description:"Runs smart contract security scans — reentrancy, overflow, access control, and 12+ vulnerability patterns.", earnings:"100 AGT per request", icon:"A", tags:["security","audit","solidity"] },
 ];
 
-// ── Small components ─────────────────────────────────────────────────────────
-function Badge({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
+// ─── Shared sub-components ───────────────────────────────────────────────────
+function CapBadge({ label, selected, onClick }: { label:string; selected:boolean; onClick:()=>void }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "6px 14px", borderRadius: 100, fontSize: 12, fontWeight: 600,
-        border: `1px solid ${selected ? "#6366f1" : "rgba(255,255,255,0.1)"}`,
-        background: selected ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.03)",
-        color: selected ? "#a5b4fc" : "rgba(255,255,255,0.5)",
-        cursor: "pointer", transition: "all .15s",
-      }}
-    >
+    <button onClick={onClick} style={{
+      padding:"5px 12px", fontFamily:"monospace", fontSize:10, fontWeight:700,
+      border:`1px solid ${selected ? C.purple : C.purple+"33"}`,
+      background: selected ? `${C.purple}22` : "transparent",
+      color: selected ? C.purple : C.dim,
+      cursor:"pointer", letterSpacing:"0.05em",
+      clipPath:"polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%)",
+      transition:"all .15s",
+    }}>
       {label}
     </button>
   );
 }
 
-function StepIndicator({ current, steps }: { current: number; steps: string[] }) {
+function Steps({ current, steps }: { current:number; steps:string[] }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 28 }}>
-      {steps.map((label, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", flex: i < steps.length - 1 ? 1 : 0 }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+    <div style={{ display:"flex", alignItems:"center", marginBottom:28 }}>
+      {steps.map((label,i) => (
+        <div key={i} style={{ display:"flex", alignItems:"center", flex: i<steps.length-1?1:0 }}>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
             <div style={{
-              width: 24, height: 24, borderRadius: "50%", fontSize: 11, fontWeight: 700,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: i < current ? "#6366f1" : i === current ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.08)",
-              border: i === current ? "1px solid #6366f1" : "1px solid transparent",
-              color: i <= current ? "#fff" : "rgba(255,255,255,0.3)",
+              width:20, height:20, fontSize:9, fontFamily:"monospace", fontWeight:700,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              background: i<current ? C.purple : i===current ? `${C.purple}33` : "#111",
+              border: i===current ? `1px solid ${C.purple}` : "1px solid transparent",
+              color: i<=current ? "#fff" : C.dim,
             }}>
-              {i < current ? "+" : i + 1}
+              {i<current?"✓":i+1}
             </div>
-            <div style={{ fontSize: 9, color: i === current ? "#a5b4fc" : "rgba(255,255,255,0.25)", whiteSpace: "nowrap" }}>
-              {label}
-            </div>
+            <div style={{ fontFamily:"monospace", fontSize:8, color: i===current?C.purple:C.dim, whiteSpace:"nowrap", letterSpacing:"0.05em" }}>{label}</div>
           </div>
-          {i < steps.length - 1 && (
-            <div style={{
-              flex: 1, height: 1, margin: "0 4px", marginBottom: 16,
-              background: i < current ? "#6366f1" : "rgba(255,255,255,0.08)",
-            }} />
+          {i<steps.length-1 && (
+            <div style={{ flex:1, height:1, margin:"0 4px", marginBottom:14, background: i<current?C.purple:"#111" }} />
           )}
         </div>
       ))}
@@ -126,296 +79,135 @@ function StepIndicator({ current, steps }: { current: number; steps: string[] })
   );
 }
 
-// ── Main page ────────────────────────────────────────────────────────────────
+function AepInput({ value, onChange, placeholder, maxLength, mono=false }: {
+  value:string; onChange:(v:string)=>void; placeholder:string; maxLength?:number; mono?:boolean;
+}) {
+  return (
+    <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} maxLength={maxLength}
+      style={{ width:"100%", padding:"13px 16px", fontSize:12, letterSpacing: mono?"0.05em":undefined, fontFamily: mono?"monospace":undefined }} />
+  );
+}
+
+// ─── Main page ───────────────────────────────────────────────────────────────
 export default function LaunchPage() {
   const [mode, setMode] = useState<Mode>("select");
 
   return (
-    <div style={{
-      minHeight: "100vh", background: "#09090b", color: "#fff",
-      fontFamily: "Inter,system-ui,sans-serif",
-    }}>
+    <div style={{ minHeight:"100vh", background:C.bg, color:C.text }}>
+      <AepStyles />
+      <Scanlines />
+
       {/* Back nav */}
-      <div style={{ position: "fixed", top: 20, left: 24, zIndex: 50 }}>
-        <Link href="/" style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, textDecoration: "none" }}>
-          Back to AEP
+      <div style={{ position:"fixed", top:16, left:24, zIndex:50 }}>
+        <Link href="/" style={{ fontFamily:"monospace", fontSize:11, color:C.dim, textDecoration:"none", letterSpacing:"0.1em" }}>
+          ← AEP://HOME
         </Link>
       </div>
 
-      {/* Gradient glow */}
-      <div style={{
-        position: "fixed", top: "10%", left: "50%", transform: "translateX(-50%)",
-        width: 800, height: 600,
-        background: "radial-gradient(ellipse,rgba(99,102,241,0.08) 0%,transparent 70%)",
-        pointerEvents: "none",
-      }} />
+      {/* Background glow */}
+      <div style={{ position:"fixed", top:"10%", left:"50%", transform:"translateX(-50%)", width:800, height:600, background:`radial-gradient(ellipse,${C.purple}07 0%,transparent 70%)`, pointerEvents:"none" }} />
 
-      {mode === "select" && <SelectMode onSelect={setMode} />}
-      {mode === "dev" && <DevFlow onBack={() => setMode("select")} />}
+      {mode === "select"  && <SelectMode onSelect={setMode} />}
+      {mode === "dev"     && <DevFlow    onBack={() => setMode("select")} />}
       {mode === "managed" && <ManagedFlow onBack={() => setMode("select")} />}
-
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        input:focus { outline: none; border-color: rgba(99,102,241,0.5) !important; }
-        textarea:focus { outline: none; border-color: rgba(99,102,241,0.5) !important; }
-      `}</style>
     </div>
   );
 }
 
-// ── Mode selection ────────────────────────────────────────────────────────────
-function SelectMode({ onSelect }: { onSelect: (m: Mode) => void }) {
+// ─── Mode selection ───────────────────────────────────────────────────────────
+function SelectMode({ onSelect }: { onSelect:(m:Mode)=>void }) {
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center",
-      justifyContent: "center", minHeight: "100vh", padding: "80px 24px",
-      position: "relative", zIndex: 10,
-    }}>
-      {/* Hero */}
-      <div style={{ textAlign: "center", marginBottom: 56 }}>
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 8,
-          background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)",
-          borderRadius: 100, padding: "5px 16px", fontSize: 11, color: "#a5b4fc",
-          marginBottom: 24, letterSpacing: 1,
-        }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block", animation: "pulse 2s infinite" }} />
-          LIVE ON BASE MAINNET
-        </div>
-        <h1 style={{
-          fontSize: "clamp(36px, 6vw, 64px)", fontWeight: 900,
-          letterSpacing: "-2px", lineHeight: 1.05, marginBottom: 20,
-          background: "linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%)",
-          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-        }}>
-          Your agent works<br />while you sleep
-        </h1>
-        <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 17, maxWidth: 520, margin: "0 auto" }}>
-          Deploy AI agents that trade autonomously on-chain — earning AGT tokens 24/7.
-          No infrastructure required.
-        </p>
-      </div>
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"100vh", padding:"80px 24px", position:"relative", zIndex:10 }}>
 
-      {/* Two path cards */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-        gap: 20, width: "100%", maxWidth: 760,
-      }}>
+      <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:20 }}>◈ AGENT_LAUNCHPAD // BASE_MAINNET:8453</div>
+
+      <h1 style={{ fontSize:"clamp(36px,7vw,72px)", fontWeight:900, letterSpacing:"-0.04em", lineHeight:.9, marginBottom:20, textAlign:"center", fontFamily:"system-ui,sans-serif" }}>
+        YOUR AGENT<br /><span style={{ color:C.purple }}>EARNS 24/7</span>
+      </h1>
+      <p style={{ fontFamily:"monospace", fontSize:12, color:C.muted, maxWidth:480, textAlign:"center", marginBottom:56, lineHeight:1.7 }}>
+        DEPLOY AI AGENTS THAT TRADE AUTONOMOUSLY ON-CHAIN · EARNING AGT 24/7 · NO INFRASTRUCTURE REQUIRED
+      </p>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))", gap:12, width:"100%", maxWidth:760 }}>
         {/* Developer card */}
-        <button
-          onClick={() => onSelect("dev")}
-          style={{
-            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 20, padding: "32px 28px", textAlign: "left", cursor: "pointer",
-            transition: "all .2s", color: "#fff",
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.border = "1px solid rgba(99,102,241,0.4)";
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.06)";
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.border = "1px solid rgba(255,255,255,0.1)";
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
-          }}
-        >
-          <div style={{
-            width: 48, height: 48, borderRadius: 12, marginBottom: 20,
-            background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 22,
-          }}>
-            {"</>"}
-          </div>
-          <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 700, letterSpacing: 1, marginBottom: 8, textTransform: "uppercase" }}>
-            For Developers
-          </div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12, letterSpacing: "-0.5px" }}>
-            I&apos;m a developer
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, lineHeight: 1.7, marginBottom: 24 }}>
+        <button onClick={()=>onSelect("dev")} style={{ background:"transparent", border:`1px solid ${C.purple}33`, padding:"32px 28px", textAlign:"left", cursor:"pointer", color:C.text, position:"relative" }}
+          onMouseEnter={e=>(e.currentTarget.style.border=`1px solid ${C.purple}88`)}
+          onMouseLeave={e=>(e.currentTarget.style.border=`1px solid ${C.purple}33`)}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.15em", marginBottom:12 }}>FOR_DEVELOPERS</div>
+          <div style={{ fontFamily:"monospace", fontSize:24, fontWeight:900, marginBottom:12, letterSpacing:"-0.02em" }}>&lt;/&gt; DEV_PATH</div>
+          <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.7, marginBottom:20 }}>
             Register your agent with MetaMask. You control the private key and run your own agent logic using the SDK.
           </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
-            {["MetaMask", "SDK", "Full control"].map(tag => (
-              <span key={tag} style={{
-                background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)",
-                borderRadius: 100, padding: "3px 10px", fontSize: 11, color: "#a5b4fc",
-              }}>{tag}</span>
-            ))}
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:20 }}>
+            {["METAMASK","SDK","FULL_CONTROL"].map(t=><Tag key={t} label={t} color={C.purple}/>)}
           </div>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8,
-            color: "#6366f1", fontSize: 13, fontWeight: 700,
-          }}>
-            Register with MetaMask
-            <span style={{ fontSize: 16 }}>&#8594;</span>
-          </div>
+          <div style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:C.purple }}>REGISTER WITH METAMASK →</div>
         </button>
 
         {/* Managed card */}
-        <button
-          onClick={() => onSelect("managed")}
-          style={{
-            background: "linear-gradient(145deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.06) 100%)",
-            border: "1px solid rgba(99,102,241,0.3)",
-            borderRadius: 20, padding: "32px 28px", textAlign: "left", cursor: "pointer",
-            transition: "all .2s", color: "#fff", position: "relative", overflow: "hidden",
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.border = "1px solid rgba(99,102,241,0.6)";
-            (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(145deg, rgba(99,102,241,0.14) 0%, rgba(168,85,247,0.1) 100%)";
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.border = "1px solid rgba(99,102,241,0.3)";
-            (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(145deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.06) 100%)";
-          }}
-        >
-          {/* Popular badge */}
-          <div style={{
-            position: "absolute", top: 16, right: 16,
-            background: "linear-gradient(135deg,#6366f1,#a855f7)",
-            borderRadius: 100, padding: "3px 10px", fontSize: 10, fontWeight: 700, color: "#fff", letterSpacing: 0.5,
-          }}>
-            POPULAR
-          </div>
-
-          <div style={{
-            width: 48, height: 48, borderRadius: 12, marginBottom: 20,
-            background: "linear-gradient(135deg,rgba(99,102,241,0.3),rgba(168,85,247,0.3))",
-            border: "1px solid rgba(99,102,241,0.4)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 22,
-          }}>
-            &#9881;
-          </div>
-          <div style={{ fontSize: 11, color: "#a5b4fc", fontWeight: 700, letterSpacing: 1, marginBottom: 8, textTransform: "uppercase" }}>
-            No Code Required
-          </div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12, letterSpacing: "-0.5px" }}>
-            Launch a managed agent
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, lineHeight: 1.7, marginBottom: 24 }}>
-            Pick a template, give it a name, and we run it 24/7. No wallet needed. We handle deployment, funding, and operation.
+        <button onClick={()=>onSelect("managed")} style={{ background:`${C.purple}08`, border:`1px solid ${C.purple}55`, padding:"32px 28px", textAlign:"left", cursor:"pointer", color:C.text, position:"relative" }}
+          onMouseEnter={e=>(e.currentTarget.style.border=`1px solid ${C.purple}aa`)}
+          onMouseLeave={e=>(e.currentTarget.style.border=`1px solid ${C.purple}55`)}>
+          <div style={{ position:"absolute", top:16, right:16, fontFamily:"monospace", fontSize:9, fontWeight:700, padding:"3px 10px", background:C.purple, color:"#fff", letterSpacing:"0.1em" }}>POPULAR</div>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.15em", marginBottom:12 }}>NO_CODE</div>
+          <div style={{ fontFamily:"monospace", fontSize:24, fontWeight:900, marginBottom:12, letterSpacing:"-0.02em" }}>⚙ MANAGED</div>
+          <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.7, marginBottom:20 }}>
+            We deploy and run your agent 24/7. No wallet or infrastructure needed. Pick a template and go.
           </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
-            {["No wallet", "We run it", "24/7"].map(tag => (
-              <span key={tag} style={{
-                background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.25)",
-                borderRadius: 100, padding: "3px 10px", fontSize: 11, color: "#c4b5fd",
-              }}>{tag}</span>
-            ))}
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:20 }}>
+            {["NO_WALLET","HOSTED","TEMPLATES"].map(t=><Tag key={t} label={t} color={C.green}/>)}
           </div>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8,
-            background: "linear-gradient(135deg,#6366f1,#a855f7)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            fontSize: 13, fontWeight: 700,
-          }}>
-            Launch managed agent
-            <span style={{ fontSize: 16, WebkitTextFillColor: "#a855f7" }}>&#8594;</span>
-          </div>
+          <div style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:C.green }}>LAUNCH WITH TEMPLATE →</div>
         </button>
-      </div>
-
-      {/* Stats row */}
-      <div style={{
-        display: "flex", gap: 40, marginTop: 56, flexWrap: "wrap", justifyContent: "center",
-      }}>
-        {[
-          { label: "Agents live", value: "24+" },
-          { label: "Network", value: "Base Mainnet" },
-          { label: "Avg earnings", value: "40 AGT/req" },
-        ].map(stat => (
-          <div key={stat.label} style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{stat.value}</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{stat.label}</div>
-          </div>
-        ))}
       </div>
     </div>
   );
 }
 
-// ── Developer flow ────────────────────────────────────────────────────────────
-function DevFlow({ onBack }: { onBack: () => void }) {
-  const referralRef = typeof window !== "undefined"
-    ? new URLSearchParams(window.location.search).get("ref") ?? ""
-    : "";
+// ─── Developer flow ───────────────────────────────────────────────────────────
+function DevFlow({ onBack }: { onBack:()=>void }) {
+  const { address, isConnected } = useAccount();
+  const [step,       setStep]      = useState<DevStep>("form");
+  const [name,       setName]      = useState("");
+  const [caps,       setCaps]      = useState<string[]>([]);
+  const [loading,    setLoading]   = useState(false);
+  const [statusMsg,  setStatusMsg] = useState("");
+  const [errMsg,     setErrMsg]    = useState("");
+  const [faucetHash, setFaucetHash]= useState("");
+  const [regHash,    setRegHash]   = useState("");
+  const [referralRef,setReferralRef]=useState("");
 
-  const [step, setStep]           = useState<DevStep>("form");
-  const [name, setName]           = useState("");
-  const [caps, setCaps]           = useState<string[]>([]);
-  const [address, setAddress]     = useState("");
-  const [faucetHash, setFaucetHash] = useState("");
-  const [regHash, setRegHash]     = useState("");
-  const [errMsg, setErrMsg]       = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [statusMsg, setStatusMsg] = useState("");
+  useEffect(()=>{
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref"); if(ref) setReferralRef(ref);
+  },[]);
 
-  // Wagmi: detect wallet connection from RainbowKit
-  const { address: wagmiAddress, isConnected } = useAccount();
+  useEffect(()=>{
+    if(isConnected && address && step==="connect") handleFaucet(address);
+  },[isConnected,address]);
 
-  // When RainbowKit connects a wallet and we're on the connect step, auto-run setup
-  useEffect(() => {
-    if (isConnected && wagmiAddress && step === "connect") {
-      void runSetupWithAddress(wagmiAddress);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, wagmiAddress]);
+  const toggleCap = (c:string) => setCaps(prev=>prev.includes(c)?prev.filter(x=>x!==c):[...prev,c]);
+  const canSubmit = name.trim().length>=2 && caps.length>=1;
 
-  const canSubmit = name.trim().length >= 2 && caps.length >= 1;
-  const toggleCap = (c: string) =>
-    setCaps(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
-
-  // After wallet is connected via RainbowKit, run faucet + ETH check
-  async function runSetupWithAddress(addr: string) {
-    setLoading(true); setErrMsg("");
+  async function handleFaucet(addr:string) {
+    setStep("faucet"); setLoading(true);
     try {
-      setAddress(addr);
-      setStep("faucet");
-      setStatusMsg("Sending 15 AGT to your wallet…");
-
-      // Auto-run faucet — no button needed
-      const res = await fetch(`${API}/api/faucet`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: addr }),
-      });
+      const res = await fetch(`${API}/api/faucet`,{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ address:addr, referrer:referralRef||undefined }) });
       const data = await res.json();
-
-      if (!res.ok) {
-        if (data.error?.includes("already funded") || data.error?.includes("already registered")) {
-          // Already funded/registered: skip wait, proceed directly to approve
-          setStep("approve");
-          return;
-        }
-        throw new Error(data.error || "Faucet failed");
+      if(!res.ok){
+        if(data.error?.includes("already funded")||data.error?.includes("already registered")){ setStep("approve"); return; }
+        throw new Error(data.error||"Faucet failed");
       }
-
-      setFaucetHash(data.txHash);
-      setStatusMsg("Waiting for AGT confirmation (~10s)…");
-
-      // Wait for on-chain confirmation before enabling MetaMask actions
-      await new Promise(r => setTimeout(r, 12000));
-
-      // Check user has ETH for gas (~2 txs on Base ≈ 0.00005 ETH)
+      setFaucetHash(data.txHash); setStatusMsg("Waiting for AGT confirmation (~10s)…");
+      await new Promise(r=>setTimeout(r,12000));
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const ethBalance = await provider.getBalance(addr);
-      if (ethBalance < ethers.parseEther("0.00005")) {
-        setStep("needeth");
-        return;
-      }
-
+      if(ethBalance<ethers.parseEther("0.00005")){ setStep("needeth"); return; }
       setStep("approve");
-
-    } catch (e: any) {
-      setErrMsg(e.code === 4001 ? "Connection rejected. Please try again." : e.message);
-      setStep(step === "faucet" ? "error" : "connect");
-    } finally {
-      setLoading(false);
-      setStatusMsg("");
-    }
+    } catch(e:any){
+      setErrMsg(e.code===4001?"Connection rejected. Please try again.":e.message);
+      setStep(step==="faucet"?"error":"connect");
+    } finally { setLoading(false); setStatusMsg(""); }
   }
 
   async function approveAGT() {
@@ -424,25 +216,15 @@ function DevFlow({ onBack }: { onBack: () => void }) {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const token = new ethers.Contract(AGT_ADDRESS, TOKEN_ABI, signer);
-
-      // Skip approve if allowance already sufficient
       const allowance: bigint = await token.allowance(address, REGISTRY_ADDRESS);
-      if (allowance >= ethers.parseEther("10")) {
-        setStep("register");
-        return;
-      }
-
+      if(allowance>=ethers.parseEther("10")){ setStep("register"); return; }
       const tx = await token.approve(REGISTRY_ADDRESS, ethers.parseEther("10"));
-      setStatusMsg("Waiting for approval tx…");
-      await tx.wait();
+      setStatusMsg("Waiting for approval tx…"); await tx.wait();
       setStep("register");
-    } catch (e: any) {
-      setErrMsg(e.code === "ACTION_REJECTED" ? "Transaction rejected. Click Approve to try again." : e.message);
-      if (e.code !== "ACTION_REJECTED") setStep("error");
-    } finally {
-      setLoading(false);
-      setStatusMsg("");
-    }
+    } catch(e:any){
+      setErrMsg(e.code==="ACTION_REJECTED"?"Transaction rejected. Click Approve to try again.":e.message);
+      if(e.code!=="ACTION_REJECTED") setStep("error");
+    } finally { setLoading(false); setStatusMsg(""); }
   }
 
   async function registerAgent() {
@@ -454,406 +236,282 @@ function DevFlow({ onBack }: { onBack: () => void }) {
       const tx = await registry.registerAgent(name.trim(), caps, "");
       setStatusMsg("Waiting for registration tx…");
       const receipt = await tx.wait();
-      setRegHash(receipt.hash);
-      setStep("done");
-    } catch (e: any) {
-      setErrMsg(e.code === "ACTION_REJECTED" ? "Transaction rejected. Click Register to try again." : e.message);
-      if (e.code !== "ACTION_REJECTED") setStep("error");
-    } finally {
-      setLoading(false);
-      setStatusMsg("");
-    }
+      setRegHash(receipt.hash); setStep("done");
+    } catch(e:any){
+      setErrMsg(e.code==="ACTION_REJECTED"?"Transaction rejected. Click Register to try again.":e.message);
+      if(e.code!=="ACTION_REJECTED") setStep("error");
+    } finally { setLoading(false); setStatusMsg(""); }
   }
 
-  const stepIndex: Record<DevStep, number> = { form: 0, connect: 1, faucet: 1, needeth: 1, approve: 2, register: 3, done: 4, error: 0 };
-  const STEPS = ["Details", "Wallet", "Approve", "Register", "Live"];
+  const stepIndex: Record<DevStep,number> = { form:0, connect:1, faucet:1, needeth:1, approve:2, register:3, done:4, error:0 };
+  const STEPS = ["DETAILS","WALLET","APPROVE","REGISTER","LIVE"];
+
+  const panel: React.CSSProperties = { padding:28 };
+  const inputLabel: React.CSSProperties = { fontFamily:"monospace", fontSize:9, color:C.dim, letterSpacing:"0.2em", display:"block", marginBottom:10 };
+  const errBox = errMsg && (
+    <div style={{ fontFamily:"monospace", fontSize:11, color:C.red, background:`${C.red}11`, border:`1px solid ${C.red}33`, padding:"10px 14px", marginBottom:16 }}>{errMsg}</div>
+  );
 
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center",
-      justifyContent: "center", minHeight: "100vh", padding: "40px 20px",
-      position: "relative", zIndex: 10,
-    }}>
-      <div style={{ width: "100%", maxWidth: 520 }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
-          <button onClick={onBack} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 13, cursor: "pointer", padding: 0 }}>
-            &#8592; Back
-          </button>
-          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Developer path</span>
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"100vh", padding:"40px 20px", position:"relative", zIndex:10 }}>
+      <div style={{ width:"100%", maxWidth:520 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:32 }}>
+          <button onClick={onBack} style={{ background:"none", border:"none", fontFamily:"monospace", fontSize:11, color:C.dim, cursor:"pointer" }}>← BACK</button>
+          <div style={{ flex:1, height:1, background:"#111" }} />
+          <span style={{ fontFamily:"monospace", fontSize:10, color:C.dim }}>DEVELOPER_PATH</span>
         </div>
 
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-1px", marginBottom: 8 }}>Register Your Agent</h1>
-          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-            3 steps. <strong style={{ color: "#22c55e" }}>15 AGT sent free</strong> — ~$0.05 ETH for gas.
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <h1 style={{ fontFamily:"monospace", fontSize:28, fontWeight:900, letterSpacing:"-0.02em", marginBottom:8 }}>REGISTER_AGENT</h1>
+          <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted }}>
+            3 STEPS · <span style={{ color:C.green }}>15 AGT SENT FREE</span> · ~$0.05 ETH FOR GAS
           </p>
         </div>
 
-        {step !== "error" && step !== "done" && <StepIndicator current={stepIndex[step]} steps={STEPS} />}
+        {step!=="error" && step!=="done" && <Steps current={stepIndex[step]} steps={STEPS}/>}
 
-        {/* ── STEP: form ── */}
-        {step === "form" && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px" }}>
-            <div style={{ marginBottom: 22 }}>
-              <label style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 8 }}>
-                Agent Name
-              </label>
-              <input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="e.g. SentimentAI, PriceOracle, AuditBot"
-                maxLength={64}
-                style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" }}
-              />
+        {/* FORM */}
+        {step==="form" && (
+          <HUDPanel style={panel}>
+            <div style={{ marginBottom:20 }}>
+              <label style={inputLabel}>AGENT_NAME</label>
+              <AepInput value={name} onChange={setName} placeholder="e.g. SentimentAI, PriceOracle, AuditBot" maxLength={64} />
             </div>
-            <div style={{ marginBottom: 28 }}>
-              <label style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 8 }}>
-                Capabilities <span style={{ color: "#6366f1" }}>({caps.length} selected)</span>
-              </label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {ALL_CAPS.map(c => <Badge key={c} label={c} selected={caps.includes(c)} onClick={() => toggleCap(c)} />)}
+            <div style={{ marginBottom:24 }}>
+              <label style={inputLabel}>CAPABILITIES <span style={{ color:C.purple }}>({caps.length} SELECTED)</span></label>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                {ALL_CAPS.map(c=><CapBadge key={c} label={c} selected={caps.includes(c)} onClick={()=>toggleCap(c)}/>)}
               </div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 8 }}>Select at least 1. Searchable in the marketplace.</div>
+              <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, marginTop:8 }}>SELECT AT LEAST 1 · SEARCHABLE IN MARKETPLACE</div>
             </div>
-            <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 10, padding: "12px 16px", marginBottom: 22, fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>
-              <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 4 }}>What you need:</div>
-              <div>&#10003; MetaMask installed (any browser)</div>
-              <div>&#10003; ~$0.05 ETH on Base for gas (2 transactions)</div>
-              <div>&#10003; 15 AGT — sent free to your wallet automatically</div>
-            </div>
-            <button
-              onClick={() => canSubmit && setStep("connect")}
-              disabled={!canSubmit}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: canSubmit ? "pointer" : "not-allowed", background: canSubmit ? "linear-gradient(135deg,#6366f1,#a855f7)" : "rgba(255,255,255,0.08)", color: canSubmit ? "#fff" : "rgba(255,255,255,0.3)" }}
-            >
-              Continue
-            </button>
-          </div>
-        )}
-
-        {/* ── STEP: connect ── */}
-        {step === "connect" && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px", textAlign: "center" }}>
-            <div style={{ fontSize: 44, marginBottom: 16 }}>&#x1F98A;</div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Connect your wallet</h2>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
-              Your wallet address becomes your agent&apos;s on-chain identity.<br />
-              We&apos;ll automatically send 15 AGT to your wallet after connecting.
-            </p>
-            {errMsg && (
-              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", marginBottom: 16, textAlign: "left" }}>
-                {errMsg}
+            <HUDPanel style={{ padding:"14px 16px", marginBottom:20 }} accent={C.purple}>
+              <div style={{ fontFamily:"monospace", fontSize:9, color:C.purple, letterSpacing:"0.1em", marginBottom:8 }}>REQUIREMENTS</div>
+              <div style={{ fontFamily:"monospace", fontSize:10, color:C.muted, lineHeight:2 }}>
+                ✓ MetaMask installed<br/>
+                ✓ ~$0.05 ETH on Base for gas (2 txs)<br/>
+                ✓ 15 AGT — sent free automatically
               </div>
-            )}
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-              <ConnectButton label="Connect Wallet" />
-            </div>
-            <button onClick={() => setStep("form")} style={{ marginTop: 4, background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 12, cursor: "pointer" }}>
-              Back
+            </HUDPanel>
+            <button onClick={()=>canSubmit&&setStep("connect")} disabled={!canSubmit} style={{ ...btnGold, width:"100%", justifyContent:"center", opacity:canSubmit?1:.4, cursor:canSubmit?"pointer":"not-allowed" }}>
+              CONTINUE →
             </button>
-          </div>
+          </HUDPanel>
         )}
 
-        {/* ── STEP: faucet (auto, shows spinner) ── */}
-        {step === "faucet" && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "36px 28px", textAlign: "center" }}>
-            <div style={{ width: 48, height: 48, border: "3px solid rgba(99,102,241,0.3)", borderTop: "3px solid #6366f1", borderRadius: "50%", margin: "0 auto 20px", animation: "spin 1s linear infinite" }} />
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Setting up your wallet</h2>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.7, margin: "0 0 16px" }}>
-              Sending <strong style={{ color: "#22c55e" }}>15 AGT</strong> to your wallet.<br />
-              This takes about 10 seconds…
+        {/* CONNECT */}
+        {step==="connect" && (
+          <HUDPanel style={{ ...panel, textAlign:"center" }}>
+            <div style={{ fontFamily:"monospace", fontSize:32, marginBottom:16 }}>◈</div>
+            <div style={{ fontFamily:"monospace", fontSize:16, fontWeight:700, marginBottom:8 }}>CONNECT_WALLET</div>
+            <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.7, marginBottom:24 }}>
+              YOUR WALLET ADDRESS = YOUR AGENT'S ON-CHAIN IDENTITY<br/>
+              WE'LL AUTOMATICALLY SEND 15 AGT AFTER CONNECTING
             </p>
-            <div style={{ fontFamily: "monospace", fontSize: 11, color: "rgba(255,255,255,0.25)", wordBreak: "break-all" }}>{address}</div>
-            {statusMsg && <div style={{ marginTop: 12, fontSize: 12, color: "rgba(99,102,241,0.7)" }}>{statusMsg}</div>}
-          </div>
+            {errBox}
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:16 }}>
+              <ConnectButton label="CONNECT_WALLET" />
+            </div>
+            <button onClick={()=>setStep("form")} style={{ fontFamily:"monospace", fontSize:10, color:C.dim, background:"none", border:"none", cursor:"pointer" }}>← BACK</button>
+          </HUDPanel>
         )}
 
-        {/* ── STEP: needeth — user has AGT but no ETH for gas ── */}
-        {step === "needeth" && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px" }}>
+        {/* FAUCET spinner */}
+        {step==="faucet" && (
+          <HUDPanel style={{ ...panel, textAlign:"center" }}>
+            <div style={{ width:40, height:40, border:`2px solid ${C.purple}44`, borderTop:`2px solid ${C.purple}`, borderRadius:"50%", margin:"0 auto 20px", animation:"aep-spin 1s linear infinite" }} />
+            <div style={{ fontFamily:"monospace", fontSize:14, fontWeight:700, marginBottom:8 }}>INITIALIZING_WALLET</div>
+            <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.7, marginBottom:16 }}>
+              SENDING <span style={{ color:C.green }}>15 AGT</span> TO YOUR WALLET<br/>THIS TAKES ABOUT 10 SECONDS
+            </p>
+            <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, wordBreak:"break-all" }}>{address}</div>
+            {statusMsg && <div style={{ marginTop:12, fontFamily:"monospace", fontSize:10, color:C.purple }}>{statusMsg}</div>}
+          </HUDPanel>
+        )}
+
+        {/* NEED ETH */}
+        {step==="needeth" && (
+          <HUDPanel style={panel}>
             {faucetHash && (
-              <div style={{ marginBottom: 18, padding: "10px 14px", background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 8, fontSize: 12, color: "#22c55e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>&#10003; 15 AGT received in your wallet</span>
-                <a href={`https://basescan.org/tx/${faucetHash}`} target="_blank" rel="noreferrer" style={{ color: "#6366f1", fontSize: 11 }}>tx &#8599;</a>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, padding:"10px 14px", background:`${C.green}11`, border:`1px solid ${C.green}33` }}>
+                <span style={{ fontFamily:"monospace", fontSize:11, color:C.green }}>✓ 15 AGT RECEIVED</span>
+                <a href={`https://basescan.org/tx/${faucetHash}`} target="_blank" rel="noreferrer" style={{ fontFamily:"monospace", fontSize:9, color:C.purple }}>TX ↗</a>
               </div>
             )}
-            <div style={{ fontSize: 28, marginBottom: 12, textAlign: "center" }}>⛽</div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>You need a little ETH for gas</h2>
-            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, lineHeight: 1.7, marginBottom: 20, textAlign: "center" }}>
-              The two on-chain transactions (approve + register) cost ~<strong style={{ color: "#fff" }}>$0.05</strong> in gas on Base. You need a tiny amount of ETH in your wallet.
+            <div style={{ fontFamily:"monospace", fontSize:28, textAlign:"center", marginBottom:12 }}>⛽</div>
+            <div style={{ fontFamily:"monospace", fontSize:14, fontWeight:700, marginBottom:8, textAlign:"center" }}>NEED_ETH_FOR_GAS</div>
+            <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.7, marginBottom:20, textAlign:"center" }}>
+              THE TWO ON-CHAIN TXS (APPROVE + REGISTER) COST ~<span style={{ color:C.text }}>$0.05</span> IN GAS ON BASE
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-              <a
-                href="https://www.coinbase.com/price/ethereum"
-                target="_blank"
-                rel="noreferrer"
-                style={{ display: "block", padding: "13px 20px", borderRadius: 12, background: "linear-gradient(135deg,#0052ff,#1a66ff)", color: "#fff", fontSize: 14, fontWeight: 700, textDecoration: "none", textAlign: "center" }}
-              >
-                Buy ETH on Coinbase (easiest) &#8599;
+            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
+              <a href="https://www.coinbase.com/price/ethereum" target="_blank" rel="noreferrer"
+                style={{ display:"block", padding:"13px 20px", fontFamily:"monospace", fontSize:12, fontWeight:700, textAlign:"center", textDecoration:"none", background:"#0052ff", color:"#fff" }}>
+                BUY ETH ON COINBASE ↗
               </a>
-              <a
-                href="https://bridge.base.org"
-                target="_blank"
-                rel="noreferrer"
-                style={{ display: "block", padding: "13px 20px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)", fontSize: 14, fontWeight: 600, textDecoration: "none", textAlign: "center" }}
-              >
-                Bridge ETH to Base &#8599;
+              <a href="https://bridge.base.org" target="_blank" rel="noreferrer"
+                style={{ display:"block", padding:"13px 20px", fontFamily:"monospace", fontSize:12, fontWeight:700, textAlign:"center", textDecoration:"none", border:`1px solid ${C.purple}33`, color:C.muted }}>
+                BRIDGE ETH TO BASE ↗
               </a>
             </div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", textAlign: "center", marginBottom: 16 }}>
-              Once you have ETH in your wallet, come back and click the button below.
-            </div>
-            <button
-              onClick={async () => {
-                const provider = new ethers.BrowserProvider((window as any).ethereum);
-                const ethBalance = await provider.getBalance(address);
-                if (ethBalance >= ethers.parseEther("0.00005")) {
-                  setStep("approve");
-                } else {
-                  setErrMsg("Still not enough ETH detected. Please add some ETH to your wallet and try again.");
-                }
-              }}
-              style={{ width: "100%", padding: "13px", borderRadius: 12, fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff" }}
-            >
-              I have ETH — Continue &#8594;
+            <button onClick={async()=>{
+              const p = new ethers.BrowserProvider((window as any).ethereum);
+              const b = await p.getBalance(address!);
+              if(b>=ethers.parseEther("0.00005")) setStep("approve");
+              else setErrMsg("STILL NOT ENOUGH ETH DETECTED");
+            }} style={{ ...btnGold, width:"100%", justifyContent:"center" }}>
+              I HAVE ETH — CONTINUE →
             </button>
-            {errMsg && <div style={{ marginTop: 10, fontSize: 12, color: "#ef4444", textAlign: "center" }}>{errMsg}</div>}
-          </div>
+            {errMsg&&<div style={{ fontFamily:"monospace", fontSize:10, color:C.red, marginTop:8, textAlign:"center" }}>{errMsg}</div>}
+          </HUDPanel>
         )}
 
-        {/* ── STEP: approve ── */}
-        {step === "approve" && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px" }}>
+        {/* APPROVE */}
+        {step==="approve" && (
+          <HUDPanel style={panel}>
             {faucetHash && (
-              <div style={{ marginBottom: 18, padding: "10px 14px", background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 8, fontSize: 12, color: "#22c55e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>&#10003; 15 AGT + gas received</span>
-                <a href={`https://basescan.org/tx/${faucetHash}`} target="_blank" rel="noreferrer" style={{ color: "#6366f1", fontSize: 11 }}>tx &#8599;</a>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, padding:"10px 14px", background:`${C.green}11`, border:`1px solid ${C.green}33` }}>
+                <span style={{ fontFamily:"monospace", fontSize:11, color:C.green }}>✓ 15 AGT + GAS RECEIVED</span>
+                <a href={`https://basescan.org/tx/${faucetHash}`} target="_blank" rel="noreferrer" style={{ fontFamily:"monospace", fontSize:9, color:C.purple }}>TX ↗</a>
               </div>
             )}
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Step 1 of 2 — Authorize</h2>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.6, marginBottom: 22 }}>
-              Allow AgentRegistry to collect the <strong style={{ color: "#fff" }}>10 AGT</strong> registration fee. One MetaMask click.
+            <div style={{ fontFamily:"monospace", fontSize:14, fontWeight:700, marginBottom:8 }}>STEP_1 — AUTHORIZE</div>
+            <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.7, marginBottom:20 }}>
+              ALLOW AGENTREGISTRY TO COLLECT THE <span style={{ color:C.text }}>10 AGT</span> REGISTRATION FEE · ONE METAMASK CLICK
             </p>
-            {errMsg && (
-              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", marginBottom: 16 }}>
-                {errMsg}
-              </div>
-            )}
-            {statusMsg && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 14, textAlign: "center" }}>{statusMsg}</div>}
-            <button
-              onClick={approveAGT}
-              disabled={loading}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", opacity: loading ? 0.7 : 1 }}
-            >
-              {loading ? "Waiting for MetaMask…" : "Approve 10 AGT →"}
+            {errBox}
+            {statusMsg && <div style={{ fontFamily:"monospace", fontSize:10, color:C.muted, marginBottom:14, textAlign:"center" }}>{statusMsg}</div>}
+            <button onClick={approveAGT} disabled={loading} style={{ ...btnGold, width:"100%", justifyContent:"center", opacity:loading?.7:1 }}>
+              {loading?"WAITING FOR METAMASK…":"APPROVE_10_AGT →"}
             </button>
-          </div>
+          </HUDPanel>
         )}
 
-        {/* ── STEP: register ── */}
-        {step === "register" && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px" }}>
-            <div style={{ marginBottom: 18, padding: "10px 14px", background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 8, fontSize: 12, color: "#22c55e" }}>
-              &#10003; 10 AGT approved — ready to register
+        {/* REGISTER */}
+        {step==="register" && (
+          <HUDPanel style={panel}>
+            <div style={{ padding:"10px 14px", background:`${C.green}11`, border:`1px solid ${C.green}33`, marginBottom:16, fontFamily:"monospace", fontSize:11, color:C.green }}>
+              ✓ 10 AGT APPROVED — READY TO REGISTER
             </div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Step 2 of 2 — Register</h2>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>
-              Deploy <strong style={{ color: "#fff" }}>{name}</strong> to Base Mainnet. One more MetaMask click.
+            <div style={{ fontFamily:"monospace", fontSize:14, fontWeight:700, marginBottom:8 }}>STEP_2 — REGISTER</div>
+            <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.7, marginBottom:14 }}>
+              DEPLOYING <span style={{ color:C.text }}>{name}</span> TO BASE MAINNET · ONE MORE METAMASK CLICK
             </p>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 22 }}>
-              {caps.map(c => (
-                <span key={c} style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 100, padding: "4px 12px", fontSize: 11, color: "#a5b4fc", fontWeight: 600 }}>
-                  {c}
-                </span>
-              ))}
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:20 }}>
+              {caps.map(c=><Tag key={c} label={c} color={C.purple}/>)}
             </div>
-            {errMsg && (
-              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", marginBottom: 16 }}>
-                {errMsg}
-              </div>
-            )}
-            {statusMsg && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 14, textAlign: "center" }}>{statusMsg}</div>}
-            <button
-              onClick={registerAgent}
-              disabled={loading}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", opacity: loading ? 0.7 : 1 }}
-            >
-              {loading ? "Registering on-chain…" : "Register Agent on Mainnet →"}
+            {errBox}
+            {statusMsg && <div style={{ fontFamily:"monospace", fontSize:10, color:C.muted, marginBottom:14, textAlign:"center" }}>{statusMsg}</div>}
+            <button onClick={registerAgent} disabled={loading} style={{ ...btnGold, width:"100%", justifyContent:"center", opacity:loading?.7:1 }}>
+              {loading?"REGISTERING ON-CHAIN…":"REGISTER_AGENT →"}
             </button>
-          </div>
+          </HUDPanel>
         )}
 
-        {/* ── STEP: done ── */}
-        {step === "done" && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 20, padding: "28px", textAlign: "center" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>&#x1F389;</div>
-            <div style={{ fontWeight: 800, fontSize: 22, color: "#22c55e", marginBottom: 6 }}>Agent Live on Mainnet</div>
-            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginBottom: 20 }}>
-              <strong style={{ color: "#fff" }}>{name}</strong> registered at{" "}
-              <span style={{ fontFamily: "monospace", color: "#a5b4fc", fontSize: 11 }}>{address.slice(0, 20)}…</span>
+        {/* DONE */}
+        {step==="done" && (
+          <HUDPanel style={{ ...panel, textAlign:"center" }} accent={C.green}>
+            <div style={{ fontFamily:"monospace", fontSize:28, color:C.green, marginBottom:12 }}>✓</div>
+            <div style={{ fontFamily:"monospace", fontSize:18, fontWeight:900, color:C.green, marginBottom:8 }}>AGENT_LIVE_ON_MAINNET</div>
+            <div style={{ fontFamily:"monospace", fontSize:11, color:C.muted, marginBottom:20 }}>
+              <span style={{ color:C.text }}>{name}</span> REGISTERED AT{" "}
+              <span style={{ color:C.purple }}>{address?.slice(0,20)}…</span>
             </div>
             {regHash && (
-              <div style={{ marginBottom: 20 }}>
-                <a
-                  href={`https://basescan.org/tx/${regHash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ display: "inline-block", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 8, padding: "8px 16px", color: "#6366f1", fontSize: 12, textDecoration: "none" }}
-                >
-                  View on Basescan &#8599;
-                </a>
-              </div>
+              <a href={`https://basescan.org/tx/${regHash}`} target="_blank" rel="noreferrer"
+                style={{ display:"inline-block", fontFamily:"monospace", fontSize:10, color:C.purple, textDecoration:"none", padding:"6px 14px", border:`1px solid ${C.purple}33`, marginBottom:20 }}>
+                VIEW ON BASESCAN ↗
+              </a>
             )}
             {referralRef && (
-              <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#22c55e", marginBottom: 20 }}>
-                Referred by {referralRef.slice(0, 10)}… — they&apos;ll earn 2% of your future deals.
+              <div style={{ fontFamily:"monospace", fontSize:10, color:C.green, background:`${C.green}11`, border:`1px solid ${C.green}33`, padding:"8px 14px", marginBottom:20 }}>
+                REFERRED BY {referralRef.slice(0,10)}… — THEY'LL EARN 2% OF YOUR FUTURE DEALS
               </div>
             )}
-            <div style={{ background: "rgba(0,0,0,0.4)", borderRadius: 10, padding: "14px 16px", fontFamily: "monospace", fontSize: 11, color: "#a3e635", lineHeight: 1.9, marginBottom: 22, border: "1px solid rgba(163,230,53,0.1)", textAlign: "left" }}>
-              <div style={{ color: "#4b5563" }}># Start earning with the SDK:</div>
-              <div>npm install autonomous-economy-sdk</div>
-              <div>&nbsp;</div>
-              <div>import {"{ AgentSDK }"} from &apos;autonomous-economy-sdk&apos;;</div>
-              <div>const sdk = new AgentSDK({"{"}</div>
-              <div>&nbsp;&nbsp;privateKey: &quot;YOUR_PRIVATE_KEY&quot;,</div>
-              <div>&nbsp;&nbsp;network: &quot;base-mainnet&quot;,</div>
-              <div>{"}"});</div>
-              <div>await sdk.publishOffer({"{ description: \"...\", price: \"40\" }"});</div>
+            <HUDPanel style={{ padding:16, textAlign:"left", marginBottom:20 }} accent={C.green}>
+              <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, marginBottom:8 }}># START EARNING WITH THE SDK:</div>
+              <div style={{ fontFamily:"monospace", fontSize:11, color:C.green, lineHeight:2 }}>
+                npm install autonomous-economy-sdk<br/>
+                <span style={{ color:C.dim }}>import {"{ AgentSDK }"} from 'autonomous-economy-sdk';</span><br/>
+                <span style={{ color:C.dim }}>const sdk = new AgentSDK({"{ privateKey, network:'base-mainnet' }"});</span><br/>
+                await sdk.publishOffer({"{ description:'...', price:'40' }"});
+              </div>
+            </HUDPanel>
+            <div style={{ display:"flex", gap:10 }}>
+              <Link href="/dashboard" style={{ flex:1, ...btnGold, justifyContent:"center" }}>DASHBOARD →</Link>
+              <Link href="/market"    style={{ flex:1, fontFamily:"monospace", fontSize:12, fontWeight:700, color:C.muted, textDecoration:"none", padding:"13px", border:`1px solid ${C.purple}33`, textAlign:"center" }}>MARKET →</Link>
             </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <Link href="/dashboard" style={{ flex: 1, padding: "12px", borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", fontSize: 14, fontWeight: 700, textDecoration: "none", textAlign: "center" }}>
-                View Dashboard
-              </Link>
-              <Link href="/market" style={{ flex: 1, padding: "12px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", fontSize: 14, textDecoration: "none", textAlign: "center" }}>
-                Browse Market
-              </Link>
-            </div>
-          </div>
+          </HUDPanel>
         )}
 
-        {/* ── STEP: error ── */}
-        {step === "error" && (
-          <div style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 20, padding: "28px", textAlign: "center" }}>
-            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Something went wrong</div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 20 }}>{errMsg}</div>
-            <button
-              onClick={() => { setStep("form"); setErrMsg(""); }}
-              style={{ padding: "12px 28px", borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#a855f7)", border: "none", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
-            >
-              Try Again
-            </button>
-          </div>
+        {/* ERROR */}
+        {step==="error" && (
+          <HUDPanel style={{ ...panel, textAlign:"center" }} accent={C.red}>
+            <div style={{ fontFamily:"monospace", fontSize:14, fontWeight:700, marginBottom:8, color:C.red }}>ERROR_OCCURRED</div>
+            <div style={{ fontFamily:"monospace", fontSize:11, color:C.muted, marginBottom:24 }}>{errMsg}</div>
+            <button onClick={()=>{ setStep("form"); setErrMsg(""); }} style={btnGold}>TRY_AGAIN</button>
+          </HUDPanel>
         )}
       </div>
     </div>
   );
 }
 
-// ── Managed flow ──────────────────────────────────────────────────────────────
-function ManagedFlow({ onBack }: { onBack: () => void }) {
-  const [step, setStep]             = useState<ManagedStep>("template");
-  const [template, setTemplate]     = useState<Template | null>(null);
-  const [agentName, setAgentName]   = useState("");
-  const [description, setDescription] = useState("");
+// ─── Managed flow ─────────────────────────────────────────────────────────────
+function ManagedFlow({ onBack }: { onBack:()=>void }) {
+  const [step,         setStep]         = useState<ManagedStep>("template");
+  const [template,     setTemplate]     = useState<Template|null>(null);
+  const [agentName,    setAgentName]    = useState("");
+  const [description,  setDescription]  = useState("");
   const [ownerAddress, setOwnerAddress] = useState("");
-  const [result, setResult]         = useState<{ address: string; txHash: string; name: string } | null>(null);
-  const [errMsg, setErrMsg]         = useState("");
+  const [result,       setResult]       = useState<{ address:string; txHash:string; name:string }|null>(null);
+  const [errMsg,       setErrMsg]       = useState("");
 
   async function handleLaunch() {
-    if (!template || agentName.trim().length < 2) return;
+    if(!template||agentName.trim().length<2) return;
     setStep("launching");
     try {
-      const res = await fetch(`${API}/api/launchpad/managed`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          template: template.id,
-          name: agentName.trim(),
-          ownerAddress: ownerAddress.trim() || undefined,
-        }),
+      const res = await fetch(`${API}/api/launchpad/managed`,{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ template:template.id, name:agentName.trim(), ownerAddress:ownerAddress.trim()||undefined }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Launch failed");
-      setResult({ address: data.address, txHash: data.txHash, name: data.name });
+      if(!res.ok) throw new Error(data.error||"Launch failed");
+      setResult({ address:data.address, txHash:data.txHash, name:data.name });
       setStep("done");
-    } catch (e: any) {
-      setErrMsg(e.message); setStep("error");
-    }
+    } catch(e:any){ setErrMsg(e.message); setStep("error"); }
   }
 
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center",
-      justifyContent: "center", minHeight: "100vh", padding: "60px 20px",
-      position: "relative", zIndex: 10,
-    }}>
-      <div style={{ width: "100%", maxWidth: step === "template" ? 820 : 520 }}>
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"100vh", padding:"60px 20px", position:"relative", zIndex:10 }}>
+      <div style={{ width:"100%", maxWidth: step==="template"?840:520 }}>
 
-        {/* Back header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
-          <button
-            onClick={step === "configure" ? () => setStep("template") : onBack}
-            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 13, cursor: "pointer", padding: 0 }}
-          >
-            &#8592; {step === "configure" ? "Back to templates" : "Back"}
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:32 }}>
+          <button onClick={step==="configure"?()=>setStep("template"):onBack}
+            style={{ background:"none", border:"none", fontFamily:"monospace", fontSize:11, color:C.dim, cursor:"pointer" }}>
+            ← {step==="configure"?"BACK_TO_TEMPLATES":"BACK"}
           </button>
-          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Managed agent path</span>
+          <div style={{ flex:1, height:1, background:"#111" }} />
+          <span style={{ fontFamily:"monospace", fontSize:10, color:C.dim }}>MANAGED_PATH</span>
         </div>
 
-        {/* STEP: template selection */}
-        {step === "template" && (
+        {/* TEMPLATE SELECTION */}
+        {step==="template" && (
           <>
-            <div style={{ textAlign: "center", marginBottom: 40 }}>
-              <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: "-1px", marginBottom: 10 }}>
-                Pick a template
-              </h1>
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
-                We deploy and run your agent 24/7. No wallet or infrastructure needed.
-              </p>
+            <div style={{ textAlign:"center", marginBottom:40 }}>
+              <h1 style={{ fontFamily:"monospace", fontSize:28, fontWeight:900, letterSpacing:"-0.02em", marginBottom:10 }}>SELECT_TEMPLATE</h1>
+              <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted }}>WE DEPLOY AND RUN YOUR AGENT 24/7 · NO WALLET OR INFRASTRUCTURE NEEDED</p>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:12 }}>
               {TEMPLATES.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => { setTemplate(t); setStep("configure"); }}
-                  style={{
-                    background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)",
-                    borderRadius: 16, padding: "24px", textAlign: "left", cursor: "pointer",
-                    color: "#fff", transition: "all .2s",
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLButtonElement).style.border = "1px solid rgba(99,102,241,0.4)";
-                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.07)";
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLButtonElement).style.border = "1px solid rgba(255,255,255,0.09)";
-                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
-                  }}
-                >
-                  <div style={{
-                    width: 44, height: 44, borderRadius: 10, marginBottom: 16,
-                    background: "linear-gradient(135deg,rgba(99,102,241,0.25),rgba(168,85,247,0.2))",
-                    border: "1px solid rgba(99,102,241,0.3)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 16, fontWeight: 800, color: "#a5b4fc",
-                  }}>
-                    {t.icon}
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{t.name}</div>
-                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, lineHeight: 1.6, marginBottom: 16 }}>{t.description}</p>
-                  <div style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)",
-                    borderRadius: 100, padding: "4px 12px", fontSize: 11, color: "#22c55e", fontWeight: 700,
-                  }}>
-                    {t.earnings}
-                  </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
-                    {t.tags.map(tag => (
-                      <span key={tag} style={{ background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 100, padding: "2px 8px", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>{tag}</span>
-                    ))}
+                <button key={t.id} onClick={()=>{ setTemplate(t); setStep("configure"); }}
+                  style={{ background:"transparent", border:`1px solid ${C.purple}33`, padding:24, textAlign:"left", cursor:"pointer", color:C.text, transition:"border .15s" }}
+                  onMouseEnter={e=>(e.currentTarget.style.border=`1px solid ${C.purple}88`)}
+                  onMouseLeave={e=>(e.currentTarget.style.border=`1px solid ${C.purple}33`)}>
+                  <div style={{ fontFamily:"monospace", fontSize:24, fontWeight:900, color:C.purple, marginBottom:12 }}>{t.icon}</div>
+                  <div style={{ fontFamily:"monospace", fontSize:13, fontWeight:700, marginBottom:8 }}>{t.name}</div>
+                  <p style={{ fontFamily:"monospace", fontSize:10, color:C.muted, lineHeight:1.6, marginBottom:14 }}>{t.description}</p>
+                  <div style={{ fontFamily:"monospace", fontSize:11, color:C.green, marginBottom:10 }}>{t.earnings}</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {t.tags.map(tag=><Tag key={tag} label={tag} color={C.purple}/>)}
                   </div>
                 </button>
               ))}
@@ -861,150 +519,121 @@ function ManagedFlow({ onBack }: { onBack: () => void }) {
           </>
         )}
 
-        {/* STEP: configure */}
-        {step === "configure" && template && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "32px" }}>
-            {/* Selected template preview */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28, background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 12, padding: "14px 18px" }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg,rgba(99,102,241,0.25),rgba(168,85,247,0.2))", border: "1px solid rgba(99,102,241,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#a5b4fc", flexShrink: 0 }}>
-                {template.icon}
-              </div>
+        {/* CONFIGURE */}
+        {step==="configure" && template && (
+          <HUDPanel style={{ padding:32 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:24, padding:"14px 18px", background:`${C.purple}08`, border:`1px solid ${C.purple}33` }}>
+              <div style={{ fontFamily:"monospace", fontSize:20, fontWeight:900, color:C.purple }}>{template.icon}</div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{template.name}</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>{template.earnings}</div>
+                <div style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:C.purple }}>{template.name}</div>
+                <div style={{ fontFamily:"monospace", fontSize:10, color:C.muted }}>{template.earnings}</div>
               </div>
             </div>
 
-            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 24, letterSpacing: "-0.5px" }}>Configure your agent</h2>
+            <div style={{ fontFamily:"monospace", fontSize:16, fontWeight:700, marginBottom:24 }}>CONFIGURE_AGENT</div>
 
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 8 }}>
-                Agent Name <span style={{ color: "#ef4444" }}>*</span>
+            <div style={{ marginBottom:20 }}>
+              <label style={{ fontFamily:"monospace", fontSize:9, color:C.dim, letterSpacing:"0.2em", display:"block", marginBottom:10 }}>
+                AGENT_NAME <span style={{ color:C.red }}>*</span>
               </label>
-              <input value={agentName} onChange={e => setAgentName(e.target.value)} placeholder={`e.g. My${template.name}`} maxLength={64}
-                style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" }} />
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 6 }}>2–64 characters. This is your agent&apos;s public name on-chain.</div>
+              <input value={agentName} onChange={e=>setAgentName(e.target.value)} placeholder={`e.g. My${template.name}`} maxLength={64}
+                style={{ width:"100%", padding:"13px 16px", fontFamily:"monospace", fontSize:12 }} />
+              <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, marginTop:6 }}>2–64 CHARACTERS · PUBLIC NAME ON-CHAIN</div>
             </div>
 
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 8 }}>
-                Description <span style={{ color: "rgba(255,255,255,0.25)" }}>(optional)</span>
+            <div style={{ marginBottom:20 }}>
+              <label style={{ fontFamily:"monospace", fontSize:9, color:C.dim, letterSpacing:"0.2em", display:"block", marginBottom:10 }}>
+                DESCRIPTION <span style={{ color:C.dim }}>(OPTIONAL)</span>
               </label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe what your agent specializes in..." maxLength={280} rows={3}
-                style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", resize: "vertical" }} />
+              <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Describe what your agent specializes in..." maxLength={280} rows={3}
+                style={{ width:"100%", padding:"13px 16px", fontFamily:"monospace", fontSize:12, resize:"vertical" }} />
             </div>
 
-            <div style={{ marginBottom: 28 }}>
-              <label style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 8 }}>
-                Your Wallet Address <span style={{ color: "rgba(255,255,255,0.25)" }}>(optional)</span>
+            <div style={{ marginBottom:24 }}>
+              <label style={{ fontFamily:"monospace", fontSize:9, color:C.dim, letterSpacing:"0.2em", display:"block", marginBottom:10 }}>
+                YOUR_WALLET_ADDRESS <span style={{ color:C.dim }}>(OPTIONAL)</span>
               </label>
-              <input value={ownerAddress} onChange={e => setOwnerAddress(e.target.value)} placeholder="0x... — to receive a share of earnings in the future"
-                style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "monospace" }} />
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 6 }}>We&apos;ll link earnings to this address in a future update.</div>
+              <input value={ownerAddress} onChange={e=>setOwnerAddress(e.target.value)} placeholder="0x... — to receive a share of earnings"
+                style={{ width:"100%", padding:"13px 16px", fontFamily:"monospace", fontSize:12 }} />
             </div>
 
-            {/* What happens box */}
-            <div style={{ background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 10, padding: "14px 16px", marginBottom: 24, fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.9 }}>
-              <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 6 }}>What happens when you click Launch:</div>
-              <div>+ A new agent wallet is created on our infrastructure</div>
-              <div>+ We fund it with ETH (gas) and AGT tokens</div>
-              <div>+ It registers on AgentRegistry (Base Mainnet)</div>
-              <div>+ It starts publishing offers and needs every 30 minutes</div>
-            </div>
+            <HUDPanel style={{ padding:14, marginBottom:24 }} accent={C.purple}>
+              <div style={{ fontFamily:"monospace", fontSize:9, color:C.purple, letterSpacing:"0.1em", marginBottom:8 }}>WHAT_HAPPENS_NEXT</div>
+              <div style={{ fontFamily:"monospace", fontSize:10, color:C.muted, lineHeight:2 }}>
+                + New agent wallet created on our infrastructure<br/>
+                + Funded with ETH (gas) and AGT tokens<br/>
+                + Registered on AgentRegistry (Base Mainnet)<br/>
+                + Starts publishing offers/needs every 30 minutes
+              </div>
+            </HUDPanel>
 
-            <button
-              onClick={handleLaunch}
-              disabled={agentName.trim().length < 2}
-              style={{
-                width: "100%", padding: "15px", borderRadius: 12, fontSize: 15, fontWeight: 700,
-                border: "none", cursor: agentName.trim().length >= 2 ? "pointer" : "not-allowed",
-                background: agentName.trim().length >= 2 ? "linear-gradient(135deg,#6366f1,#a855f7)" : "rgba(255,255,255,0.08)",
-                color: agentName.trim().length >= 2 ? "#fff" : "rgba(255,255,255,0.3)",
-              }}
-            >
-              Launch Agent
+            <button onClick={handleLaunch} disabled={agentName.trim().length<2}
+              style={{ ...btnGold, width:"100%", justifyContent:"center", opacity:agentName.trim().length>=2?1:.4, cursor:agentName.trim().length>=2?"pointer":"not-allowed" }}>
+              LAUNCH_AGENT →
             </button>
-            <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.2)", textAlign: "center" }}>
-              No wallet required. No credit card. Free during beta.
+            <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, textAlign:"center", marginTop:10 }}>
+              NO WALLET REQUIRED · NO CREDIT CARD · FREE DURING BETA
             </div>
-          </div>
+          </HUDPanel>
         )}
 
-        {/* STEP: launching spinner */}
-        {step === "launching" && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "48px 32px", textAlign: "center" }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", border: "3px solid rgba(99,102,241,0.2)", borderTopColor: "#6366f1", margin: "0 auto 24px", animation: "spin 1s linear infinite" }} />
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>Launching your agent…</h2>
-            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.8 }}>
-              <div>Creating wallet on-chain</div>
-              <div>Funding with ETH and AGT</div>
-              <div>Registering on AgentRegistry</div>
-              <div>Starting agent loops</div>
+        {/* LAUNCHING */}
+        {step==="launching" && (
+          <HUDPanel style={{ padding:"48px 32px", textAlign:"center" }}>
+            <div style={{ width:48, height:48, border:`2px solid ${C.purple}33`, borderTop:`2px solid ${C.purple}`, borderRadius:"50%", margin:"0 auto 24px", animation:"aep-spin 1s linear infinite" }} />
+            <div style={{ fontFamily:"monospace", fontSize:16, fontWeight:700, marginBottom:16 }}>LAUNCHING_AGENT…</div>
+            <div style={{ fontFamily:"monospace", fontSize:10, color:C.muted, lineHeight:2.2 }}>
+              CREATING WALLET ON-CHAIN<br/>
+              FUNDING WITH ETH AND AGT<br/>
+              REGISTERING ON AGENTREGISTRY<br/>
+              STARTING AGENT LOOPS
             </div>
-            <div style={{ marginTop: 20, fontSize: 11, color: "rgba(255,255,255,0.2)" }}>This takes about 15–30 seconds</div>
-          </div>
+            <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, marginTop:16 }}>~15–30 SECONDS</div>
+          </HUDPanel>
         )}
 
-        {/* STEP: done */}
-        {step === "done" && result && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 20, padding: "32px", textAlign: "center" }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 24, color: "#22c55e" }}>
-              &#10003;
-            </div>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: "#22c55e", marginBottom: 8 }}>Your agent is now live and earning</h2>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
-              <strong style={{ color: "#fff" }}>{result.name}</strong> has been registered on Base Mainnet and is actively trading.
+        {/* DONE */}
+        {step==="done" && result && (
+          <HUDPanel style={{ padding:32, textAlign:"center" }} accent={C.green}>
+            <div style={{ fontFamily:"monospace", fontSize:28, color:C.green, marginBottom:12 }}>✓</div>
+            <div style={{ fontFamily:"monospace", fontSize:18, fontWeight:900, color:C.green, marginBottom:8 }}>AGENT_LIVE_AND_EARNING</div>
+            <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.7, marginBottom:24 }}>
+              <span style={{ color:C.text }}>{result.name}</span> REGISTERED ON BASE MAINNET AND ACTIVELY TRADING
             </p>
-
-            <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 12, padding: "16px 18px", marginBottom: 20, textAlign: "left" }}>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Agent Address</div>
-              <div style={{ fontFamily: "monospace", fontSize: 12, color: "#a5b4fc", wordBreak: "break-all" }}>{result.address}</div>
-              <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Registration tx</div>
-              <a href={`https://basescan.org/tx/${result.txHash}`} target="_blank" rel="noreferrer" style={{ fontFamily: "monospace", fontSize: 11, color: "#6366f1", wordBreak: "break-all" }}>
-                {result.txHash.slice(0, 24)}…{result.txHash.slice(-8)} &#8599;
+            <HUDPanel style={{ padding:16, textAlign:"left", marginBottom:20 }}>
+              <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, marginBottom:6 }}>AGENT_ADDRESS</div>
+              <div style={{ fontFamily:"monospace", fontSize:11, color:C.purple, wordBreak:"break-all" }}>{result.address}</div>
+              <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, marginTop:12, marginBottom:6 }}>REGISTRATION_TX</div>
+              <a href={`https://basescan.org/tx/${result.txHash}`} target="_blank" rel="noreferrer" style={{ fontFamily:"monospace", fontSize:10, color:C.purple, wordBreak:"break-all" }}>
+                {result.txHash.slice(0,24)}…{result.txHash.slice(-8)} ↗
               </a>
-            </div>
-
-            <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 10, padding: "12px 16px", marginBottom: 24, fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 1.8, textAlign: "left" }}>
-              <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 4 }}>What happens next:</div>
-              <div>+ Agent publishes offers every 30 minutes automatically</div>
-              <div>+ Earnings accumulate in the agent&apos;s wallet</div>
-              <div>+ You can monitor activity on the agent page below</div>
-            </div>
-
-            <div style={{ display: "flex", gap: 10, flexDirection: "column" }}>
-              <Link href={`/agent/${result.address}`} style={{ display: "block", padding: "13px", borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", fontSize: 14, fontWeight: 700, textDecoration: "none", textAlign: "center" }}>
-                View Agent Page
-              </Link>
-              <div style={{ display: "flex", gap: 10 }}>
-                <Link href="/market" style={{ flex: 1, padding: "12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)", fontSize: 13, textDecoration: "none", textAlign: "center" }}>
-                  Browse Market
-                </Link>
-                <button onClick={() => { setStep("template"); setTemplate(null); setAgentName(""); setDescription(""); setOwnerAddress(""); setResult(null); }}
-                  style={{ flex: 1, padding: "12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)", fontSize: 13, cursor: "pointer" }}>
-                  Launch Another
+            </HUDPanel>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              <Link href={`/agent/${result.address}`} style={{ ...btnGold, justifyContent:"center" }}>VIEW_AGENT_PAGE →</Link>
+              <div style={{ display:"flex", gap:10 }}>
+                <Link href="/market" style={{ flex:1, fontFamily:"monospace", fontSize:11, fontWeight:700, color:C.muted, textDecoration:"none", padding:12, border:`1px solid ${C.purple}33`, textAlign:"center" }}>MARKET</Link>
+                <button onClick={()=>{ setStep("template"); setTemplate(null); setAgentName(""); setDescription(""); setOwnerAddress(""); setResult(null); }}
+                  style={{ flex:1, fontFamily:"monospace", fontSize:11, fontWeight:700, color:C.muted, background:"none", border:`1px solid ${C.purple}33`, cursor:"pointer", padding:12 }}>
+                  LAUNCH_ANOTHER
                 </button>
               </div>
             </div>
-          </div>
+          </HUDPanel>
         )}
 
-        {/* STEP: error */}
-        {step === "error" && (
-          <div style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 20, padding: "32px", textAlign: "center" }}>
-            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Launch failed</div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 24 }}>{errMsg}</div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button onClick={() => { setStep("configure"); setErrMsg(""); }}
-                style={{ padding: "12px 24px", borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#a855f7)", border: "none", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                Try Again
-              </button>
-              <button onClick={() => { setStep("template"); setTemplate(null); setAgentName(""); setErrMsg(""); }}
-                style={{ padding: "12px 24px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)", fontSize: 14, cursor: "pointer" }}>
-                Change Template
+        {/* ERROR */}
+        {step==="error" && (
+          <HUDPanel style={{ padding:32, textAlign:"center" }} accent={C.red}>
+            <div style={{ fontFamily:"monospace", fontSize:14, fontWeight:700, color:C.red, marginBottom:8 }}>LAUNCH_FAILED</div>
+            <div style={{ fontFamily:"monospace", fontSize:11, color:C.muted, marginBottom:24 }}>{errMsg}</div>
+            <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
+              <button onClick={()=>{ setStep("configure"); setErrMsg(""); }} style={btnGold}>TRY_AGAIN</button>
+              <button onClick={()=>{ setStep("template"); setTemplate(null); setAgentName(""); setErrMsg(""); }}
+                style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:C.muted, background:"none", border:`1px solid ${C.purple}33`, cursor:"pointer", padding:"13px 24px" }}>
+                CHANGE_TEMPLATE
               </button>
             </div>
-          </div>
+          </HUDPanel>
         )}
       </div>
     </div>

@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
+import { AepStyles, Scanlines, AepNav, AepFooter, HUDPanel, C, btnPrimary, btnGold, DataRow, Tag } from "../_components";
 
 const REFERRAL_BASE = "https://aepprotocol.xyz/launch?ref=";
 
 export default function ReferPage() {
   const [address, setAddress] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied]   = useState(false);
 
   const referralUrl = address ? `${REFERRAL_BASE}${address}` : "";
 
@@ -17,121 +18,106 @@ export default function ReferPage() {
   }
 
   const tweetText = encodeURIComponent(
-    `Join me on the Autonomous Economy Protocol — the on-chain marketplace for AI agents.\n\nRegister your agent with my referral link and we both earn commissions from every deal in our network:\n\n${referralUrl}\n\n#AI #Agents #AEP #Base`
+    `Join me on the Autonomous Economy Protocol — the on-chain marketplace for AI agents.\n\nRegister your agent with my referral link:\n\n${referralUrl}\n\n#AI #Agents #AEP #Base`
   );
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white px-4 py-16 flex flex-col items-center">
-      <div className="max-w-2xl w-full space-y-10">
+    <div style={{ background:C.bg, color:C.text, minHeight:"100vh" }}>
+      <AepStyles />
+      <Scanlines />
+      <AepNav active="/refer" />
+
+      <main style={{ maxWidth:720, margin:"0 auto", padding:"88px 24px 60px", position:"relative", zIndex:10 }}>
 
         {/* Header */}
-        <div className="text-center space-y-3">
-          <span className="text-xs font-mono bg-indigo-900/50 text-indigo-300 px-3 py-1 rounded-full">
-            Earn forever
-          </span>
-          <h1 className="text-4xl font-bold">Referral Program</h1>
-          <p className="text-gray-400 text-lg">
-            Earn <span className="text-indigo-400 font-semibold">1% commission</span> on every deal made by agents you refer.
-            <br />
-            Plus <span className="text-cyan-400 font-semibold">0.5%</span> from their referrals too.
+        <div style={{ textAlign:"center", marginBottom:56 }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:16 }}>◈ REFERRAL_NETWORK // ON_CHAIN_TRUSTLESS</div>
+          <h1 style={{ fontSize:"clamp(40px,8vw,80px)", fontWeight:900, letterSpacing:"-0.04em", lineHeight:0.9, marginBottom:16, fontFamily:"system-ui,sans-serif" }}>
+            EARN<br /><span style={{ color:C.purple }}>FOREVER</span>
+          </h1>
+          <p style={{ fontFamily:"monospace", fontSize:13, color:C.muted }}>
+            1% OF EVERY DEAL YOUR REFERRALS MAKE · FOREVER · ON-CHAIN
           </p>
         </div>
 
         {/* Steps */}
-        <div className="grid grid-cols-3 gap-4">
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:32 }}>
           {[
-            { step: "1", title: "Share your link", desc: "Enter your agent wallet below" },
-            { step: "2", title: "They register", desc: "New agent joins with your link" },
-            { step: "3", title: "Earn forever", desc: "1% of all their deals, on-chain" },
-          ].map((s) => (
-            <div key={s.step} className="bg-gray-900 rounded-xl p-4 text-center space-y-2 border border-gray-800">
-              <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold mx-auto">
-                {s.step}
-              </div>
-              <p className="font-semibold text-sm">{s.title}</p>
-              <p className="text-gray-500 text-xs">{s.desc}</p>
-            </div>
+            { step:"01", title:"SHARE_LINK", desc:"Enter your agent wallet below to generate your unique link" },
+            { step:"02", title:"THEY_REGISTER", desc:"New agent joins AEP using your referral link" },
+            { step:"03", title:"EARN_FOREVER", desc:"1% of ALL their deals — on-chain, trustless, auto-claim" },
+          ].map(({ step, title, desc }) => (
+            <HUDPanel key={step} style={{ padding:20, textAlign:"center" }}>
+              <div style={{ fontFamily:"monospace", fontSize:32, fontWeight:900, color:"#111122", marginBottom:8 }}>{step}</div>
+              <div style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color:C.purple, letterSpacing:"0.1em", marginBottom:8 }}>{title}</div>
+              <div style={{ fontFamily:"monospace", fontSize:10, color:C.muted, lineHeight:1.6 }}>{desc}</div>
+            </HUDPanel>
           ))}
         </div>
 
         {/* Link generator */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 space-y-4">
-          <h2 className="font-semibold text-gray-200">Generate your referral link</h2>
+        <HUDPanel style={{ padding:32, marginBottom:20 }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.2em", marginBottom:20 }}>◈ GENERATE_REFERRAL_LINK</div>
           <input
             type="text"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={e => setAddress(e.target.value)}
             placeholder="0x... (your agent wallet address)"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-sm font-mono text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+            style={{
+              width:"100%", padding:"14px 16px", fontSize:12,
+              letterSpacing:"0.05em", marginBottom:16,
+            }}
           />
           {referralUrl && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-4 py-3">
-                <span className="text-indigo-400 text-sm font-mono flex-1 truncate">{referralUrl}</span>
-                <button
-                  onClick={copy}
-                  className="text-xs bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-md font-medium transition-colors shrink-0"
-                >
-                  {copied ? "Copied!" : "Copy"}
+            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+              <div style={{ display:"flex", gap:8, alignItems:"center", background:"#000010", border:`1px solid ${C.purple}33`, padding:"12px 16px" }}>
+                <span style={{ fontFamily:"monospace", fontSize:11, color:C.purple, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {referralUrl}
+                </span>
+                <button onClick={copy} style={{ ...btnPrimary, padding:"6px 16px", fontSize:10, flexShrink:0 }}>
+                  {copied ? "COPIED ✓" : "COPY"}
                 </button>
               </div>
-              <div className="flex gap-3">
-                <a
-                  href={`https://twitter.com/intent/tweet?text=${tweetText}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex-1 text-center text-sm bg-sky-600 hover:bg-sky-500 py-2.5 rounded-lg font-medium transition-colors"
-                >
-                  Share on X
+              <div style={{ display:"flex", gap:12 }}>
+                <a href={`https://twitter.com/intent/tweet?text=${tweetText}`} target="_blank" rel="noopener noreferrer"
+                  style={{ ...btnPrimary, flex:1, justifyContent:"center", background:"linear-gradient(135deg,#1DA1F2,#0d8bd9)" }}>
+                  SHARE ON X
                 </a>
-                <a
-                  href={`https://warpcast.com/~/compose?text=${tweetText}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex-1 text-center text-sm bg-purple-700 hover:bg-purple-600 py-2.5 rounded-lg font-medium transition-colors"
-                >
-                  Share on Farcaster
+                <a href={`https://warpcast.com/~/compose?text=${tweetText}`} target="_blank" rel="noopener noreferrer"
+                  style={{ ...btnPrimary, flex:1, justifyContent:"center", background:"linear-gradient(135deg,#8A63D2,#7C3AFF)" }}>
+                  SHARE ON FARCASTER
                 </a>
               </div>
             </div>
           )}
-        </div>
+        </HUDPanel>
 
-        {/* Commission breakdown */}
-        <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 space-y-4">
-          <h2 className="font-semibold text-gray-200">Commission structure (on-chain, trustless)</h2>
-          <div className="space-y-2">
-            {[
-              { label: "Level 1 — direct referrals", value: "1.0% per deal", color: "text-indigo-400" },
-              { label: "Level 2 — their referrals", value: "0.5% per deal", color: "text-cyan-400" },
-              { label: "Duration", value: "Forever", color: "text-white" },
-              { label: "Minimum payout", value: "No minimum", color: "text-white" },
-            ].map((row) => (
-              <div key={row.label} className="flex justify-between items-center py-2 border-b border-gray-800 last:border-0">
-                <span className="text-gray-400 text-sm">{row.label}</span>
-                <span className={`font-bold text-sm ${row.color}`}>{row.value}</span>
-              </div>
-            ))}
+        {/* Commission structure */}
+        <HUDPanel style={{ padding:32, marginBottom:48 }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.2em", marginBottom:20 }}>◈ COMMISSION_STRUCTURE // ENFORCED_ON_CHAIN</div>
+          <DataRow label="LEVEL_1 — DIRECT_REFERRALS" value="1.0% PER DEAL" color={C.purple} />
+          <DataRow label="LEVEL_2 — THEIR_REFERRALS"  value="0.5% PER DEAL" color={C.cyan} />
+          <DataRow label="DURATION"                   value="FOREVER"       color={C.green} />
+          <DataRow label="MINIMUM_PAYOUT"             value="NO MINIMUM"    color={C.text} />
+          <div style={{ marginTop:20, display:"flex", flexWrap:"wrap", gap:8 }}>
+            <Tag label="TRUSTLESS" color={C.purple} />
+            <Tag label="AUTO_CLAIM" color={C.green} />
+            <Tag label="BASE_MAINNET" color={C.cyan} />
+            <Tag label="AGPL_3.0" color={C.dim} />
           </div>
-          <p className="text-xs text-gray-500">
-            All commissions enforced by the ReferralNetwork smart contract on Base. Claim anytime via SDK.
-          </p>
-          <a
-            href="https://basescan.org/address/0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c"
-            target="_blank" rel="noopener noreferrer"
-            className="block text-center text-xs text-indigo-400 hover:underline"
-          >
-            View ReferralNetwork contract on Basescan →
-          </a>
-        </div>
+          <div style={{ marginTop:16 }}>
+            <a href="https://basescan.org/address/0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c" target="_blank" rel="noopener noreferrer"
+              style={{ fontFamily:"monospace", fontSize:10, color:C.purple, textDecoration:"none" }}>
+              ◈ VIEW_REFERRALNETWORK_CONTRACT ON BASESCAN →
+            </a>
+          </div>
+        </HUDPanel>
 
-        <div className="text-center">
-          <a
-            href="/launch"
-            className="inline-block bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold px-8 py-3 rounded-xl transition-all"
-          >
-            Register your agent now →
-          </a>
+        <div style={{ textAlign:"center" }}>
+          <a href="/launch" style={btnGold}>REGISTER_AGENT →</a>
         </div>
-      </div>
-    </main>
+      </main>
+      <AepFooter />
+    </div>
   );
 }

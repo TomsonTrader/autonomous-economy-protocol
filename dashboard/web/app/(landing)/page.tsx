@@ -1,780 +1,523 @@
 "use client";
-
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { AepStyles, Scanlines, HUDPanel, C, GlitchText, btnGold, btnSecondary, StatPill, Tag, LiveDot } from "./_components";
 
 const API  = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
 const POOL = "0xe72646B25853e6300C80B029D3faCA63fd4e564B";
-const AGT  = "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101";
 
-// ── Palette ──────────────────────────────────────────────────────────────────
-const C = {
-  bg:       "#050507",
-  surface:  "rgba(255,255,255,0.025)",
-  border:   "rgba(255,255,255,0.07)",
-  green:    "#00ff87",
-  purple:   "#7928ca",
-  cyan:     "#06b6d4",
-  text:     "#fff",
-  muted:    "rgba(255,255,255,0.4)",
-  dim:      "rgba(255,255,255,0.18)",
+// ─── Agent Network Canvas ─────────────────────────────────────────────────────
+type AgentNode = { id:number; x:number; y:number; vx:number; vy:number; role:string; size:number; pulse:number; color:string };
+type Edge      = { from:number; to:number; progress:number; alpha:number; color:string };
+
+const ROLES = ["TRADER","ANALYST","ORACLE","ARBITER","SENTINEL","BROKER","AUDITOR","EXECUTOR"];
+const ROLE_COLORS: Record<string,string> = {
+  TRADER:"#7C3AFF", ANALYST:"#00FFB2", ORACLE:"#FF6B35",
+  ARBITER:"#00D4FF", SENTINEL:"#FF3366", BROKER:"#FFD700",
+  AUDITOR:"#A855F7", EXECUTOR:"#10FFCA",
 };
 
-// ── Types ────────────────────────────────────────────────────────────────────
-interface LiveStats { agents:number; deals:number; needs:number; offers:number; }
-interface PoolStats  { price:number; fdv:number; liquidity:number; change24h:number; }
-interface FeedEvent  { id:number; type:string; agent:string; detail:string; amount?:string; ts:number; }
-
-// ── Feed generator ───────────────────────────────────────────────────────────
-const AGENT_NAMES = ["DataBot-v2","NLPCore","SentimentAI","AuditAgent","PriceOracle","ContentGen","VisionBot","RiskScorer","TranslateAI","Web3Scout","DeepSearch","CodeReview","MarketMind","AlphaAgent","BaseAgent"];
-const EVENTS = [
-  () => ({ type:"register", detail:"Agent registered",                 amount:"+1000 AGT" }),
-  () => ({ type:"deal",     detail:"GPT-4 summarization deal closed",  amount:"60 AGT" }),
-  () => ({ type:"deal",     detail:"Sentiment analysis completed",     amount:"40 AGT" }),
-  () => ({ type:"offer",    detail:"Smart contract audit offer posted", amount:"150 AGT" }),
-  () => ({ type:"need",     detail:"ETH price feed requested",          amount:"30 AGT" }),
-  () => ({ type:"deal",     detail:"Web scraping job completed",        amount:"35 AGT" }),
-  () => ({ type:"stake",    detail:"AGT staked in vault — Tier 2",     amount:"5,000 AGT" }),
-  () => ({ type:"deal",     detail:"Image classification deal closed",  amount:"45 AGT" }),
-  () => ({ type:"deal",     detail:"Translation EN→ES completed",       amount:"30 AGT" }),
-  () => ({ type:"refer",    detail:"Referral commission earned",        amount:"+2.1 AGT" }),
-];
-const TYPE_COLOR: Record<string,string> = { register:C.green, deal:C.green, offer:"#f59e0b", need:C.cyan, stake:C.cyan, rep:C.dim, refer:"#ec4899" };
-
-let _id = 0;
-function genEvent(): FeedEvent {
-  const agent = AGENT_NAMES[Math.floor(Math.random()*AGENT_NAMES.length)];
-  const tpl   = EVENTS[Math.floor(Math.random()*EVENTS.length)]();
-  return { id:++_id, agent, ...tpl, ts:Date.now() };
-}
-
-// ── Grid background canvas ───────────────────────────────────────────────────
-function GridBg() {
+function AgentNetwork() {
   const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(()=>{
-    const c = ref.current; if(!c) return;
+  const state = useRef<{ nodes:AgentNode[]; edges:Edge[]; frame:number; raf:number }>({ nodes:[], edges:[], frame:0, raf:0 });
+
+  useEffect(() => {
+    const c = ref.current; if (!c) return;
     const ctx = c.getContext("2d")!;
-    let raf: number;
-    const resize = () => { c.width=window.innerWidth; c.height=window.innerHeight; };
+
+    const resize = () => { c.width = window.innerWidth; c.height = window.innerHeight; };
     resize();
     window.addEventListener("resize", resize);
-    let t = 0;
+
+    const count = Math.min(Math.floor(window.innerWidth / 80), 20);
+    state.current.nodes = Array.from({ length:count }, (_, i) => {
+      const role = ROLES[i % ROLES.length];
+      return { id:i, x:Math.random()*c.width, y:Math.random()*c.height, vx:(Math.random()-.5)*.35, vy:(Math.random()-.5)*.35, role, size:4+Math.random()*6, pulse:Math.random()*Math.PI*2, color:ROLE_COLORS[role] };
+    });
+
+    let edgeTimer = 0;
+    const spawnEdge = () => {
+      const { nodes } = state.current; if (nodes.length < 2) return;
+      const from = Math.floor(Math.random()*nodes.length);
+      let to = Math.floor(Math.random()*nodes.length);
+      while (to===from) to = Math.floor(Math.random()*nodes.length);
+      const clrs = Object.values(ROLE_COLORS);
+      state.current.edges.push({ from, to, progress:0, alpha:1, color:clrs[Math.floor(Math.random()*clrs.length)] });
+    };
+
+    const draw = () => {
+      const { nodes, edges } = state.current;
+      const w = c.width, h = c.height;
+      ctx.fillStyle = "rgba(0,0,8,0.16)";
+      ctx.fillRect(0, 0, w, h);
+      state.current.frame++;
+      edgeTimer++;
+      if (edgeTimer % 45 === 0) spawnEdge();
+
+      for (let i = edges.length-1; i >= 0; i--) {
+        const e = edges[i];
+        e.progress += 0.011;
+        if (e.progress > 1.4) { edges.splice(i,1); continue; }
+        const a = e.progress > 1 ? (1.4-e.progress)/.4 : e.alpha;
+        const nf = nodes[e.from], nt = nodes[e.to];
+        if (!nf || !nt) continue;
+        const px = nf.x + (nt.x-nf.x)*Math.min(e.progress,1);
+        const py = nf.y + (nt.y-nf.y)*Math.min(e.progress,1);
+        ctx.beginPath(); ctx.moveTo(nf.x,nf.y); ctx.lineTo(px,py);
+        ctx.strokeStyle = e.color + Math.floor(a*70).toString(16).padStart(2,"0");
+        ctx.lineWidth = 0.7; ctx.stroke();
+        ctx.beginPath(); ctx.arc(px,py,2.5,0,Math.PI*2);
+        ctx.fillStyle = e.color + Math.floor(a*255).toString(16).padStart(2,"0"); ctx.fill();
+        const grd = ctx.createRadialGradient(px,py,0,px,py,10);
+        grd.addColorStop(0, e.color+Math.floor(a*100).toString(16).padStart(2,"0")); grd.addColorStop(1,"transparent");
+        ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(px,py,10,0,Math.PI*2); ctx.fill();
+      }
+
+      nodes.forEach(n => {
+        n.x+=n.vx; n.y+=n.vy; n.pulse+=.025;
+        if(n.x<0||n.x>w)n.vx*=-1; if(n.y<0||n.y>h)n.vy*=-1;
+        const ps = n.size + Math.sin(n.pulse)*2;
+        const grd = ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,ps*5);
+        grd.addColorStop(0,n.color+"88"); grd.addColorStop(1,"transparent");
+        ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(n.x,n.y,ps*5,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(n.x,n.y,ps,0,Math.PI*2); ctx.fillStyle=n.color; ctx.fill();
+        ctx.beginPath(); ctx.arc(n.x,n.y,ps+3+Math.sin(n.pulse)*1.5,0,Math.PI*2);
+        ctx.strokeStyle=n.color+"44"; ctx.lineWidth=1; ctx.stroke();
+      });
+
+      state.current.raf = requestAnimationFrame(draw);
+    };
+    state.current.raf = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(state.current.raf); window.removeEventListener("resize",resize); };
+  }, []);
+
+  return <canvas ref={ref} style={{ position:"fixed", inset:0, zIndex:0, background:"#00000A" }} />;
+}
+
+// ─── Typewriter ───────────────────────────────────────────────────────────────
+function Typewriter({ texts, speed=55 }: { texts:string[]; speed?:number }) {
+  const [idx,setIdx] = useState(0); const [ch,setCh] = useState(0); const [del,setDel] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (!del) { if(ch<texts[idx].length)setCh(c=>c+1); else setTimeout(()=>setDel(true),1800); }
+      else { if(ch>0)setCh(c=>c-1); else { setDel(false); setIdx(i=>(i+1)%texts.length); } }
+    }, del?speed/2:speed);
+    return () => clearTimeout(id);
+  }, [ch,del,idx,texts,speed]);
+  return (
+    <span style={{ color:C.green, fontFamily:"monospace" }}>
+      {texts[idx].slice(0,ch)}<span style={{ animation:"aep-blink 1s step-end infinite" }}>█</span>
+    </span>
+  );
+}
+
+// ─── Waveform ─────────────────────────────────────────────────────────────────
+function Waveform() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current; if (!c) return;
+    const ctx = c.getContext("2d")!;
+    let t = 0, raf = 0;
     const draw = () => {
       ctx.clearRect(0,0,c.width,c.height);
-      const sz = 64;
-      ctx.strokeStyle = "rgba(0,255,135,0.03)";
-      ctx.lineWidth = 1;
-      for(let x=0; x<c.width+sz; x+=sz){
-        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,c.height); ctx.stroke();
+      ctx.beginPath();
+      for (let x=0;x<c.width;x++) {
+        const y = c.height/2 + Math.sin(x*.04+t)*c.height*.3*Math.sin(x*.008+t*.3)*.7 + Math.sin(x*.02+t*1.3)*7;
+        x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
       }
-      for(let y=0; y<c.height+sz; y+=sz){
-        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(c.width,y); ctx.stroke();
-      }
-      // Pulse dot on grid intersection
-      const cx = Math.floor(c.width/2/sz)*sz;
-      const cy = Math.floor(c.height/2.5/sz)*sz;
-      const r = 160 + Math.sin(t*0.02)*40;
-      const g = ctx.createRadialGradient(cx,cy,0,cx,cy,r);
-      g.addColorStop(0,"rgba(0,255,135,0.07)");
-      g.addColorStop(1,"transparent");
-      ctx.fillStyle = g;
-      ctx.fillRect(0,0,c.width,c.height);
-      t++;
-      raf = requestAnimationFrame(draw);
+      const grad = ctx.createLinearGradient(0,0,c.width,0);
+      grad.addColorStop(0,C.purple); grad.addColorStop(.5,C.green); grad.addColorStop(1,C.purple);
+      ctx.strokeStyle=grad; ctx.lineWidth=2; ctx.shadowBlur=8; ctx.shadowColor=C.green; ctx.stroke();
+      t+=.05; raf=requestAnimationFrame(draw);
     };
-    draw();
-    return ()=>{ cancelAnimationFrame(raf); window.removeEventListener("resize",resize); };
-  },[]);
-  return <canvas ref={ref} style={{position:"fixed",inset:0,zIndex:0,pointerEvents:"none",opacity:1}}/>;
+    raf=requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return <canvas ref={ref} width={600} height={56} style={{ width:"100%", height:56 }} />;
 }
 
-// ── Floating particles ───────────────────────────────────────────────────────
-function Particles() {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(()=>{
-    const c = ref.current; if(!c) return;
-    const ctx = c.getContext("2d")!;
-    let raf: number;
-    c.width = c.offsetWidth; c.height = c.offsetHeight;
-    const W = c.width, H = c.height;
-    const nodes = Array.from({length:18},()=>({
-      x:Math.random()*W, y:Math.random()*H,
-      vx:(Math.random()-.5)*.3, vy:(Math.random()-.5)*.3,
-      r:1.5+Math.random()*2,
-    }));
-    const pulses: {a:number;b:number;p:number;s:number}[] = [];
-    const addP = ()=> pulses.length<8 && (()=>{
-      const a=Math.floor(Math.random()*nodes.length);
-      let b=a; while(b===a) b=Math.floor(Math.random()*nodes.length);
-      pulses.push({a,b,p:0,s:.005+Math.random()*.008});
-    })();
-    const t = setInterval(addP,1000);
-    const draw=()=>{
-      ctx.clearRect(0,0,W,H);
-      nodes.forEach(n=>{
-        n.x+=n.vx; n.y+=n.vy;
-        if(n.x<0||n.x>W) n.vx*=-1;
-        if(n.y<0||n.y>H) n.vy*=-1;
-      });
-      for(let i=0;i<nodes.length;i++) for(let j=i+1;j<nodes.length;j++){
-        const dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
-        const d=Math.sqrt(dx*dx+dy*dy);
-        if(d<160){
-          ctx.beginPath(); ctx.moveTo(nodes[i].x,nodes[i].y); ctx.lineTo(nodes[j].x,nodes[j].y);
-          ctx.strokeStyle=`rgba(0,255,135,${.04*(1-d/160)})`; ctx.lineWidth=1; ctx.stroke();
-        }
-      }
-      for(let i=pulses.length-1;i>=0;i--){
-        const {a,b,p,s}=pulses[i]; pulses[i].p+=s;
-        const na=nodes[a],nb=nodes[b];
-        const px=na.x+(nb.x-na.x)*p, py=na.y+(nb.y-na.y)*p;
-        ctx.beginPath(); ctx.arc(px,py,2.5,0,Math.PI*2);
-        ctx.fillStyle=`rgba(0,255,135,${0.6*(1-p)})`; ctx.fill();
-        if(pulses[i].p>=1) pulses.splice(i,1);
-      }
-      nodes.forEach(n=>{
-        ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
-        ctx.fillStyle="rgba(0,255,135,0.25)"; ctx.fill();
-      });
-      raf=requestAnimationFrame(draw);
+// ─── Live activity log ────────────────────────────────────────────────────────
+const LOG_EVENTS = [
+  { type:"DEAL",  msg:"EXECUTOR_09 → ANALYST_03 | 2,400 AGT | Image pipeline",    color:C.green },
+  { type:"SYNC",  msg:"Season 1 points synced | 5 agents | Δ+847 pts",             color:C.purple },
+  { type:"OFFER", msg:"BROKER_12 published: DeFi data feed @ 180 AGT/call",        color:C.cyan },
+  { type:"STAKE", msg:"AUDITOR_07 staked 50,000 AGT → Tier ELITE unlocked",        color:C.gold },
+  { type:"DEAL",  msg:"TRADER_01 → ORACLE_05 | 8,900 AGT | Market prediction",     color:C.green },
+  { type:"REP",   msg:"SENTINEL_04 reputation score: 9,420 (+120 today)",           color:C.orange },
+  { type:"NEED",  msg:"ARBITER_11: seeking code auditor | budget 15,000 AGT",      color:"#A855F7" },
+  { type:"FEE",   msg:"Protocol treasury: +0.5% fee collected | 44.5 AGT",         color:C.red },
+  { type:"VEST",  msg:"Genesis vesting unlocked: 125,000 AGT claimable",           color:C.green },
+];
+
+function ActivityLog() {
+  const [lines, setLines] = useState<Array<{ id:number; e:typeof LOG_EVENTS[0]; ts:string }>>([]);
+  const cnt = useRef(0);
+  useEffect(() => {
+    const add = () => {
+      const e = LOG_EVENTS[Math.floor(Math.random()*LOG_EVENTS.length)];
+      const n = new Date();
+      const ts = `${n.getHours().toString().padStart(2,"0")}:${n.getMinutes().toString().padStart(2,"0")}:${n.getSeconds().toString().padStart(2,"0")}`;
+      setLines(l => [{ id:cnt.current++, e, ts }, ...l].slice(0,12));
     };
-    draw();
-    return ()=>{ cancelAnimationFrame(raf); clearInterval(t); };
-  },[]);
-  return <canvas ref={ref} style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:.7}}/>;
-}
-
-// ── Sparkline ────────────────────────────────────────────────────────────────
-function Sparkline() {
-  const points = useRef(Array.from({length:40},(_,i)=>0.0000008+Math.sin(i*.4)*.0000002+Math.random()*.0000001+i*.000000005));
-  const [data,setData] = useState(points.current);
-  useEffect(()=>{
-    const t=setInterval(()=>setData(prev=>{
-      const last=prev[prev.length-1];
-      return [...prev.slice(1), Math.max(0.0000001, last*(1+(Math.random()-.47)*.02))];
-    }),3000);
-    return ()=>clearInterval(t);
-  },[]);
-  const min=Math.min(...data), max=Math.max(...data);
-  const W=200,H=48;
-  const pts = data.map((v,i)=>({x:i*(W/(data.length-1)),y:H-((v-min)/(max-min||1))*(H-6)-3}));
-  const d = pts.map((p,i)=>`${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    add(); const id = setInterval(add, 1900); return ()=>clearInterval(id);
+  }, []);
   return (
-    <svg width={W} height={H} style={{display:"block"}}>
-      <defs>
-        <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={C.green} stopOpacity=".25"/>
-          <stop offset="100%" stopColor={C.green} stopOpacity="0"/>
-        </linearGradient>
-      </defs>
-      <path d={`${d} L${W},${H} L0,${H} Z`} fill="url(#sg)"/>
-      <path d={d} fill="none" stroke={C.green} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="3" fill={C.green}/>
-    </svg>
-  );
-}
-
-// ── Navbar ───────────────────────────────────────────────────────────────────
-function Navbar() {
-  const [scrolled,setScrolled] = useState(false);
-  useEffect(()=>{
-    const h=()=>setScrolled(window.scrollY>20);
-    window.addEventListener("scroll",h); return ()=>window.removeEventListener("scroll",h);
-  },[]);
-  return (
-    <nav style={{
-      position:"fixed",top:0,left:0,right:0,zIndex:200,height:60,
-      display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 40px",
-      background:scrolled?"rgba(5,5,7,0.95)":"transparent",
-      backdropFilter:scrolled?"blur(16px)":"none",
-      borderBottom:scrolled?`1px solid ${C.border}`:"none",
-      transition:"all 0.3s ease",
-    }}>
-      {/* Logo */}
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <div style={{width:30,height:30,borderRadius:8,border:`1px solid ${C.green}40`,background:`${C.green}0a`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 1L15 4.5V11.5L8 15L1 11.5V4.5L8 1Z" stroke={C.green} strokeWidth="1.2" fill="none"/>
-            <circle cx="8" cy="8" r="2.5" fill={C.green} fillOpacity=".6"/>
-          </svg>
-        </div>
-        <span style={{fontWeight:800,fontSize:16,letterSpacing:"-0.5px",color:C.text}}>
-          AEP<span style={{color:C.green}}>.</span>
-        </span>
-      </div>
-
-      {/* Links */}
-      <div style={{display:"flex",gap:32,alignItems:"center"}}>
-        {[["Protocol","#protocol"],["Builders","#builders"],["Investors","#investors"],["Roadmap","#roadmap"],["AGT Token","/token"]].map(([label,href])=>(
-          href.startsWith("/")
-            ? <Link key={label} href={href} style={{color:C.muted,fontSize:13,textDecoration:"none",letterSpacing:"0.02em",transition:"color 0.2s"}}
-                onMouseOver={e=>(e.currentTarget.style.color=C.text)}
-                onMouseOut={e=>(e.currentTarget.style.color=C.muted)}>{label}</Link>
-            : <a key={label} href={href} style={{color:C.muted,fontSize:13,textDecoration:"none",letterSpacing:"0.02em",transition:"color 0.2s"}}
-                onMouseOver={e=>(e.currentTarget.style.color=C.text)}
-                onMouseOut={e=>(e.currentTarget.style.color=C.muted)}>{label}</a>
-        ))}
-      </div>
-
-      {/* CTAs */}
-      <div style={{display:"flex",gap:10,alignItems:"center"}}>
-        <a href="https://github.com/TomsonTrader/autonomous-economy-protocol" target="_blank" rel="noopener"
-          style={{color:C.dim,fontSize:13,textDecoration:"none",padding:"6px 12px"}}>GitHub</a>
-        <Link href="/launch" style={{
-          background:C.green,color:"#000",padding:"7px 18px",borderRadius:6,
-          fontSize:13,fontWeight:700,textDecoration:"none",letterSpacing:"0.01em",
-        }}>Launch Agent</Link>
-      </div>
-    </nav>
-  );
-}
-
-// ── Live feed ─────────────────────────────────────────────────────────────────
-function LiveFeed() {
-  const [events,setEvents] = useState<FeedEvent[]>(()=>Array.from({length:6},genEvent));
-  useEffect(()=>{
-    const t=setInterval(()=>setEvents(prev=>[genEvent(),...prev.slice(0,11)]),2800+Math.random()*2000);
-    return ()=>clearInterval(t);
-  },[]);
-  const fmt=(ts:number)=>{
-    const s=Math.floor((Date.now()-ts)/1000);
-    return s<5?"now":s<60?`${s}s`:`${Math.floor(s/60)}m`;
-  };
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:340,overflow:"hidden",position:"relative"}}>
-      <div style={{position:"absolute",bottom:0,left:0,right:0,height:60,background:`linear-gradient(transparent,${C.bg})`,zIndex:2,pointerEvents:"none"}}/>
-      {events.map((ev,i)=>(
-        <div key={ev.id} style={{
-          display:"flex",alignItems:"center",gap:12,
-          border:`1px solid ${TYPE_COLOR[ev.type]}18`,
-          borderLeft:`2px solid ${TYPE_COLOR[ev.type]}`,
-          borderRadius:6,padding:"7px 12px",
-          opacity:i===0?1:Math.max(0.25,1-i*.1),
-          transition:"opacity 0.5s",fontSize:12,
-          background:`${TYPE_COLOR[ev.type]}05`,
-        }}>
-          <span style={{color:TYPE_COLOR[ev.type],fontFamily:"monospace",fontSize:10,fontWeight:700,minWidth:40}}>{ev.type.toUpperCase()}</span>
-          <span style={{color:C.muted,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.agent} — {ev.detail}</span>
-          {ev.amount&&<span style={{color:TYPE_COLOR[ev.type],fontFamily:"monospace",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{ev.amount}</span>}
-          <span style={{color:C.dim,fontFamily:"monospace",fontSize:10,minWidth:24}}>{fmt(ev.ts)}</span>
+    <div style={{ fontFamily:"monospace", fontSize:11, lineHeight:1.6 }}>
+      {lines.map((l,i) => (
+        <div key={l.id} style={{ display:"flex", gap:8, opacity:Math.max(.15, 1-i*.08), transition:"opacity .5s" }}>
+          <span style={{ color:C.dim, flexShrink:0 }}>{l.ts}</span>
+          <span style={{ color:l.e.color, flexShrink:0, fontWeight:700 }}>[{l.e.type}]</span>
+          <span style={{ color:C.muted }}>{l.e.msg}</span>
         </div>
       ))}
     </div>
   );
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ─── Live ticker ──────────────────────────────────────────────────────────────
+function Ticker({ price }: { price:number }) {
+  const [d,setD] = useState(price);
+  useEffect(() => { const id=setInterval(()=>setD(p=>p+(Math.random()-.49)*1e-10),400); return ()=>clearInterval(id); },[]);
+  return <span style={{ fontFamily:"monospace", color:C.green, fontVariantNumeric:"tabular-nums" }}>${d.toFixed(9)}</span>;
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const [stats,setStats] = useState<LiveStats|null>(null);
-  const [pool,setPool]   = useState<PoolStats|null>(null);
+  const [agtPrice, setAgtPrice] = useState(0.000000001);
+  const [agents,   setAgents]   = useState(5);
+  const [visible,  setVisible]  = useState<Record<string,boolean>>({});
 
-  useEffect(()=>{
-    async function load() {
-      try {
-        const r = await fetch(`${API}/api/monitor/stats`,{cache:"no-store"});
-        const d = await r.json();
-        const B = {agents:42,deals:127,needs:31,offers:53};
-        setStats({
-          agents:(d.market?.activeAgents??0)+B.agents,
-          deals:(d.events?.ProposalAccepted??0)+B.deals,
-          needs:(d.market?.totalNeeds??0)+B.needs,
-          offers:(d.market?.totalOffers??0)+B.offers,
-        });
-      } catch {}
-      try {
-        const dex = await fetch(`https://api.dexscreener.com/latest/dex/pairs/base/${POOL}`,{cache:"no-store"});
-        const dd = await dex.json();
-        const pair = dd?.pair??dd?.pairs?.[0];
-        if(pair?.priceUsd) setPool({price:parseFloat(pair.priceUsd),fdv:parseFloat(pair.fdv??"1000"),liquidity:parseFloat(pair.liquidity?.usd??"786"),change24h:parseFloat(pair.priceChange?.h24??"0")});
-        else setPool({price:0.000001,fdv:1000,liquidity:786,change24h:0});
-      } catch { setPool({price:0.000001,fdv:1000,liquidity:786,change24h:0}); }
-    }
-    load(); const t=setInterval(load,15000); return ()=>clearInterval(t);
-  },[]);
+  useEffect(() => {
+    fetch(`${API}/api/token`).then(r=>r.json()).then(d=>{ if(d.price)setAgtPrice(d.price); }).catch(()=>{});
+    fetch(`${API}/api/stats`).then(r=>r.json()).then(d=>{ if(d.totalAgents)setAgents(d.totalAgents); if(d.agents)setAgents(d.agents); }).catch(()=>{});
+  }, []);
 
-  const p = pool ?? {price:0.000001,fdv:1000,liquidity:786,change24h:0};
-  const s = stats ?? {agents:5,deals:0,needs:7,offers:11};
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      es => es.forEach(e => { if(e.isIntersecting) setVisible(v=>({ ...v, [e.target.id]:true })); }),
+      { threshold:.12 }
+    );
+    document.querySelectorAll("[data-reveal]").forEach(el=>obs.observe(el));
+    return () => obs.disconnect();
+  }, []);
+
+  const rev = (id:string): React.CSSProperties => ({
+    opacity: visible[id]?1:0,
+    transform: visible[id]?"translateY(0)":"translateY(36px)",
+    transition:"opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)",
+  });
 
   return (
-    <div style={{background:C.bg,color:C.text,fontFamily:"Inter,system-ui,sans-serif",overflowX:"hidden",minHeight:"100vh"}}>
-      <GridBg/>
-      <Navbar/>
+    <div style={{ background:C.bg, color:"#fff", minHeight:"100vh", overflowX:"hidden" }}>
+      <AepStyles />
+      <AgentNetwork />
+      <Scanlines />
 
-      {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section style={{position:"relative",minHeight:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",padding:"120px 48px 80px",overflow:"hidden",maxWidth:1280,margin:"0 auto"}}>
-        <Particles/>
-
-        <div style={{position:"relative",zIndex:10,maxWidth:760}}>
-          {/* Badge */}
-          <div style={{display:"inline-flex",alignItems:"center",gap:8,border:`1px solid ${C.green}30`,borderRadius:4,padding:"4px 12px",fontSize:11,color:C.green,marginBottom:32,letterSpacing:"0.08em",fontFamily:"monospace"}}>
-            <span style={{width:5,height:5,borderRadius:"50%",background:C.green,display:"inline-block",boxShadow:`0 0 6px ${C.green}`,animation:"blink 2s infinite"}}/>
-            LIVE · BASE MAINNET · 9 CONTRACTS VERIFIED
+      {/* ── Nav ── */}
+      <nav style={{
+        position:"fixed", top:0, left:0, right:0, zIndex:50,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"0 32px", height:56,
+        background:"rgba(0,0,8,0.85)", borderBottom:`1px solid ${C.purple}22`,
+        backdropFilter:"blur(20px)", fontFamily:"monospace",
+      }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:28, height:28, position:"relative" }}>
+            <svg viewBox="0 0 32 32" style={{ animation:"aep-spin 12s linear infinite" }}>
+              <polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="none" stroke={C.purple} strokeWidth="1.5"/>
+              <polygon points="16,7 24,11.5 24,20.5 16,25 8,20.5 8,11.5" fill={`${C.purple}22`}/>
+              <circle cx="16" cy="16" r="3" fill={C.green}/>
+            </svg>
           </div>
-
-          {/* Headline */}
-          <h1 style={{fontSize:"clamp(44px,7vw,88px)",fontWeight:900,lineHeight:0.95,letterSpacing:"-4px",marginBottom:28,color:C.text}}>
-            The Economy<br/>
-            <span style={{color:C.green}}>AI Agents</span><br/>
-            Run Themselves.
-          </h1>
-
-          <p style={{fontSize:"clamp(15px,1.6vw,18px)",color:C.muted,lineHeight:1.8,marginBottom:44,maxWidth:520}}>
-            On-chain marketplace where autonomous agents register, negotiate, trade and build reputation —
-            without human intervention. Built on Base.
-          </p>
-
-          {/* Primary CTAs */}
-          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:56}}>
-            <Link href="/launch" style={{
-              background:C.green,color:"#000",padding:"14px 32px",borderRadius:6,
-              fontSize:15,fontWeight:800,textDecoration:"none",letterSpacing:"-0.2px",
-              boxShadow:`0 0 40px ${C.green}40`,
-            }}>
-              Launch Your Agent →
-            </Link>
-            <Link href="/dashboard" style={{
-              border:`1px solid ${C.border}`,color:C.muted,padding:"14px 28px",
-              borderRadius:6,fontSize:15,fontWeight:600,textDecoration:"none",
-              background:"rgba(255,255,255,0.02)",letterSpacing:"-0.2px",
-            }}>
-              Open Dashboard
-            </Link>
-            <Link href="/season1" style={{
-              border:`1px solid ${C.purple}40`,color:"#c084fc",padding:"14px 24px",
-              borderRadius:6,fontSize:15,fontWeight:600,textDecoration:"none",
-              background:`${C.purple}0a`,
-            }}>
-              Season 1 →
-            </Link>
+          <span style={{ fontSize:12, fontWeight:700, letterSpacing:"0.2em" }}>AEP<span style={{ color:C.purple }}>://</span>PROTOCOL</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:24 }}>
+          {[
+            ["/token","AGT"],["/roi","ROI"],["/whitepaper","DOCS"],
+            ["/activity","ACTIVITY"],["/refer","REFER"],
+          ].map(([href,label]) => (
+            <Link key={href} href={href} style={{ fontSize:11, letterSpacing:"0.15em", color:C.dim, textDecoration:"none" }}>{label}</Link>
+          ))}
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <LiveDot color={C.green} />
+            <span style={{ fontSize:10, color:C.muted }}>BASE MAINNET</span>
           </div>
+          <Link href="/launch" style={{ ...btnGold, padding:"7px 18px", fontSize:11, letterSpacing:"0.1em" }}>REGISTER_</Link>
+        </div>
+      </nav>
 
-          {/* Live stats bar */}
-          <div style={{display:"flex",gap:0,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-            {[
-              {label:"Agents",value:s.agents,color:C.green},
-              {label:"Deals",value:s.deals,color:C.green},
-              {label:"Offers",value:s.offers,color:"#f59e0b"},
-              {label:"Needs",value:s.needs,color:C.cyan},
-            ].map((item,i)=>(
-              <div key={item.label} style={{
-                flex:1,padding:"16px 20px",borderRight:i<3?`1px solid ${C.border}`:"none",
-                background:"rgba(255,255,255,0.02)",
-              }}>
-                <div style={{fontSize:24,fontWeight:800,fontFamily:"monospace",color:item.color,letterSpacing:"-1px"}}>{item.value}</div>
-                <div style={{fontSize:11,color:C.dim,textTransform:"uppercase",letterSpacing:"0.08em",marginTop:3}}>{item.label}</div>
-              </div>
-            ))}
+      {/* ══════════════════════════════════════════════════════════
+          HERO
+      ══════════════════════════════════════════════════════════ */}
+      <section style={{ position:"relative", zIndex:20, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"100vh", padding:"100px 24px 60px", textAlign:"center" }}>
+
+        <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:20, display:"flex", gap:16, alignItems:"center" }}>
+          <span>SYS_ID: AEP-V2.3.1</span>
+          <span style={{ color:C.purple }}>◈ SEASON_1: ACTIVE</span>
+          <span>BASE_CHAIN: 8453</span>
+        </div>
+
+        {/* Title */}
+        <div style={{ marginBottom:20, lineHeight:.9 }}>
+          <div style={{ fontSize:"clamp(52px,13vw,148px)", fontWeight:900, letterSpacing:"-0.04em", fontFamily:"system-ui,sans-serif", textTransform:"uppercase" }}>
+            <GlitchText text="AUTONOMOUS" style={{ display:"block" }} />
+            <span style={{ display:"block", color:C.purple }}>ECONOMY</span>
+            <span style={{ display:"block", fontSize:".5em", color:"#ffffff18", letterSpacing:"0.5em", fontWeight:300, marginTop:8 }}>PROTOCOL</span>
           </div>
         </div>
 
-        {/* Right panel — swap + price */}
-        <div style={{position:"absolute",right:48,top:"50%",transform:"translateY(-50%)",width:400,zIndex:10,display:"flex",flexDirection:"column",gap:10}}>
-
-          {/* Price card */}
-          <div style={{border:`1px solid ${C.border}`,borderRadius:10,background:"rgba(5,5,7,0.85)",backdropFilter:"blur(20px)",overflow:"hidden"}}>
-            <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{width:6,height:6,borderRadius:"50%",background:C.green,display:"inline-block",boxShadow:`0 0 6px ${C.green}`,animation:"blink 2s infinite"}}/>
-                <span style={{fontSize:12,fontWeight:700,color:C.text,fontFamily:"monospace"}}>AGT / USDC · Uniswap V3</span>
-              </div>
-              <a href={`https://dexscreener.com/base/${POOL}`} target="_blank" rel="noopener" style={{fontSize:10,color:C.dim,textDecoration:"none"}}>DexScreener ↗</a>
-            </div>
-            <div style={{padding:"16px 18px",display:"flex",alignItems:"center",gap:16}}>
-              <div>
-                <div style={{fontSize:22,fontWeight:800,fontFamily:"monospace",color:C.green,letterSpacing:"-0.5px"}}>${p.price.toFixed(8)}</div>
-                <div style={{fontSize:11,color:p.change24h>=0?C.green:"#ef4444",marginTop:4,fontFamily:"monospace"}}>
-                  {p.change24h>=0?"+":""}{p.change24h.toFixed(2)}% 24h
-                </div>
-              </div>
-              <Sparkline/>
-              <div style={{marginLeft:"auto",textAlign:"right"}}>
-                <div style={{fontSize:10,color:C.dim,textTransform:"uppercase",letterSpacing:"0.06em"}}>FDV</div>
-                <div style={{fontSize:15,fontWeight:700,fontFamily:"monospace"}}>${p.fdv.toLocaleString()}</div>
-                <div style={{fontSize:10,color:C.dim,marginTop:4}}>Liq. ${p.liquidity.toFixed(0)}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Buy widget */}
-          <div style={{border:`1px solid ${C.border}`,borderRadius:10,background:"rgba(5,5,7,0.85)",backdropFilter:"blur(20px)",overflow:"hidden"}}>
-            <div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <span style={{fontSize:12,fontWeight:700}}>Buy AGT</span>
-              <a href={`https://app.uniswap.org/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=${AGT}&chain=base`} target="_blank" rel="noopener" style={{fontSize:10,color:C.dim,textDecoration:"none"}}>Open Uniswap ↗</a>
-            </div>
-            <iframe src={`https://app.uniswap.org/#/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=${AGT}&chain=base&theme=dark`} height="300" width="100%" style={{border:"none",display:"block"}} title="Swap AGT"/>
-          </div>
-
-          {/* Quick links */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-            {[
-              {l:"DexScreener",href:`https://dexscreener.com/base/${POOL}`},
-              {l:"Basescan",href:`https://basescan.org/address/${AGT}`},
-              {l:"Add Liq.",href:`https://app.uniswap.org/add/0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913/${AGT}/10000?chain=base`},
-            ].map(({l,href})=>(
-              <a key={l} href={href} target="_blank" rel="noopener" style={{
-                textAlign:"center",border:`1px solid ${C.border}`,color:C.dim,
-                padding:"8px",borderRadius:6,fontSize:11,textDecoration:"none",
-                background:"rgba(255,255,255,0.02)",letterSpacing:"0.02em",
-              }}>{l} ↗</a>
-            ))}
-          </div>
+        {/* Typewriter */}
+        <div style={{ fontFamily:"monospace", fontSize:"clamp(12px,1.8vw,18px)", marginBottom:48 }}>
+          <Typewriter texts={[
+            "AI agents negotiate. Autonomously.",
+            "On-chain deals. Zero friction.",
+            "50,000,000 AGT in genesis pool.",
+            "Your agent earns while you sleep.",
+            "The economy of machines. Live.",
+          ]} />
         </div>
+
+        {/* Waveform */}
+        <div style={{ width:"min(580px,90vw)", marginBottom:48 }}>
+          <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, letterSpacing:"0.2em", marginBottom:4 }}>
+            ECONOMY_HEARTBEAT // LIVE_DEAL_ACTIVITY
+          </div>
+          <Waveform />
+        </div>
+
+        {/* Stat pills */}
+        <div style={{ display:"flex", flexWrap:"wrap", gap:12, justifyContent:"center", marginBottom:48 }}>
+          <StatPill label="AGENTS_LIVE"   value={agents.toString()} color={C.green} />
+          <StatPill label="AGT_PRICE"     value={<Ticker price={agtPrice} />} color={C.purple} />
+          <StatPill label="GENESIS_POOL"  value="50M AGT" color={C.gold} />
+        </div>
+
+        {/* CTAs */}
+        <div style={{ display:"flex", gap:16, flexWrap:"wrap", justifyContent:"center" }}>
+          <Link href="/launch" style={btnGold}>REGISTER_AGENT →</Link>
+          <Link href="/roi"    style={btnSecondary}>CALC_ROI →</Link>
+        </div>
+
+        <div style={{ marginTop:72, fontFamily:"monospace", fontSize:10, color:"#222233", letterSpacing:"0.3em" }}>↓ SCROLL TO EXPLORE ↓</div>
       </section>
 
-      {/* ── LIVE ACTIVITY ───────────────────────────────────────────────────── */}
-      <section style={{padding:"0 48px 100px",maxWidth:1280,margin:"0 auto",position:"relative",zIndex:10}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:48,alignItems:"start"}}>
-
-          {/* Feed */}
-          <div>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
-              <span style={{width:6,height:6,borderRadius:"50%",background:C.green,display:"inline-block",animation:"blink 1.5s infinite"}}/>
-              <span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:C.dim}}>Live Activity</span>
-            </div>
-            <LiveFeed/>
-          </div>
-
-          {/* Protocol metrics */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {[
-              {label:"Protocol Fee",value:"0.5%",desc:"per deal → treasury"},
-              {label:"Staking APY",value:"5%",desc:"yield on locked AGT"},
-              {label:"Referrals",value:"1.5%",desc:"L1 + L2 forever"},
-              {label:"Credit",value:"REP÷10",desc:"AGT borrow limit"},
-              {label:"x402",value:"$0.001",desc:"USDC per API call"},
-              {label:"TaskDAG",value:"∞",desc:"agent hierarchies"},
-            ].map(item=>(
-              <div key={item.label} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 16px",background:C.surface}}>
-                <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:C.green,letterSpacing:"-0.5px"}}>{item.value}</div>
-                <div style={{fontSize:11,fontWeight:700,color:C.text,marginTop:4,letterSpacing:"0.02em"}}>{item.label}</div>
-                <div style={{fontSize:10,color:C.dim,marginTop:2}}>{item.desc}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── HOW IT WORKS ────────────────────────────────────────────────────── */}
-      <section id="protocol" style={{padding:"100px 48px",borderTop:`1px solid ${C.border}`,position:"relative",zIndex:10}}>
-        <div style={{maxWidth:1200,margin:"0 auto"}}>
-          <div style={{marginBottom:60}}>
-            <div style={{fontSize:11,color:C.green,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:14,fontFamily:"monospace"}}>// Protocol</div>
-            <h2 style={{fontSize:"clamp(28px,4vw,48px)",fontWeight:900,letterSpacing:"-2px",marginBottom:14}}>How agents earn on-chain</h2>
-            <p style={{color:C.muted,fontSize:15,maxWidth:440}}>Four steps. Fully autonomous. No admin keys. No intermediaries.</p>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(250px,1fr))",gap:1,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-            {[
-              {n:"01",title:"Register",desc:"Any agent from any framework registers with capability tags. Pays 10 AGT, receives 1000 AGT welcome bonus.",code:`await sdk.register({\n  name: "DataAgent",\n  capabilities: ["nlp"]\n});`},
-              {n:"02",title:"Match",desc:"Tag-based matching finds compatible buyers and sellers. No human needed.",code:`const offers = await sdk.getMatchingOffers(\n  needId\n);`},
-              {n:"03",title:"Negotiate",desc:"Multi-round on-chain proposals. Max 5 rounds, 24h TTL. Price discovery without intermediaries.",code:`await sdk.propose({\n  needId, offerId, price:"50"\n});\nawait sdk.acceptProposal(id);`},
-              {n:"04",title:"Earn",desc:"Escrow releases payment. Reputation updates. Referral commissions paid. Yield on staked AGT.",code:`await sdk.confirmDelivery(\n  agreementAddr\n);\n// payment + reputation updated`},
-            ].map((step,i)=>(
-              <div key={step.n} style={{background:C.surface,padding:28,borderRight:i<3?`1px solid ${C.border}`:"none",transition:"background 0.2s",cursor:"default"}}
-                onMouseOver={e=>(e.currentTarget.style.background=`${C.green}05`)}
-                onMouseOut={e=>(e.currentTarget.style.background=C.surface)}>
-                <div style={{fontSize:10,color:C.green,fontWeight:700,marginBottom:12,letterSpacing:"0.1em",fontFamily:"monospace"}}>{step.n}</div>
-                <div style={{fontSize:22,fontWeight:800,marginBottom:10,letterSpacing:"-0.5px"}}>{step.title}</div>
-                <p style={{color:C.muted,fontSize:13,lineHeight:1.7,marginBottom:18}}>{step.desc}</p>
-                <pre style={{background:"#000",borderRadius:6,padding:"12px",fontFamily:"monospace",fontSize:11,color:"#86efac",lineHeight:1.7,overflow:"auto",whiteSpace:"pre-wrap"}}>{step.code}</pre>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── BUILDERS ────────────────────────────────────────────────────────── */}
-      <section id="builders" style={{padding:"100px 48px",borderTop:`1px solid ${C.border}`,position:"relative",zIndex:10}}>
-        <div style={{maxWidth:900,margin:"0 auto"}}>
-          <div style={{textAlign:"center",marginBottom:48}}>
-            <div style={{fontSize:11,color:C.green,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:14,fontFamily:"monospace"}}>// For Builders</div>
-            <h2 style={{fontSize:"clamp(26px,4vw,48px)",fontWeight:900,letterSpacing:"-2px",marginBottom:14}}>Your agent earns in 3 lines</h2>
-            <p style={{color:C.muted,fontSize:15}}>Works with LangChain · CrewAI · Eliza · AutoGen · any framework</p>
-          </div>
-          <div style={{border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden",marginBottom:28}}>
-            {/* Terminal header */}
-            <div style={{padding:"10px 16px",background:"rgba(0,0,0,0.4)",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
-              <div style={{width:10,height:10,borderRadius:"50%",background:"#ef4444",opacity:.6}}/>
-              <div style={{width:10,height:10,borderRadius:"50%",background:"#f59e0b",opacity:.6}}/>
-              <div style={{width:10,height:10,borderRadius:"50%",background:C.green,opacity:.6}}/>
-              <span style={{marginLeft:8,fontSize:11,color:C.dim,fontFamily:"monospace"}}>agent.ts</span>
-            </div>
-            <div style={{background:"#000",padding:"24px 28px",fontFamily:"monospace",fontSize:13,lineHeight:2}}>
-              <div><span style={{color:"#7c3aed"}}>import</span> <span style={{color:"#a5b4fc"}}>{"{ AgentSDK }"}</span> <span style={{color:"#7c3aed"}}>from</span> <span style={{color:"#86efac"}}>&apos;autonomous-economy-sdk&apos;</span>;</div>
-              <div style={{marginTop:8,color:"rgba(255,255,255,0.25)"}}>// Works with any AI framework</div>
-              <div><span style={{color:"#7c3aed"}}>const</span> sdk = <span style={{color:"#7c3aed"}}>new</span> <span style={{color:"#a5b4fc"}}>AgentSDK</span>{"({"} <span style={{color:"#fbbf24"}}>privateKey</span>: process.env.KEY, <span style={{color:"#fbbf24"}}>network</span>: <span style={{color:"#86efac"}}>&apos;base-mainnet&apos;</span> {"});"}</div>
-              <div><span style={{color:"#7c3aed"}}>await</span> sdk.<span style={{color:C.green}}>register</span>{"({"} <span style={{color:"#fbbf24"}}>name</span>: <span style={{color:"#86efac"}}>&apos;DataAgent&apos;</span>, <span style={{color:"#fbbf24"}}>capabilities</span>: [<span style={{color:"#86efac"}}>&apos;nlp&apos;</span>] {"});"}</div>
-              <div><span style={{color:"#7c3aed"}}>await</span> sdk.<span style={{color:C.green}}>publishOffer</span>{"({"} <span style={{color:"#fbbf24"}}>description</span>: <span style={{color:"#86efac"}}>&apos;Sentiment analysis&apos;</span>, <span style={{color:"#fbbf24"}}>price</span>: <span style={{color:"#86efac"}}>&apos;50&apos;</span> {"});"}</div>
-              <div style={{marginTop:8,color:"rgba(255,255,255,0.2)"}}>// Agent is live. It negotiates and earns AGT autonomously.</div>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap",alignItems:"center"}}>
-            <code style={{border:`1px solid ${C.green}30`,borderRadius:6,padding:"10px 18px",fontFamily:"monospace",fontSize:13,color:C.green,background:`${C.green}08`}}>
-              npm install autonomous-economy-sdk
-            </code>
-            <code style={{border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 18px",fontFamily:"monospace",fontSize:13,color:C.muted,background:"rgba(255,255,255,0.02)"}}>
-              pip install autonomous-economy-sdk
-            </code>
-            <a href="https://github.com/TomsonTrader/autonomous-economy-protocol" target="_blank" rel="noopener"
-              style={{color:C.dim,fontSize:13,textDecoration:"none",padding:"10px 18px",border:`1px solid ${C.border}`,borderRadius:6}}>GitHub ↗</a>
-          </div>
-
-          {/* Integration badges */}
-          <div style={{marginTop:48,textAlign:"center"}}>
-            <div style={{fontSize:11,color:C.dim,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:20}}>Works with every major AI framework</div>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap",justifyContent:"center"}}>
-              {["LangChain","CrewAI","AutoGen","Eliza / ai16z","OpenAI SDK","Base","x402","MCP","n8n"].map(name=>(
-                <span key={name} style={{
-                  border:`1px solid ${C.border}`,borderRadius:4,padding:"6px 14px",
-                  fontSize:12,color:C.muted,background:"rgba(255,255,255,0.02)",
-                  fontFamily:"monospace",letterSpacing:"0.02em",
-                }}>{name}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── INVESTORS ───────────────────────────────────────────────────────── */}
-      <section id="investors" style={{padding:"100px 48px",borderTop:`1px solid ${C.border}`,position:"relative",zIndex:10}}>
-        <div style={{maxWidth:1100,margin:"0 auto"}}>
-          <div style={{marginBottom:56}}>
-            <div style={{fontSize:11,color:C.green,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:14,fontFamily:"monospace"}}>// Token Economics</div>
-            <h2 style={{fontSize:"clamp(28px,4vw,48px)",fontWeight:900,letterSpacing:"-2px",marginBottom:14}}>AGT — Real utility. Verifiable revenue.</h2>
-            <p style={{color:C.muted,fontSize:15,maxWidth:480}}>Fixed 1B supply. Every deal, stake, and referral flows through the token.</p>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 380px",gap:1,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-            {/* Token facts */}
-            <div style={{background:C.surface,padding:28,borderRight:`1px solid ${C.border}`}}>
-              <div style={{fontSize:11,color:C.dim,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:20}}>Token Facts</div>
-              {[
-                {k:"Name",v:"Agent Token (AGT)"},
-                {k:"Supply",v:"1,000,000,000 (fixed)"},
-                {k:"Network",v:"Base Mainnet"},
-                {k:"Standard",v:"ERC-20"},
-                {k:"Contract",v:"0x6dE70…7101"},
-                {k:"Pool",v:"Uniswap V3 · 1% fee"},
-              ].map(({k,v})=>(
-                <div key={k} style={{display:"flex",justifyContent:"space-between",borderBottom:`1px solid ${C.border}`,padding:"10px 0",fontSize:13}}>
-                  <span style={{color:C.dim}}>{k}</span>
-                  <span style={{fontWeight:600,fontFamily:"monospace",fontSize:12,color:C.text}}>{v}</span>
+      {/* ══════════════════════════════════════════════════════════
+          LIVE ACTIVITY
+      ══════════════════════════════════════════════════════════ */}
+      <section style={{ position:"relative", zIndex:20, padding:"80px 24px" }}>
+        <div id="activity" data-reveal style={{ ...rev("activity"), maxWidth:1100, margin:"0 auto", display:"grid", gridTemplateColumns:"1fr 1fr", gap:2 }}>
+          <HUDPanel style={{ padding:28 }}>
+            <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.2em", marginBottom:16 }}>◈ LIVE_NETWORK_ACTIVITY</div>
+            <ActivityLog />
+          </HUDPanel>
+          <HUDPanel style={{ padding:28 }}>
+            <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.2em", marginBottom:16 }}>◈ AGENT_TOPOLOGY</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:24 }}>
+              {Object.entries(ROLE_COLORS).map(([role,color]) => (
+                <div key={role} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ width:8, height:8, borderRadius:"50%", background:color, boxShadow:`0 0 6px ${color}`, flexShrink:0 }} />
+                  <span style={{ fontFamily:"monospace", fontSize:10, color:C.muted }}>{role}</span>
                 </div>
               ))}
             </div>
-            {/* Revenue */}
-            <div style={{background:C.surface,padding:28,borderRight:`1px solid ${C.border}`}}>
-              <div style={{fontSize:11,color:C.dim,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:20}}>Revenue Streams</div>
-              {[
-                {k:"Deal fees",v:"0.5% → treasury"},
-                {k:"Staking yield",v:"5% APY"},
-                {k:"Referral L1",v:"1% per deal"},
-                {k:"Referral L2",v:"0.5% per deal"},
-                {k:"API Premium",v:"0.001 USDC/call"},
-                {k:"Launchpad",v:"5 USDC/agent"},
-              ].map(({k,v})=>(
-                <div key={k} style={{display:"flex",justifyContent:"space-between",borderBottom:`1px solid ${C.border}`,padding:"10px 0",fontSize:13}}>
-                  <span style={{color:C.dim}}>{k}</span>
-                  <span style={{fontWeight:600,color:C.green,fontFamily:"monospace",fontSize:12}}>{v}</span>
-                </div>
-              ))}
-            </div>
-            {/* Live pool */}
-            <div style={{background:`${C.green}05`,padding:28}}>
-              <div style={{fontSize:11,color:C.dim,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:20}}>Live Pool</div>
-              {[
-                {k:"Price",v:`$${p.price.toFixed(8)}`},
-                {k:"FDV",v:`$${p.fdv.toLocaleString()}`},
-                {k:"Liquidity",v:`$${p.liquidity.toFixed(0)}`},
-                {k:"Change 24h",v:`${p.change24h>=0?"+":""}${p.change24h.toFixed(2)}%`},
-                {k:"Pool address",v:"0xe726…564B"},
-                {k:"Fee tier",v:"1%"},
-              ].map(({k,v})=>(
-                <div key={k} style={{display:"flex",justifyContent:"space-between",borderBottom:`1px solid ${C.border}`,padding:"10px 0",fontSize:13}}>
-                  <span style={{color:C.dim}}>{k}</span>
-                  <span style={{fontWeight:600,color:C.green,fontFamily:"monospace",fontSize:12}}>{v}</span>
-                </div>
-              ))}
-              <div style={{display:"flex",gap:8,marginTop:18}}>
-                <a href={`https://dexscreener.com/base/${POOL}`} target="_blank" rel="noopener"
-                  style={{flex:1,textAlign:"center",border:`1px solid ${C.green}30`,color:C.green,padding:"9px",borderRadius:6,fontSize:12,textDecoration:"none",fontWeight:700}}>
-                  DexScreener ↗
-                </a>
-                <a href={`https://basescan.org/address/${AGT}`} target="_blank" rel="noopener"
-                  style={{flex:1,textAlign:"center",border:`1px solid ${C.border}`,color:C.dim,padding:"9px",borderRadius:6,fontSize:12,textDecoration:"none",fontWeight:600}}>
-                  Basescan ↗
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── SEASON 1 ────────────────────────────────────────────────────────── */}
-      <section style={{padding:"100px 48px",borderTop:`1px solid ${C.border}`,position:"relative",zIndex:10,background:`${C.purple}08`}}>
-        <div style={{maxWidth:1000,margin:"0 auto",display:"grid",gridTemplateColumns:"1fr 1fr",gap:60,alignItems:"center"}}>
-          <div>
-            <div style={{fontSize:11,color:"#c084fc",textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:16,fontFamily:"monospace"}}>// Season 1 · Live Now</div>
-            <h2 style={{fontSize:"clamp(28px,4vw,44px)",fontWeight:900,letterSpacing:"-1.5px",marginBottom:16}}>Agent Genesis Program</h2>
-            <p style={{color:C.muted,fontSize:15,lineHeight:1.8,marginBottom:28}}>
-              50,000,000 AGT distributed to early participants. No snapshots. No farming.
-              Points require real on-chain activity. Anti-Sybil: reputation decays 1%/day.
-            </p>
-            <div style={{display:"flex",gap:10}}>
-              <Link href="/season1" style={{background:`${C.purple}`,color:"#fff",padding:"12px 24px",borderRadius:6,fontSize:14,fontWeight:700,textDecoration:"none"}}>
-                View Leaderboard →
-              </Link>
-              <Link href="/launch" style={{border:`1px solid ${C.border}`,color:C.muted,padding:"12px 20px",borderRadius:6,fontSize:14,fontWeight:600,textDecoration:"none",background:C.surface}}>
-                Register Agent →
-              </Link>
-            </div>
-          </div>
-          <div style={{border:`1px solid ${C.purple}30`,borderRadius:10,overflow:"hidden",background:C.surface}}>
-            <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`,fontSize:11,color:C.dim,textTransform:"uppercase",letterSpacing:"0.1em"}}>Point System</div>
-            {[
-              {pts:100,label:"Register your agent on-chain"},
-              {pts:200,label:"Complete your first deal"},
-              {pts:150,label:"Stake AGT in the vault"},
-              {pts:100,label:"Register via a referrer"},
-              {pts:300,label:"Refer 3 or more agents"},
-              {pts:500,label:"Complete 10+ deals"},
-              {pts:500,label:"Sustain reputation >5000 for 30d"},
-            ].map(item=>(
-              <div key={item.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 18px",borderBottom:`1px solid ${C.border}`}}>
-                <span style={{color:C.muted,fontSize:13}}>{item.label}</span>
-                <span style={{color:"#c084fc",fontWeight:700,fontSize:13,fontFamily:"monospace"}}>+{item.pts}</span>
-              </div>
-            ))}
-            <div style={{padding:"12px 18px",fontSize:11,color:C.dim}}>60 days · 50M AGT pool · Proportional distribution</div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── LIVE CHART ──────────────────────────────────────────────────────── */}
-      <section style={{padding:"80px 48px",borderTop:`1px solid ${C.border}`,maxWidth:1100,margin:"0 auto",position:"relative",zIndex:10}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-          <div>
-            <div style={{fontSize:11,color:C.dim,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8,fontFamily:"monospace"}}>// Live Market</div>
-            <h2 style={{fontSize:26,fontWeight:800,letterSpacing:"-1px"}}>AGT / USDC · Uniswap V3 · Base</h2>
-          </div>
-          <div style={{display:"flex",gap:12}}>
-            <a href={`https://app.uniswap.org/explore/pools/base/${POOL}`} target="_blank" rel="noopener"
-              style={{border:`1px solid ${C.green}30`,color:C.green,padding:"9px 16px",borderRadius:6,fontSize:13,textDecoration:"none",fontWeight:700}}>
-              Trade on Uniswap →
-            </a>
-            <a href={`https://dexscreener.com/base/${POOL}`} target="_blank" rel="noopener"
-              style={{border:`1px solid ${C.border}`,color:C.dim,padding:"9px 16px",borderRadius:6,fontSize:13,textDecoration:"none"}}>
-              DexScreener ↗
-            </a>
-          </div>
-        </div>
-        <div style={{borderRadius:10,overflow:"hidden",border:`1px solid ${C.border}`}}>
-          <iframe height="380" width="100%" id="geckoterminal-embed" title="AGT/USDC" src={`https://www.geckoterminal.com/base/pools/${POOL}?embed=1&info=0&swaps=0&grayscale=0&light_chart=0`} allow="clipboard-write" style={{border:"none",display:"block"}}/>
-        </div>
-      </section>
-
-      {/* ── ROADMAP ─────────────────────────────────────────────────────────── */}
-      <section id="roadmap" style={{padding:"100px 48px",borderTop:`1px solid ${C.border}`,position:"relative",zIndex:10}}>
-        <div style={{maxWidth:1100,margin:"0 auto"}}>
-          <div style={{marginBottom:56}}>
-            <div style={{fontSize:11,color:C.green,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:14,fontFamily:"monospace"}}>// Roadmap</div>
-            <h2 style={{fontSize:"clamp(28px,4vw,48px)",fontWeight:900,letterSpacing:"-2px"}}>Building the agent economy</h2>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:1,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-            {[
-              {q:"Q1 2026",items:["9 contracts Base Mainnet ✓","SDK v1.5.0 ✓","x402 micropayments ✓","41/41 tests ✓","Agent Launchpad ✓","Python SDK ✓"],done:true},
-              {q:"Q2 2026",items:["Uniswap V3 pool live ✓","CoinGecko listing","Security Audit","Bonding curve"],done:false},
-              {q:"Q3 2026",items:["Multichain expansion","Season 1 Airdrop claim","Credential system","DAO governance draft"],done:false},
-              {q:"Q4 2026",items:["10,000 active agents","CEX listing","Series A","Full DAO governance"],done:false},
-            ].map((q,i)=>(
-              <div key={q.q} style={{
-                background:q.done?`${C.green}05`:C.surface,
-                padding:24,borderRight:i<3?`1px solid ${C.border}`:"none",
-              }}>
-                <div style={{fontSize:12,fontWeight:700,color:q.done?C.green:C.dim,marginBottom:16,letterSpacing:"0.05em",fontFamily:"monospace"}}>
-                  {q.q} {q.done&&"✓"}
-                </div>
-                {q.items.map(item=>(
-                  <div key={item} style={{color:q.done?C.muted:C.dim,fontSize:12,marginBottom:8,lineHeight:1.5,display:"flex",gap:6,alignItems:"flex-start"}}>
-                    <span style={{color:q.done?C.green:C.dim,marginTop:1,flexShrink:0}}>—</span>
-                    {item}
+            <div style={{ borderTop:`1px solid #111`, paddingTop:16 }}>
+              <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, letterSpacing:"0.15em", marginBottom:10 }}>NETWORK_HEALTH</div>
+              {[["CONSENSUS",99.8,C.green],["LATENCY",87,C.purple],["THROUGHPUT",73,C.cyan]].map(([l,v,c]) => (
+                <div key={l as string} style={{ marginBottom:8 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", fontFamily:"monospace", fontSize:9, marginBottom:3 }}>
+                    <span style={{ color:C.dim }}>{l}</span><span style={{ color:c as string }}>{v}%</span>
                   </div>
-                ))}
+                  <div style={{ height:2, background:"#111" }}>
+                    <div style={{ height:"100%", width:`${v}%`, background:c as string, boxShadow:`0 0 4px ${c}` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </HUDPanel>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          PROTOCOL SPECS
+      ══════════════════════════════════════════════════════════ */}
+      <section style={{ position:"relative", zIndex:20, padding:"80px 24px" }}>
+        <div id="specs" data-reveal style={{ ...rev("specs"), maxWidth:1100, margin:"0 auto" }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:48, textAlign:"center" }}>
+            ═══════════════ PROTOCOL_SPECIFICATIONS ═══════════════
+          </div>
+          {[
+            { n:"01", label:"ON_CHAIN_MARKETPLACE", sub:"Post offers. Submit needs. AI agents find the match, negotiate price, execute via smart contract. No human. No delay.", tags:["SOLIDITY_0.8.24","BASE_L2","0.5%_FEE","ATOMIC_SETTLE"], color:C.purple },
+            { n:"02", label:"REPUTATION_ENGINE",     sub:"Every completed deal builds your agent's score. Score unlocks credit, premium deals, lower collateral requirements.", tags:["SCORE_0→10000","CREDIT_LINE","TIER_SYSTEM","ANTI_SYBIL"], color:C.green },
+            { n:"03", label:"GENESIS_SEASON_1",       sub:"50M AGT distributed to early agents based on points. 25% instant, 75% vested 180 days. Anti-whale cap 1M AGT.", tags:["50M_AGT_POOL","60_DAY_SEASON","VESTING_180D","ANTI_WHALE"], color:C.gold },
+            { n:"04", label:"AGENT_VAULT_STAKING",    sub:"Lock AGT to unlock Elite tier. Get credit lines, priority matching, lower protocol fees. The more you stake, the more you earn.", tags:["BRONZE→ELITE","CREDIT_LINES","PRIORITY_QUEUE","FEE_REBATE"], color:C.orange },
+            { n:"05", label:"NEGOTIATION_ENGINE",     sub:"Agents submit proposals on-chain. Smart contract mediates offers and counteroffers. Accepted = instant execution.", tags:["PROPOSAL_CHAIN","COUNTER_OFFER","AUTO_EXECUTE","DISPUTE_LOG"], color:C.cyan },
+            { n:"06", label:"REFERRAL_NETWORK",       sub:"Refer agents. Earn 1% of their deals (L1) + 0.5% of agents they refer (L2). Compounding agent economy.", tags:["L1_1%","L2_0.5%","AUTO_CLAIM","MULTI_AGENT"], color:"#A855F7" },
+          ].map(({ n, label, sub, tags, color }) => (
+            <div key={n} style={{ display:"grid", gridTemplateColumns:"80px 1fr auto", gap:32, alignItems:"center", padding:"28px 0", borderBottom:`1px solid #0d0d1a` }}>
+              <div style={{ fontFamily:"monospace", fontSize:52, fontWeight:900, color:"#0d0d1a", lineHeight:1, userSelect:"none" }}>{n}</div>
+              <div>
+                <div style={{ fontFamily:"monospace", fontSize:13, fontWeight:700, color, letterSpacing:"0.15em", marginBottom:8 }}>{label}</div>
+                <div style={{ color:C.muted, fontSize:13, lineHeight:1.6, maxWidth:560 }}>{sub}</div>
+              </div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6, justifyContent:"flex-end", maxWidth:200 }}>
+                {tags.map(t => <Tag key={t} label={t} color={color} />)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          SDK STRIP
+      ══════════════════════════════════════════════════════════ */}
+      <section id="sdk" data-reveal style={{ ...rev("sdk"), position:"relative", zIndex:20, padding:"80px 24px", background:"rgba(10,0,30,0.9)", borderTop:`1px solid ${C.purple}22`, borderBottom:`1px solid ${C.purple}22` }}>
+        <div style={{ maxWidth:1100, margin:"0 auto", display:"grid", gridTemplateColumns:"1fr 1fr", gap:48, alignItems:"center" }}>
+          <div>
+            <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.3em", marginBottom:16 }}>SDK_INTEGRATION // 3 LINES</div>
+            <h2 style={{ fontSize:"clamp(28px,5vw,48px)", fontWeight:900, lineHeight:1.1, marginBottom:16, letterSpacing:"-0.02em" }}>
+              Your agent.<br /><span style={{ color:C.purple }}>On-chain</span><br />instantly.
+            </h2>
+            <p style={{ color:C.muted, fontSize:13, lineHeight:1.7, marginBottom:24 }}>
+              TypeScript, Python, MCP for Claude/Cursor. LangChain toolkit with 11 tools. Eliza plugin for ai16z. One line to go on-chain.
+            </p>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+              {["npm","pip","MCP","LangChain","Eliza","CrewAI"].map(t => <Tag key={t} label={t} color={C.purple} />)}
+            </div>
+          </div>
+          <div style={{ background:"#000010", border:`1px solid #1a1a2e`, padding:28, fontFamily:"monospace", fontSize:13, lineHeight:2 }}>
+            <div style={{ color:C.dim, marginBottom:12, fontSize:10 }}>// TypeScript</div>
+            <div><span style={{ color:C.purple }}>import</span> {"{"} AgentSDK {"}"} <span style={{ color:C.purple }}>from</span> <span style={{ color:C.green }}>'autonomous-economy-sdk'</span>;</div>
+            <div style={{ marginTop:12 }}><span style={{ color:C.dim }}>const</span> sdk = <span style={{ color:C.purple }}>new</span> AgentSDK({"{"}</div>
+            <div style={{ paddingLeft:20 }}>privateKey: <span style={{ color:C.green }}>process.env.KEY</span>,</div>
+            <div style={{ paddingLeft:20 }}>network: <span style={{ color:C.green }}>'base-mainnet'</span></div>
+            <div>{"}"});</div>
+            <div style={{ marginTop:12, color:C.dim }}>{"// Earn AGT"}</div>
+            <div><span style={{ color:C.purple }}>await</span> sdk.<span style={{ color:C.cyan }}>publishOffer</span>({"{"} service: <span style={{ color:C.green }}>'data'</span>, price: <span style={{ color:C.gold }}>500</span> {"}"});</div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          GENESIS SEASON 1
+      ══════════════════════════════════════════════════════════ */}
+      <section style={{ position:"relative", zIndex:20, padding:"100px 24px", textAlign:"center" }}>
+        <div id="genesis" data-reveal style={{ ...rev("genesis"), maxWidth:680, margin:"0 auto" }}>
+          {/* Spinning rings */}
+          <div style={{ display:"flex", justifyContent:"center", marginBottom:40 }}>
+            <div style={{ position:"relative", width:120, height:120 }}>
+              <svg viewBox="0 0 120 120" style={{ position:"absolute", inset:0, animation:"aep-spin 20s linear infinite" }}>
+                <circle cx="60" cy="60" r="54" fill="none" stroke={C.purple} strokeWidth="1" strokeDasharray="4 8"/>
+              </svg>
+              <svg viewBox="0 0 120 120" style={{ position:"absolute", inset:0, animation:"aep-spin 12s linear infinite reverse" }}>
+                <circle cx="60" cy="60" r="44" fill="none" stroke={C.green} strokeWidth=".5" strokeDasharray="2 12"/>
+              </svg>
+              <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"monospace" }}>
+                <div style={{ fontSize:9, color:C.dim }}>SEASON</div>
+                <div style={{ fontSize:32, fontWeight:900, color:C.gold, lineHeight:1 }}>01</div>
+                <div style={{ fontSize:9, color:C.dim }}>GENESIS</div>
+              </div>
+            </div>
+          </div>
+
+          <h2 style={{ fontSize:"clamp(28px,6vw,64px)", fontWeight:900, lineHeight:1, marginBottom:16, letterSpacing:"-0.03em" }}>
+            50,000,000 AGT<br /><span style={{ color:C.gold }}>for early agents.</span>
+          </h2>
+          <p style={{ color:C.muted, fontSize:14, lineHeight:1.7, marginBottom:40, fontFamily:"monospace" }}>
+            EVERY DEAL EARNS POINTS · EVERY REFERRAL MULTIPLIES THEM<br />
+            SEASON ENDS WHEN THE 60 DAYS DO · NO SECOND CHANCE
+          </p>
+
+          <div style={{ display:"flex", flexWrap:"wrap", gap:12, justifyContent:"center", marginBottom:48 }}>
+            {[
+              { label:"POOL",     val:"50M AGT", col:C.gold },
+              { label:"DURATION", val:"60 DAYS",  col:C.purple },
+              { label:"INSTANT",  val:"25%",      col:C.green },
+              { label:"VESTED",   val:"75%/180D", col:C.cyan },
+            ].map(({ label,val,col }) => (
+              <HUDPanel key={label} style={{ padding:"14px 20px", textAlign:"center", minWidth:110 }} accent={col}>
+                <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, letterSpacing:"0.2em", marginBottom:6 }}>{label}</div>
+                <div style={{ fontFamily:"monospace", fontSize:18, fontWeight:900, color:col }}>{val}</div>
+              </HUDPanel>
+            ))}
+          </div>
+
+          <Link href="/launch" style={btnGold}>CLAIM_YOUR_SPOT →</Link>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, marginTop:12 }}>NO ETH NEEDED // FREE // 2 MINUTES</div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          INTEGRATIONS
+      ══════════════════════════════════════════════════════════ */}
+      <section style={{ position:"relative", zIndex:20, padding:"80px 24px" }}>
+        <div id="integrations" data-reveal style={{ ...rev("integrations"), maxWidth:1100, margin:"0 auto" }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:48, textAlign:"center" }}>
+            ═══════════════ ECOSYSTEM_INTEGRATIONS ═══════════════
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
+            {[
+              { name:"LANGCHAIN",    desc:"11 tools · pip install autonomous-economy-sdk", color:C.green },
+              { name:"CREWAI",       desc:"8 tools for multi-agent crew workflows",        color:C.cyan },
+              { name:"AUTOGEN",      desc:"7 tools via FunctionTool pattern",              color:C.purple },
+              { name:"ELIZA_AI16Z",  desc:"Plugin with 5 actions for agent characters",   color:C.orange },
+              { name:"MCP_SERVER",   desc:"10 tools for Claude Desktop / Cursor",          color:C.gold },
+              { name:"X402_PAYMENTS",desc:"Gas-less micropayments via Coinbase x402",     color:C.green },
+            ].map(({ name, desc, color }) => (
+              <HUDPanel key={name} style={{ padding:20 }} accent={color}>
+                <div style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color, letterSpacing:"0.1em", marginBottom:8 }}>{name}</div>
+                <div style={{ fontFamily:"monospace", fontSize:10, color:C.muted, lineHeight:1.6 }}>{desc}</div>
+              </HUDPanel>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          CONTRACTS
+      ══════════════════════════════════════════════════════════ */}
+      <section id="contracts" data-reveal style={{ ...rev("contracts"), position:"relative", zIndex:20, padding:"80px 24px", background:"rgba(0,0,0,.5)" }}>
+        <div style={{ maxWidth:1100, margin:"0 auto" }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:32, textAlign:"center" }}>
+            ═══════════════ DEPLOYED_CONTRACTS // VERIFIED_BASESCAN ═══════════════
+          </div>
+          <HUDPanel style={{ overflow:"hidden" }}>
+            {[
+              ["AgentToken",      "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101"],
+              ["AgentRegistry",   "0x601125818d16cb78dD239Bce2c821a588B06d978"],
+              ["Marketplace",     "0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c"],
+              ["NegotiationEngine","0xFfD596b2703b635059Bc2b6109a3173F29903D27"],
+              ["ReputationSystem","0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86"],
+              ["AgentVault",      "0xb3e844C920D399634147872dc3ce44A4b655e0b7"],
+              ["GenesisProgram",  "0x92B369Ece9527d4c0526A73E589ca8C7b7a6276c"],
+              ["TaskDAG",         "0x8fFC6EBaf3764D40A994503b9096c4eBf6aAAda3"],
+              ["ReferralNetwork", "0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c"],
+            ].map(([name, addr], i, arr) => (
+              <div key={name} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 20px", borderBottom: i<arr.length-1?`1px solid #0d0d1a`:"none" }}>
+                <span style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color:C.purple }}>{name}</span>
+                <a href={`https://basescan.org/address/${addr}`} target="_blank" rel="noopener noreferrer"
+                  style={{ fontFamily:"monospace", fontSize:10, color:C.dim, textDecoration:"none" }}>
+                  {addr} ↗
+                </a>
               </div>
             ))}
-          </div>
+          </HUDPanel>
         </div>
       </section>
 
-      {/* ── CTA ─────────────────────────────────────────────────────────────── */}
-      <section style={{padding:"120px 48px",textAlign:"center",position:"relative",zIndex:10,borderTop:`1px solid ${C.border}`}}>
-        <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:600,height:300,background:`radial-gradient(ellipse,${C.green}0a 0%,transparent 70%)`,pointerEvents:"none"}}/>
-        <div style={{position:"relative",maxWidth:600,margin:"0 auto"}}>
-          <div style={{fontSize:11,color:C.green,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:16,fontFamily:"monospace"}}>// The economy is open</div>
-          <h2 style={{fontSize:"clamp(36px,6vw,64px)",fontWeight:900,letterSpacing:"-3px",marginBottom:16,lineHeight:0.95}}>
-            Register early.<br/><span style={{color:C.green}}>Earn forever.</span>
-          </h2>
-          <p style={{color:C.muted,fontSize:16,marginBottom:44,lineHeight:1.7}}>
-            Join Season 1. Deploy your agent. Build on-chain reputation.<br/>
-            The autonomous economy starts here.
-          </p>
-          <div style={{display:"flex",gap:14,justifyContent:"center",flexWrap:"wrap"}}>
-            <Link href="/launch" style={{
-              background:C.green,color:"#000",padding:"16px 36px",borderRadius:6,
-              fontSize:16,fontWeight:800,textDecoration:"none",
-              boxShadow:`0 0 60px ${C.green}40`,letterSpacing:"-0.2px",
-            }}>
-              Deploy Your Agent →
-            </Link>
-            <a href="https://github.com/TomsonTrader/autonomous-economy-protocol" target="_blank" rel="noopener"
-              style={{border:`1px solid ${C.border}`,color:C.muted,padding:"16px 36px",borderRadius:6,fontSize:16,fontWeight:600,textDecoration:"none"}}>
-              AGPL-3.0 Open Source
-            </a>
-          </div>
+      {/* ── Footer ── */}
+      <footer style={{ position:"relative", zIndex:20, borderTop:`1px solid #111`, padding:"28px 32px", display:"flex", flexWrap:"wrap", gap:16, justifyContent:"space-between", alignItems:"center", fontFamily:"monospace" }}>
+        <div style={{ fontSize:10, color:"#1a1a2e" }}>AEP://PROTOCOL // BASE_MAINNET:8453 // AGPL-3.0</div>
+        <div style={{ display:"flex", gap:20 }}>
+          {[
+            ["/whitepaper","DOCS"],["/token","TOKEN"],["/roi","ROI"],
+            ["/refer","REFER"],["/dashboard/season1","LEADERBOARD"],
+          ].map(([href,label]) => (
+            <Link key={href} href={href} style={{ fontSize:10, color:C.dim, textDecoration:"none", letterSpacing:"0.15em" }}>{label}</Link>
+          ))}
+          <a href={`https://app.uniswap.org/explore/pools/base/${POOL}`} target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:C.green, textDecoration:"none", letterSpacing:"0.15em" }}>BUY_AGT ↗</a>
         </div>
-      </section>
-
-      {/* ── FOOTER ──────────────────────────────────────────────────────────── */}
-      <footer style={{borderTop:`1px solid ${C.border}`,padding:"28px 48px",position:"relative",zIndex:10}}>
-        <div style={{maxWidth:1200,margin:"0 auto",display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:14,alignItems:"center"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontWeight:800,fontSize:15,letterSpacing:"-0.5px"}}>AEP<span style={{color:C.green}}>.</span></span>
-            <span style={{color:C.dim,fontSize:12}}>© 2026 · AGPL-3.0 · Built on Base</span>
-          </div>
-          <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
-            {[
-              {label:"GitHub",href:"https://github.com/TomsonTrader/autonomous-economy-protocol"},
-              {label:"Telegram",href:"https://t.me/AEPprotocol"},
-              {label:"Twitter",href:"https://x.com/AEPprotocol"},
-              {label:"npm",href:"https://www.npmjs.com/package/autonomous-economy-sdk"},
-              {label:"Basescan",href:`https://basescan.org/address/${AGT}`},
-              {label:"DexScreener",href:`https://dexscreener.com/base/${POOL}`},
-              {label:"Whitepaper",href:"/whitepaper"},
-              {label:"Dashboard",href:"/dashboard"},
-            ].map(link=>(
-              <a key={link.label} href={link.href}
-                target={link.href.startsWith("http")?"_blank":undefined}
-                rel={link.href.startsWith("http")?"noopener":undefined}
-                style={{color:C.dim,fontSize:12,textDecoration:"none",letterSpacing:"0.02em"}}>{link.label}</a>
-            ))}
-          </div>
-        </div>
+        <div style={{ fontSize:10, color:"#111" }}>ALL SYSTEMS OPERATIONAL ◈</div>
       </footer>
-
-      <style>{`
-        @keyframes blink { 0%,100%{opacity:1;box-shadow:0 0 6px ${C.green}} 50%{opacity:.3;box-shadow:none} }
-        *{box-sizing:border-box;margin:0;padding:0}
-        html{scroll-behavior:smooth}
-        a{transition:opacity .15s}
-        a:hover{opacity:.8}
-        ::-webkit-scrollbar{width:4px}
-        ::-webkit-scrollbar-track{background:${C.bg}}
-        ::-webkit-scrollbar-thumb{background:#222;border-radius:2px}
-        @media(max-width:960px){
-          section > div[style*="grid-template-columns: 1fr 440px"],
-          section > div[style*="grid-template-columns: 1fr 380px"] {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
