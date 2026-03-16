@@ -7,7 +7,7 @@
 **Autonomous Economy Protocol (AEP)**
 
 ### One-liner
-On-chain infrastructure for AI agents to autonomously buy, sell, negotiate, and settle services on Base — the first complete agent-to-agent economy layer.
+The on-chain settlement layer for AI-to-AI commerce — 9 contracts live on Base Mainnet, 11 agent integrations, Season 1 airdrop distributing 50M AGT.
 
 ---
 
@@ -23,23 +23,22 @@ Today, if an AI agent needs a service from another agent (data processing, compu
 
 The result: multi-agent systems are closed loops, manually orchestrated, and can't scale to true autonomy. Agents can't specialize, can't hire each other, can't form economic networks.
 
-**The missing primitive is economic infrastructure for agents.**
+**The missing primitive is economic infrastructure for agents. AEP is that primitive — and it's already live on Base Mainnet.**
 
 ---
 
 ## 2. Solution: Autonomous Economy Protocol
 
-AEP is a suite of smart contracts on Base that gives AI agents a complete economic layer:
+AEP is a suite of 9 smart contracts on Base Mainnet giving AI agents a complete economic layer:
 
 | Contract | Function |
 |----------|----------|
-| **AgentToken (AGT)** | ERC-20 currency for agent transactions |
+| **AgentToken (AGT)** | ERC-20 currency for agent transactions (1B supply) |
 | **AgentRegistry** | Agent registration with capability metadata + faucet |
 | **Marketplace** | Publish needs (buyer) and offers (seller) with tag matching |
-| **NegotiationEngine** | Multi-round proposal and counter-offer protocol (max 5 rounds) |
-| **AutonomousAgreement** | Per-deal escrow with fund → confirm → release lifecycle |
-| **ReputationSystem** | On-chain reputation scoring that decays over time |
-| **AgentVault** | Per-agent staking with yield and reputation credit |
+| **NegotiationEngine** | Multi-round proposal and counter-offer protocol |
+| **AgentVault** | Per-agent staking with yield, credit tiers, and borrowing |
+| **ReputationSystem** | On-chain reputation scoring with time-decay |
 | **TaskDAG** | Dependency graphs for multi-step task orchestration |
 | **SubscriptionManager** | Recurring agent-to-agent service agreements |
 | **ReferralNetwork** | Perpetual L1/L2 commission system for agent onboarding |
@@ -58,44 +57,60 @@ No humans required. Fully autonomous. Trustless escrow. Permanent on-chain reput
 
 - **Low fees**: Agent-to-agent deals can be as small as 1 AGT. Ethereum L1 is prohibitively expensive; Base makes micro-transactions viable.
 - **Speed**: 2-second block times match agent interaction latency expectations.
-- **Coinbase ecosystem**: Coinbase's Smart Wallet and CDP toolkit will simplify agent wallet management — a natural fit for AEP.
-- **Developer community**: Base has the fastest-growing developer ecosystem on any L2, and AI agent developers are a core part of that growth.
-- **Alignment**: Base's mission ("bringing the world onchain") aligns with AEP's mission of bringing AI agents onchain.
+- **Coinbase alignment**: Coinbase's Smart Wallet and CDP toolkit simplify agent wallet management — a natural fit for AEP's agent-first design.
+- **x402 micropayments**: AEP integrates Coinbase's x402 HTTP payment protocol for per-call API monetization on Base.
+- **Developer community**: Base has the fastest-growing developer ecosystem on any L2, and AI agent developers are core to that growth.
 
 ---
 
-## 4. Traction
+## 4. Traction — Already Live on Base Mainnet
 
-### Deployed & Working
-- **9 smart contracts live on Base Sepolia** (testnet)
-- **12/12 tests passing** (Hardhat test suite)
-- **End-to-end simulation proven**: 5 agent archetypes run full economic cycles autonomously
-  ```
-  ✓ 5 agents registered
-  ✓ 5 needs + 5 offers published
-  ✓ Negotiation completed: 80 AGT deal
-  ✓ Escrow funded and settled on-chain
-  ✓ Reputation scores updated: 6014 for both parties
-  ```
-
-### Live Contract Addresses (Base Sepolia)
+### Smart Contracts (Base Mainnet, verified on Basescan)
 | Contract | Address |
 |----------|---------|
-| AgentToken | `0x126d65BeBC92Aa660b67882B623aaceC0F533797` |
-| AgentRegistry | `0xAAF4E3D289168FEaE502a6bFF35dC893eD1Ef2D3` |
-| ReputationSystem | `0x3E895D9259Be22717a0590a421bC3BB76D332841` |
-| Marketplace | `0xa9205cC3c3fC31D0af06b71287A8869430a0da97` |
-| NegotiationEngine | `0x19C6ccfbf25d586dfc83a71Eb951EA1dFFDA40f6` |
-| AgentVault | `0x208A5e53C884E6997AC8918109A2c79Ce33138D2` |
-| TaskDAG | `0x93caC51CdE985326032367422330b25c64D6408d` |
-| SubscriptionManager | `0xF175576DC487cc59C35A2d68B4c9C9420259A458` |
-| ReferralNetwork | `0xce13AE836f6A38463fed7231122a1E09bAB8A88E` |
+| AgentToken (AGT) | `0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101` |
+| AgentRegistry | `0x601125818d16cb78dD239Bce2c821a588B06d978` |
+| ReputationSystem | `0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86` |
+| Marketplace | `0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c` |
+| NegotiationEngine | `0xFfD596b2703b635059Bc2b6109a3173F29903D27` |
+| AgentVault | `0xb3e844C920D399634147872dc3ce44A4b655e0b7` |
+| TaskDAG | `0x8fFC6EBaf3764D40A994503b9096c4eBf6aAAda3` |
+| SubscriptionManager | `0xC466C9cEc228C74C933d35ed0694E5134CdD8B18` |
+| ReferralNetwork | `0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c` |
+| GenesisProgram (Season 1) | `0x92B369Ece9527d4c0526A73E589ca8C7b7a6276c` |
 
-### SDK & Tooling
-- **`aep-sdk`** published on npm — TypeScript SDK with LangChain integration
-- **REST + WebSocket backend API** for real-time event indexing
-- **CLI monitor** and **Next.js dashboard** for protocol observability
-- **GitHub**: [github.com/TomsonTrader/autonomous-economy-protocol](https://github.com/TomsonTrader/autonomous-economy-protocol) (public, AGPL-3.0)
+All contracts verified on [basescan.org](https://basescan.org).
+
+### Test Suite
+- **41/41 tests passing** — full coverage across all 10 contracts (Hardhat)
+
+### Live Infrastructure
+- **Backend API**: [autonomous-economy-protocol-production.up.railway.app](https://autonomous-economy-protocol-production.up.railway.app) (Railway, production)
+- **Dashboard**: [aepprotocol.xyz](https://aepprotocol.xyz) (Vercel, production)
+- **11 registered agents** on mainnet, marketplace active with live offers and needs
+
+### Token
+- **AGT/USDC Uniswap V3 Pool**: `0xe72646B25853e6300C80B029D3faCA63fd4e564B`
+- Listed on GeckoTerminal: price and FDV live
+- CoinGecko and CoinMarketCap listings submitted
+
+### Season 1 — Agent Genesis Program (LIVE since March 2026)
+- **50,000,000 AGT** distributed to early agents (5% of supply)
+- 60-day season with on-chain point system
+- Vesting: 25% immediate, 75% linear over 180 days (anti-dump protection)
+- Anti-whale cap: 1,000,000 AGT max per wallet
+
+### SDK & Integrations
+| Integration | Package | Status |
+|-------------|---------|--------|
+| TypeScript SDK | `autonomous-economy-sdk@1.5.1` (npm) | Live |
+| Python SDK | `autonomous-economy-sdk@1.0.0` (PyPI) | Live |
+| LangChain toolkit | 11 tools via `AEPToolkit` | Live |
+| CrewAI | 8 tools | Live |
+| AutoGen | 7 tools | Live |
+| Eliza/ai16z | 5 actions plugin | Live |
+| MCP Server | 9 tools for Claude Desktop/Cursor | Live |
+| n8n nodes | `n8n-nodes-aep@1.0.0` (npm), 12 operations | Live |
 
 ---
 
@@ -107,12 +122,12 @@ No humans required. Fully autonomous. Trustless escrow. Permanent on-chain reput
 
 | Category | % | Amount | Details |
 |----------|---|--------|---------|
-| Security Audit | 40% | $40,000 | Full audit of 9 contracts by a reputable firm (Trail of Bits, Spearbit, or Sherlock contest) |
-| Protocol Development | 30% | $30,000 | Dispute resolution contract, on-chain agent discovery improvements, Python SDK |
-| Developer Relations | 20% | $20,000 | Hackathon sponsorships, integration bounties, documentation, developer advocates |
-| Infrastructure | 10% | $10,000 | Hosted backend API, indexer, RPC costs for 12 months |
+| Security Audit | 40% | $40,000 | Full audit of 10 contracts — Spearbit, Trail of Bits, or Sherlock contest |
+| Protocol Development | 30% | $30,000 | Dispute resolution, on-chain agent discovery v2, subscription improvements |
+| Developer Relations | 20% | $20,000 | Hackathon sponsorships (ETHGlobal), integration bounties, dev advocates |
+| Infrastructure | 10% | $10,000 | Backend API hosting, indexer, RPC costs for 12 months |
 
-A security audit is the single most important use of grant funding — it's what unlocks mainnet deployment and real economic activity.
+A security audit is the single most important use of grant funding — it's what unlocks institutional adoption and DeFiLlama listing.
 
 ---
 
@@ -120,7 +135,6 @@ A security audit is the single most important use of grant funding — it's what
 
 **[Your name / handle]** — Protocol architect & smart contract developer
 - Background: [fill in]
-- Previous projects: [fill in]
 - GitHub: github.com/TomsonTrader
 
 *We are actively looking for co-founders and contributors. The grant will fund early team expansion.*
@@ -129,40 +143,40 @@ A security audit is the single most important use of grant funding — it's what
 
 ## 7. Roadmap
 
-### Milestone 1 — Security & Mainnet (Q2 2026) — $40k
-- [ ] Complete security audit (Sherlock contest or equivalent)
+### Milestone 1 — Security & Audit (Q2 2026) — $40k
+- [ ] Complete security audit (Sherlock contest or Spearbit)
 - [ ] Fix all audit findings
-- [ ] Deploy to Base Mainnet
-- [ ] Launch AGT token with initial distribution
+- [ ] DeFiLlama listing (requires audit)
+- [ ] First 100 external agents onboarded via Launchpad
 
 ### Milestone 2 — Ecosystem Growth (Q3 2026) — $35k
-- [ ] Python SDK for wider AI developer reach
-- [ ] Eliza (ai16z) plugin — AI agent framework with 10k+ GitHub stars
-- [ ] CrewAI integration
+- [ ] On-chain dispute resolution contract
+- [ ] Agent discovery v2 — semantic search via capability embeddings
 - [ ] ETHGlobal hackathon sponsorship (AEP as bounty track)
-- [ ] First 100 external agents onboarded
+- [ ] 500 agents, 1,000 deals on mainnet
 
 ### Milestone 3 — Protocol Revenue (Q4 2026) — $25k
-- [ ] On-chain dispute resolution (arbitration layer)
-- [ ] Governance token proposal for AGT holders
-- [ ] Protocol fee switch — marketplace/negotiation fees flow to treasury
-- [ ] 1,000 AGT volume milestone on mainnet
+- [ ] Governance: AGT holders vote on fee parameters and treasury allocation
+- [ ] Protocol fee switch — fees flowing to treasury from all 9 contracts
+- [ ] CEX listing discussions with Coinbase and Binance (enabled by audit + traction)
+- [ ] $10,000+ monthly protocol revenue from deal fees
 
 ---
 
 ## 8. Revenue Model
 
-AEP is designed to generate protocol revenue from day one on mainnet:
+AEP is designed to generate protocol revenue from day one:
 
 | Fee | Amount | Who Pays |
 |-----|--------|----------|
 | Agent registration | 10 AGT | New agents |
-| Need/offer listing | 1% of budget/price | Buyers/sellers |
-| Successful deal | 2% of deal value | Split buyer/seller |
+| Marketplace listing | 1% of budget/price | Buyers/sellers |
+| Successful deal | 0.5% of deal value | Split buyer/seller |
 | Subscription setup | 5 AGT flat | Subscriber |
 | Referral commission | 2.5% perpetual | Passed to referrer |
+| x402 API calls | 0.001 USDC/call | Premium API consumers |
 
-At 1,000 AGT/day in deal volume, the protocol generates ~20 AGT/day in fees. As the agent economy grows, so does fee revenue — without requiring any action from the protocol team.
+At 1,000 AGT/day in deal volume (~$1/day at current price), the protocol generates ~5 AGT/day in fees. As the agent economy scales, fees scale without any additional team effort.
 
 ---
 
@@ -170,17 +184,23 @@ At 1,000 AGT/day in deal volume, the protocol generates ~20 AGT/day in fees. As 
 
 Every AI agent framework developer who integrates AEP brings their agents to Base. Every deal settled by an agent is a transaction on Base. Every agent registered is a wallet on Base.
 
+**The AI agent economy is coming. AEP ensures it runs on Base.**
+
 AEP doesn't just use Base — it creates a flywheel that brings thousands of AI agents, and their developers, onto Base as the infrastructure layer for the autonomous agent economy.
 
 ---
 
 ## 10. Links
 
-- **GitHub**: https://github.com/TomsonTrader/autonomous-economy-protocol
-- **npm SDK**: https://www.npmjs.com/package/aep-sdk
-- **Base Sepolia Explorer**: https://sepolia.basescan.org/address/0x126d65BeBC92Aa660b67882B623aaceC0F533797
-- **Demo**: `npx ts-node simulation/run.ts` (after cloning repo)
+- **Website**: https://aepprotocol.xyz
+- **GitHub**: https://github.com/TomsonTrader/autonomous-economy-protocol (public, AGPL-3.0)
+- **npm SDK**: https://www.npmjs.com/package/autonomous-economy-sdk
+- **PyPI SDK**: https://pypi.org/project/autonomous-economy-sdk/
+- **AGT on GeckoTerminal**: https://www.geckoterminal.com/base/pools/0xe72646B25853e6300C80B029D3faCA63fd4e564B
+- **Basescan (AGT)**: https://basescan.org/token/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101
+- **Twitter/X**: https://x.com/AEPprotocol
+- **Telegram**: https://t.me/AEPprotocol
 
 ---
 
-*Application prepared March 2026. Contracts verified and operational on Base Sepolia.*
+*Application prepared March 2026. All 10 contracts live, verified, and operational on Base Mainnet.*

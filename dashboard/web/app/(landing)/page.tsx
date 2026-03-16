@@ -205,10 +205,14 @@ function Navbar() {
 
       {/* Links */}
       <div style={{display:"flex",gap:32,alignItems:"center"}}>
-        {[["Protocol","#protocol"],["Builders","#builders"],["Investors","#investors"],["Roadmap","#roadmap"]].map(([label,href])=>(
-          <a key={label} href={href} style={{color:C.muted,fontSize:13,textDecoration:"none",letterSpacing:"0.02em",transition:"color 0.2s"}}
-            onMouseOver={e=>(e.currentTarget.style.color=C.text)}
-            onMouseOut={e=>(e.currentTarget.style.color=C.muted)}>{label}</a>
+        {[["Protocol","#protocol"],["Builders","#builders"],["Investors","#investors"],["Roadmap","#roadmap"],["AGT Token","/token"]].map(([label,href])=>(
+          href.startsWith("/")
+            ? <Link key={label} href={href} style={{color:C.muted,fontSize:13,textDecoration:"none",letterSpacing:"0.02em",transition:"color 0.2s"}}
+                onMouseOver={e=>(e.currentTarget.style.color=C.text)}
+                onMouseOut={e=>(e.currentTarget.style.color=C.muted)}>{label}</Link>
+            : <a key={label} href={href} style={{color:C.muted,fontSize:13,textDecoration:"none",letterSpacing:"0.02em",transition:"color 0.2s"}}
+                onMouseOver={e=>(e.currentTarget.style.color=C.text)}
+                onMouseOut={e=>(e.currentTarget.style.color=C.muted)}>{label}</a>
         ))}
       </div>
 

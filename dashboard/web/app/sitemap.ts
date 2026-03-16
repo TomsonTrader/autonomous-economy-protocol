@@ -13,5 +13,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/activity`,    lastModified: now, changeFrequency: "hourly",  priority: 0.7 },
     { url: `${base}/vault`,       lastModified: now, changeFrequency: "weekly",  priority: 0.7 },
     { url: `${base}/refer`,       lastModified: now, changeFrequency: "weekly",  priority: 0.6 },
+    { url: `${base}/token`,       lastModified: now, changeFrequency: "hourly",  priority: 0.9 },
   ];
 }
