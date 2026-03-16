@@ -148,6 +148,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: [],
       },
     },
+    {
+      name: "sync_season1_points",
+      description: "Sync your on-chain activity to earn Season 1 Genesis Program points. Call this to update your points on the leaderboard after completing deals or other protocol activity.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          address: { type: "string", description: "Address to sync points for (defaults to connected agent)" },
+        },
+        required: [],
+      },
+    },
   ],
 }));
 
@@ -273,6 +284,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const data = await res.json() as { txHash?: string; error?: string };
         return {
           content: [{ type: "text", text: data.txHash ? `Faucet sent 15 AGT. Tx: ${data.txHash}` : `Faucet error: ${data.error}` }],
+        };
+      }
+
+      // ── sync_season1_points ───────────────────────────────────────────────
+      case "sync_season1_points": {
+        const addr = a.address ? String(a.address) : sdk.address;
+        const res = await fetch(`${BACKEND_URL}/api/genesis/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: addr }),
+        });
+        const data = await res.json() as { txHash?: string; error?: string };
+        return {
+          content: [{ type: "text", text: data.txHash
+            ? `Points synced for ${addr}. Tx: ${data.txHash}`
+            : `Sync error: ${data.error}` }],
         };
       }
 
