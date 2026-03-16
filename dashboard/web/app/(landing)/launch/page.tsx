@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ethers } from "ethers";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
 
 // Base Mainnet contract addresses
 const AGT_ADDRESS      = "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101";
 const REGISTRY_ADDRESS = "0x601125818d16cb78dD239Bce2c821a588B06d978";
-const BASE_CHAIN_ID    = 8453;
 
 const TOKEN_ABI = [
   "function approve(address spender, uint256 amount) returns (bool)",
@@ -29,7 +30,7 @@ const ALL_CAPS = [
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Mode = "select" | "dev" | "managed";
-type DevStep = "form" | "connect" | "faucet" | "approve" | "register" | "done" | "error";
+type DevStep = "form" | "connect" | "faucet" | "needeth" | "approve" | "register" | "done" | "error";
 type ManagedStep = "template" | "configure" | "launching" | "done" | "error";
 
 interface Template {
@@ -342,96 +343,129 @@ function DevFlow({ onBack }: { onBack: () => void }) {
     ? new URLSearchParams(window.location.search).get("ref") ?? ""
     : "";
 
-  const [step, setStep]       = useState<DevStep>("form");
-  const [name, setName]       = useState("");
-  const [caps, setCaps]       = useState<string[]>([]);
-  const [address, setAddress] = useState("");
-  const [txHash, setTxHash]   = useState("");
-  const [regHash, setRegHash] = useState("");
-  const [errMsg, setErrMsg]   = useState("");
-  const [loading, setLoading] = useState(false);
+  const [step, setStep]           = useState<DevStep>("form");
+  const [name, setName]           = useState("");
+  const [caps, setCaps]           = useState<string[]>([]);
+  const [address, setAddress]     = useState("");
+  const [faucetHash, setFaucetHash] = useState("");
+  const [regHash, setRegHash]     = useState("");
+  const [errMsg, setErrMsg]       = useState("");
+  const [loading, setLoading]     = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+
+  // Wagmi: detect wallet connection from RainbowKit
+  const { address: wagmiAddress, isConnected } = useAccount();
+
+  // When RainbowKit connects a wallet and we're on the connect step, auto-run setup
+  useEffect(() => {
+    if (isConnected && wagmiAddress && step === "connect") {
+      void runSetupWithAddress(wagmiAddress);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, wagmiAddress]);
 
   const canSubmit = name.trim().length >= 2 && caps.length >= 1;
   const toggleCap = (c: string) =>
     setCaps(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
 
-  async function connectWallet() {
+  // After wallet is connected via RainbowKit, run faucet + ETH check
+  async function runSetupWithAddress(addr: string) {
     setLoading(true); setErrMsg("");
     try {
-      const eth = (window as any).ethereum;
-      if (!eth) throw new Error("MetaMask not found. Install it from metamask.io");
-      const accounts: string[] = await eth.request({ method: "eth_requestAccounts" });
-      if (!accounts.length) throw new Error("No accounts returned");
-      const chainId = await eth.request({ method: "eth_chainId" });
-      if (parseInt(chainId, 16) !== BASE_CHAIN_ID) {
-        try {
-          await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x" + BASE_CHAIN_ID.toString(16) }] });
-        } catch (switchErr: any) {
-          if (switchErr.code === 4902) {
-            await eth.request({
-              method: "wallet_addEthereumChain",
-              params: [{ chainId: "0x" + BASE_CHAIN_ID.toString(16), chainName: "Base", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://mainnet.base.org"], blockExplorerUrls: ["https://basescan.org"] }],
-            });
-          } else throw switchErr;
-        }
-      }
-      setAddress(accounts[0]); setStep("faucet");
-    } catch (e: any) { setErrMsg(e.message); }
-    finally { setLoading(false); }
-  }
+      setAddress(addr);
+      setStep("faucet");
+      setStatusMsg("Sending 15 AGT to your wallet…");
 
-  async function claimAGT() {
-    setLoading(true); setStatusMsg("Sending 15 AGT to your wallet…");
-    try {
+      // Auto-run faucet — no button needed
       const res = await fetch(`${API}/api/faucet`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: addr }),
       });
       const data = await res.json();
+
       if (!res.ok) {
-        if (data.error?.includes("already funded")) { setStep("approve"); return; }
+        if (data.error?.includes("already funded") || data.error?.includes("already registered")) {
+          // Already funded/registered: skip wait, proceed directly to approve
+          setStep("approve");
+          return;
+        }
         throw new Error(data.error || "Faucet failed");
       }
-      setTxHash(data.txHash); setStep("approve");
-    } catch (e: any) { setErrMsg(e.message); setStep("error"); }
-    finally { setLoading(false); setStatusMsg(""); }
+
+      setFaucetHash(data.txHash);
+      setStatusMsg("Waiting for AGT confirmation (~10s)…");
+
+      // Wait for on-chain confirmation before enabling MetaMask actions
+      await new Promise(r => setTimeout(r, 12000));
+
+      // Check user has ETH for gas (~2 txs on Base ≈ 0.00005 ETH)
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const ethBalance = await provider.getBalance(addr);
+      if (ethBalance < ethers.parseEther("0.00005")) {
+        setStep("needeth");
+        return;
+      }
+
+      setStep("approve");
+
+    } catch (e: any) {
+      setErrMsg(e.code === 4001 ? "Connection rejected. Please try again." : e.message);
+      setStep(step === "faucet" ? "error" : "connect");
+    } finally {
+      setLoading(false);
+      setStatusMsg("");
+    }
   }
 
   async function approveAGT() {
-    setLoading(true); setStatusMsg("Approving AGT spend — confirm in MetaMask…");
+    setLoading(true); setStatusMsg("Confirm in MetaMask…");
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const token = new ethers.Contract(AGT_ADDRESS, TOKEN_ABI, signer);
+
+      // Skip approve if allowance already sufficient
       const allowance: bigint = await token.allowance(address, REGISTRY_ADDRESS);
-      if (allowance >= ethers.parseEther("10")) { setStep("register"); return; }
+      if (allowance >= ethers.parseEther("10")) {
+        setStep("register");
+        return;
+      }
+
       const tx = await token.approve(REGISTRY_ADDRESS, ethers.parseEther("10"));
-      setStatusMsg("Waiting for approval confirmation…");
-      await tx.wait(); setStep("register");
+      setStatusMsg("Waiting for approval tx…");
+      await tx.wait();
+      setStep("register");
     } catch (e: any) {
-      setErrMsg(e.code === "ACTION_REJECTED" ? "Transaction rejected in MetaMask." : e.message);
-      setStep("error");
-    } finally { setLoading(false); setStatusMsg(""); }
+      setErrMsg(e.code === "ACTION_REJECTED" ? "Transaction rejected. Click Approve to try again." : e.message);
+      if (e.code !== "ACTION_REJECTED") setStep("error");
+    } finally {
+      setLoading(false);
+      setStatusMsg("");
+    }
   }
 
   async function registerAgent() {
-    setLoading(true); setStatusMsg("Registering agent on-chain — confirm in MetaMask…");
+    setLoading(true); setStatusMsg("Confirm in MetaMask…");
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const registry = new ethers.Contract(REGISTRY_ADDRESS, REGISTRY_ABI, signer);
       const tx = await registry.registerAgent(name.trim(), caps, "");
-      setStatusMsg("Waiting for registration confirmation…");
+      setStatusMsg("Waiting for registration tx…");
       const receipt = await tx.wait();
-      setRegHash(receipt.hash); setStep("done");
+      setRegHash(receipt.hash);
+      setStep("done");
     } catch (e: any) {
-      setErrMsg(e.code === "ACTION_REJECTED" ? "Transaction rejected in MetaMask." : e.message);
-      setStep("error");
-    } finally { setLoading(false); setStatusMsg(""); }
+      setErrMsg(e.code === "ACTION_REJECTED" ? "Transaction rejected. Click Register to try again." : e.message);
+      if (e.code !== "ACTION_REJECTED") setStep("error");
+    } finally {
+      setLoading(false);
+      setStatusMsg("");
+    }
   }
 
-  const stepIndex: Record<DevStep, number> = { form: 0, connect: 1, faucet: 1, approve: 2, register: 3, done: 4, error: 0 };
+  const stepIndex: Record<DevStep, number> = { form: 0, connect: 1, faucet: 1, needeth: 1, approve: 2, register: 3, done: 4, error: 0 };
   const STEPS = ["Details", "Wallet", "Approve", "Register", "Live"];
 
   return (
@@ -453,20 +487,26 @@ function DevFlow({ onBack }: { onBack: () => void }) {
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-1px", marginBottom: 8 }}>Register Your Agent</h1>
           <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-            Register on-chain in 4 steps. <strong style={{ color: "#22c55e" }}>15 AGT welcome bonus</strong> — free.
+            3 steps. <strong style={{ color: "#22c55e" }}>15 AGT sent free</strong> — ~$0.05 ETH for gas.
           </p>
         </div>
 
         {step !== "error" && step !== "done" && <StepIndicator current={stepIndex[step]} steps={STEPS} />}
 
+        {/* ── STEP: form ── */}
         {step === "form" && (
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px" }}>
             <div style={{ marginBottom: 22 }}>
               <label style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 8 }}>
                 Agent Name
               </label>
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. SentimentAI, PriceOracle, AuditBot" maxLength={64}
-                style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="e.g. SentimentAI, PriceOracle, AuditBot"
+                maxLength={64}
+                style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" }}
+              />
             </div>
             <div style={{ marginBottom: 28 }}>
               <label style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 8 }}>
@@ -479,96 +519,190 @@ function DevFlow({ onBack }: { onBack: () => void }) {
             </div>
             <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 10, padding: "12px 16px", marginBottom: 22, fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>
               <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 4 }}>What you need:</div>
-              <div>+ MetaMask connected to Base Mainnet</div>
-              <div>+ A small amount of ETH for gas (~$0.05)</div>
-              <div>+ AGT tokens — <strong style={{ color: "#22c55e" }}>we send you 15 for free</strong></div>
+              <div>&#10003; MetaMask installed (any browser)</div>
+              <div>&#10003; ~$0.05 ETH on Base for gas (2 transactions)</div>
+              <div>&#10003; 15 AGT — sent free to your wallet automatically</div>
             </div>
-            <button onClick={() => canSubmit && setStep("connect")} disabled={!canSubmit}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: canSubmit ? "pointer" : "not-allowed", background: canSubmit ? "linear-gradient(135deg,#6366f1,#a855f7)" : "rgba(255,255,255,0.08)", color: canSubmit ? "#fff" : "rgba(255,255,255,0.3)" }}>
+            <button
+              onClick={() => canSubmit && setStep("connect")}
+              disabled={!canSubmit}
+              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: canSubmit ? "pointer" : "not-allowed", background: canSubmit ? "linear-gradient(135deg,#6366f1,#a855f7)" : "rgba(255,255,255,0.08)", color: canSubmit ? "#fff" : "rgba(255,255,255,0.3)" }}
+            >
               Continue
             </button>
           </div>
         )}
 
+        {/* ── STEP: connect ── */}
         {step === "connect" && (
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px", textAlign: "center" }}>
             <div style={{ fontSize: 44, marginBottom: 16 }}>&#x1F98A;</div>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Connect your wallet</h2>
             <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>
-              Your wallet address becomes your agent&apos;s on-chain identity. Make sure you&apos;re on <strong style={{ color: "#fff" }}>Base Mainnet</strong>.
+              Your wallet address becomes your agent&apos;s on-chain identity.<br />
+              We&apos;ll automatically send 15 AGT to your wallet after connecting.
             </p>
-            {errMsg && <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", marginBottom: 16 }}>{errMsg}</div>}
-            <button onClick={connectWallet} disabled={loading}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "#fff", opacity: loading ? 0.7 : 1 }}>
-              {loading ? "Connecting…" : "Connect MetaMask"}
+            {errMsg && (
+              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", marginBottom: 16, textAlign: "left" }}>
+                {errMsg}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+              <ConnectButton label="Connect Wallet" />
+            </div>
+            <button onClick={() => setStep("form")} style={{ marginTop: 4, background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 12, cursor: "pointer" }}>
+              Back
             </button>
-            <button onClick={() => setStep("form")} style={{ marginTop: 12, background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 12, cursor: "pointer" }}>Back</button>
           </div>
         )}
 
+        {/* ── STEP: faucet (auto, shows spinner) ── */}
         {step === "faucet" && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px" }}>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Connected wallet</div>
-              <div style={{ fontFamily: "monospace", fontSize: 12, color: "#a5b4fc", wordBreak: "break-all" }}>{address}</div>
-            </div>
-            <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 12, padding: "18px", marginBottom: 22, textAlign: "center" }}>
-              <div style={{ fontSize: 32, fontWeight: 800, color: "#22c55e", marginBottom: 4 }}>15 AGT</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Welcome bonus — sent directly to your wallet.<br />10 AGT covers registration. 5 is yours to keep.</div>
-            </div>
-            {statusMsg && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 14, textAlign: "center" }}>{statusMsg}</div>}
-            <button onClick={claimAGT} disabled={loading}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", opacity: loading ? 0.7 : 1 }}>
-              {loading ? "Sending AGT…" : "Claim 15 AGT"}
-            </button>
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "36px 28px", textAlign: "center" }}>
+            <div style={{ width: 48, height: 48, border: "3px solid rgba(99,102,241,0.3)", borderTop: "3px solid #6366f1", borderRadius: "50%", margin: "0 auto 20px", animation: "spin 1s linear infinite" }} />
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Setting up your wallet</h2>
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.7, margin: "0 0 16px" }}>
+              Sending <strong style={{ color: "#22c55e" }}>15 AGT</strong> to your wallet.<br />
+              This takes about 10 seconds…
+            </p>
+            <div style={{ fontFamily: "monospace", fontSize: 11, color: "rgba(255,255,255,0.25)", wordBreak: "break-all" }}>{address}</div>
+            {statusMsg && <div style={{ marginTop: 12, fontSize: 12, color: "rgba(99,102,241,0.7)" }}>{statusMsg}</div>}
           </div>
         )}
 
+        {/* ── STEP: needeth — user has AGT but no ETH for gas ── */}
+        {step === "needeth" && (
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px" }}>
+            {faucetHash && (
+              <div style={{ marginBottom: 18, padding: "10px 14px", background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 8, fontSize: 12, color: "#22c55e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>&#10003; 15 AGT received in your wallet</span>
+                <a href={`https://basescan.org/tx/${faucetHash}`} target="_blank" rel="noreferrer" style={{ color: "#6366f1", fontSize: 11 }}>tx &#8599;</a>
+              </div>
+            )}
+            <div style={{ fontSize: 28, marginBottom: 12, textAlign: "center" }}>⛽</div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>You need a little ETH for gas</h2>
+            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, lineHeight: 1.7, marginBottom: 20, textAlign: "center" }}>
+              The two on-chain transactions (approve + register) cost ~<strong style={{ color: "#fff" }}>$0.05</strong> in gas on Base. You need a tiny amount of ETH in your wallet.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+              <a
+                href="https://www.coinbase.com/price/ethereum"
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: "block", padding: "13px 20px", borderRadius: 12, background: "linear-gradient(135deg,#0052ff,#1a66ff)", color: "#fff", fontSize: 14, fontWeight: 700, textDecoration: "none", textAlign: "center" }}
+              >
+                Buy ETH on Coinbase (easiest) &#8599;
+              </a>
+              <a
+                href="https://bridge.base.org"
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: "block", padding: "13px 20px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)", fontSize: 14, fontWeight: 600, textDecoration: "none", textAlign: "center" }}
+              >
+                Bridge ETH to Base &#8599;
+              </a>
+            </div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", textAlign: "center", marginBottom: 16 }}>
+              Once you have ETH in your wallet, come back and click the button below.
+            </div>
+            <button
+              onClick={async () => {
+                const provider = new ethers.BrowserProvider((window as any).ethereum);
+                const ethBalance = await provider.getBalance(address);
+                if (ethBalance >= ethers.parseEther("0.00005")) {
+                  setStep("approve");
+                } else {
+                  setErrMsg("Still not enough ETH detected. Please add some ETH to your wallet and try again.");
+                }
+              }}
+              style={{ width: "100%", padding: "13px", borderRadius: 12, fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff" }}
+            >
+              I have ETH — Continue &#8594;
+            </button>
+            {errMsg && <div style={{ marginTop: 10, fontSize: 12, color: "#ef4444", textAlign: "center" }}>{errMsg}</div>}
+          </div>
+        )}
+
+        {/* ── STEP: approve ── */}
         {step === "approve" && (
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px" }}>
-            {txHash && <div style={{ marginBottom: 16, fontSize: 12, color: "rgba(255,255,255,0.35)", textAlign: "center" }}>AGT received — <a href={`https://basescan.org/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ color: "#6366f1" }}>view tx</a></div>}
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Authorize registry</h2>
+            {faucetHash && (
+              <div style={{ marginBottom: 18, padding: "10px 14px", background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 8, fontSize: 12, color: "#22c55e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>&#10003; 15 AGT + gas received</span>
+                <a href={`https://basescan.org/tx/${faucetHash}`} target="_blank" rel="noreferrer" style={{ color: "#6366f1", fontSize: 11 }}>tx &#8599;</a>
+              </div>
+            )}
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Step 1 of 2 — Authorize</h2>
             <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.6, marginBottom: 22 }}>
-              Allow the AgentRegistry to use <strong style={{ color: "#fff" }}>10 AGT</strong> as the registration fee. One MetaMask confirmation required.
+              Allow AgentRegistry to collect the <strong style={{ color: "#fff" }}>10 AGT</strong> registration fee. One MetaMask click.
             </p>
+            {errMsg && (
+              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", marginBottom: 16 }}>
+                {errMsg}
+              </div>
+            )}
             {statusMsg && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 14, textAlign: "center" }}>{statusMsg}</div>}
-            <button onClick={approveAGT} disabled={loading}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", opacity: loading ? 0.7 : 1 }}>
-              {loading ? "Waiting for MetaMask…" : "Approve 10 AGT"}
+            <button
+              onClick={approveAGT}
+              disabled={loading}
+              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", opacity: loading ? 0.7 : 1 }}
+            >
+              {loading ? "Waiting for MetaMask…" : "Approve 10 AGT →"}
             </button>
-            <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.2)", textAlign: "center" }}>Small ETH gas fee applies (~$0.01)</div>
           </div>
         )}
 
+        {/* ── STEP: register ── */}
         {step === "register" && (
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "28px" }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Register on-chain</h2>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>
-              Final step. Your agent <strong style={{ color: "#fff" }}>{name}</strong> goes live on Base Mainnet.
-            </p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
-              {caps.map(c => <span key={c} style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 100, padding: "4px 12px", fontSize: 11, color: "#a5b4fc", fontWeight: 600 }}>{c}</span>)}
+            <div style={{ marginBottom: 18, padding: "10px 14px", background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 8, fontSize: 12, color: "#22c55e" }}>
+              &#10003; 10 AGT approved — ready to register
             </div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Step 2 of 2 — Register</h2>
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>
+              Deploy <strong style={{ color: "#fff" }}>{name}</strong> to Base Mainnet. One more MetaMask click.
+            </p>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 22 }}>
+              {caps.map(c => (
+                <span key={c} style={{ background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 100, padding: "4px 12px", fontSize: 11, color: "#a5b4fc", fontWeight: 600 }}>
+                  {c}
+                </span>
+              ))}
+            </div>
+            {errMsg && (
+              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", marginBottom: 16 }}>
+                {errMsg}
+              </div>
+            )}
             {statusMsg && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 14, textAlign: "center" }}>{statusMsg}</div>}
-            <button onClick={registerAgent} disabled={loading}
-              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", opacity: loading ? 0.7 : 1 }}>
-              {loading ? "Registering on-chain…" : "Register Agent on Mainnet"}
+            <button
+              onClick={registerAgent}
+              disabled={loading}
+              style={{ width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "#fff", opacity: loading ? 0.7 : 1 }}
+            >
+              {loading ? "Registering on-chain…" : "Register Agent on Mainnet →"}
             </button>
-            <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.2)", textAlign: "center" }}>Small ETH gas fee applies (~$0.02)</div>
           </div>
         )}
 
+        {/* ── STEP: done ── */}
         {step === "done" && (
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 20, padding: "28px", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>&#x1F389;</div>
             <div style={{ fontWeight: 800, fontSize: 22, color: "#22c55e", marginBottom: 6 }}>Agent Live on Mainnet</div>
             <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginBottom: 20 }}>
-              <strong style={{ color: "#fff" }}>{name}</strong> is registered at{" "}
-              <span style={{ fontFamily: "monospace", color: "#a5b4fc", fontSize: 11 }}>{address}</span>
+              <strong style={{ color: "#fff" }}>{name}</strong> registered at{" "}
+              <span style={{ fontFamily: "monospace", color: "#a5b4fc", fontSize: 11 }}>{address.slice(0, 20)}…</span>
             </div>
             {regHash && (
               <div style={{ marginBottom: 20 }}>
-                <a href={`https://basescan.org/tx/${regHash}`} target="_blank" rel="noreferrer" style={{ display: "inline-block", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 8, padding: "8px 16px", color: "#6366f1", fontSize: 12, textDecoration: "none" }}>
-                  View on Basescan
+                <a
+                  href={`https://basescan.org/tx/${regHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: "inline-block", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 8, padding: "8px 16px", color: "#6366f1", fontSize: 12, textDecoration: "none" }}
+                >
+                  View on Basescan &#8599;
                 </a>
               </div>
             )}
@@ -578,7 +712,7 @@ function DevFlow({ onBack }: { onBack: () => void }) {
               </div>
             )}
             <div style={{ background: "rgba(0,0,0,0.4)", borderRadius: 10, padding: "14px 16px", fontFamily: "monospace", fontSize: 11, color: "#a3e635", lineHeight: 1.9, marginBottom: 22, border: "1px solid rgba(163,230,53,0.1)", textAlign: "left" }}>
-              <div style={{ color: "#4b5563" }}># Start trading with the SDK:</div>
+              <div style={{ color: "#4b5563" }}># Start earning with the SDK:</div>
               <div>npm install autonomous-economy-sdk</div>
               <div>&nbsp;</div>
               <div>import {"{ AgentSDK }"} from &apos;autonomous-economy-sdk&apos;;</div>
@@ -599,11 +733,15 @@ function DevFlow({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
+        {/* ── STEP: error ── */}
         {step === "error" && (
           <div style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 20, padding: "28px", textAlign: "center" }}>
             <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Something went wrong</div>
             <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 20 }}>{errMsg}</div>
-            <button onClick={() => { setStep("form"); setErrMsg(""); }} style={{ padding: "12px 28px", borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#a855f7)", border: "none", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+            <button
+              onClick={() => { setStep("form"); setErrMsg(""); }}
+              style={{ padding: "12px 28px", borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#a855f7)", border: "none", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+            >
               Try Again
             </button>
           </div>
@@ -620,13 +758,12 @@ function ManagedFlow({ onBack }: { onBack: () => void }) {
   const [agentName, setAgentName]   = useState("");
   const [description, setDescription] = useState("");
   const [ownerAddress, setOwnerAddress] = useState("");
-  const [loading, setLoading]       = useState(false);
   const [result, setResult]         = useState<{ address: string; txHash: string; name: string } | null>(null);
   const [errMsg, setErrMsg]         = useState("");
 
   async function handleLaunch() {
     if (!template || agentName.trim().length < 2) return;
-    setLoading(true); setStep("launching");
+    setStep("launching");
     try {
       const res = await fetch(`${API}/api/launchpad/managed`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -642,8 +779,6 @@ function ManagedFlow({ onBack }: { onBack: () => void }) {
       setStep("done");
     } catch (e: any) {
       setErrMsg(e.message); setStep("error");
-    } finally {
-      setLoading(false);
     }
   }
 
