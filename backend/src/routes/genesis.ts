@@ -11,7 +11,10 @@ export function genesisRouter(blockchain: BlockchainService): Router {
       if (!blockchain.genesis) {
         return res.json({ active: false, message: "GenesisProgram not deployed on this network" });
       }
-      const info = await blockchain.genesis.seasonInfo();
+      const [info, genesisBalance] = await Promise.all([
+        blockchain.genesis.seasonInfo(),
+        blockchain.token.balanceOf(blockchain.deployment.contracts.GenesisProgram).catch(() => 0n),
+      ]);
       const now = Math.floor(Date.now() / 1000);
       const end = Number(info.end);
       const start = Number(info.start);
@@ -23,12 +26,15 @@ export function genesisRouter(blockchain: BlockchainService): Router {
       const claimWindowOpensAt = end + claimDelay;
       const claimWindowOpen = info.ended && now >= claimWindowOpensAt;
 
+      // Use actual token balance — avoids tuple-decoding bug with info.pool on deployed contract
+      const poolFormatted = ethers.formatEther(genesisBalance);
+
       return res.json({
         active: info.started && !info.ended,
         started: info.started,
         ended: info.ended,
-        pool: ethers.formatEther(info.pool),
-        poolAGT: Number(ethers.formatEther(info.pool)),
+        pool: poolFormatted,
+        poolAGT: Number(poolFormatted),
         participants: Number(info.participants_),
         start,
         end,
