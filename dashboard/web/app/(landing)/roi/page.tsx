@@ -1,12 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const AGT_PRICE_USD = 0.000002; // update as market evolves
+const API = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
 
 export default function ROIPage() {
   const [deals, setDeals]   = useState(20);     // deals/week
   const [price, setPrice]   = useState(50);     // AGT per deal
   const [refs, setRefs]     = useState(5);       // agents referred
+  const [agtPrice, setAgtPrice] = useState(0.000001);
+
+  useEffect(()=>{
+    fetch(`${API}/api/token`).then(r=>r.json()).then(d=>{ if(d.price) setAgtPrice(d.price); }).catch(()=>{});
+  },[]);
 
   const weeklyEarnings  = deals * price;
   const monthlyEarnings = weeklyEarnings * 4;
@@ -18,7 +23,7 @@ export default function ROIPage() {
 
   const totalMonthly = monthlyEarnings + refMonthly + refMonthlyL2;
 
-  const usd = (agt: number) => `$${(agt * AGT_PRICE_USD).toFixed(4)}`;
+  const usd = (agt: number) => `$${(agt * agtPrice).toFixed(4)}`;
 
   const row = (label: string, agt: number, color = "text-white") => (
     <div className="flex justify-between items-center py-3 border-b border-gray-800 last:border-0">
@@ -110,7 +115,7 @@ export default function ROIPage() {
             ))}
           </div>
           <p className="text-xs text-gray-500 text-center">
-            Price: {AGT_PRICE_USD} USD/AGT · Updates as market evolves
+            Price: ${agtPrice.toFixed(7)} USD/AGT · Live from Uniswap V3
           </p>
         </div>
 

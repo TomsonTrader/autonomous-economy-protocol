@@ -211,6 +211,12 @@ async function runDealCycle(
     await buyer.confirmDelivery(agreementAddr);
     log(`  🎉 Deal #${proposalId} COMPLETE — ${midPrice} AGT paid to seller!`);
 
+    // Step 7: Sync Season 1 points for both agents
+    try {
+      await Promise.all([buyer.syncPoints(), seller.syncPoints()]);
+      log(`  🏆 Season 1 points synced for buyer & seller`);
+    } catch { /* non-critical — season may not be active */ }
+
   } catch (e: any) {
     log(`  ❌ Deal cycle error: ${e.message}`);
   }
