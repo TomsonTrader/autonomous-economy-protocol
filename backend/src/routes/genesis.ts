@@ -112,6 +112,25 @@ export function genesisRouter(blockchain: BlockchainService): Router {
     }
   });
 
+  // POST /api/genesis/sync — sync points for any registered agent (backend pays gas)
+  router.post("/sync", async (req, res) => {
+    try {
+      if (!blockchain.genesis) return res.status(400).json({ error: "GenesisProgram not deployed" });
+      const { address } = req.body as { address?: string };
+      if (!address) return res.status(400).json({ error: "address required" });
+      const PRIVATE_KEY = process.env.PRIVATE_KEY;
+      if (!PRIVATE_KEY) return res.status(500).json({ error: "Backend signer not configured" });
+      const signer = new ethers.Wallet(PRIVATE_KEY, blockchain.provider);
+      const genesisAddr = await blockchain.genesis.getAddress();
+      const genesisSigner = new ethers.Contract(genesisAddr, ["function syncPoints(address agent) external"], signer);
+      const tx = await genesisSigner.syncPoints(address);
+      const receipt = await tx.wait();
+      return res.json({ txHash: receipt.hash, address });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/genesis/participant/:address/vesting
   router.get("/participant/:address/vesting", async (req, res) => {
     try {

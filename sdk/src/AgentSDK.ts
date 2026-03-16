@@ -42,6 +42,7 @@ const DEPLOYMENTS: Record<Network, ContractAddresses | null> = {
     TaskDAG:             "0x8fFC6EBaf3764D40A994503b9096c4eBf6aAAda3",
     SubscriptionManager: "0xC466C9cEc228C74C933d35ed0694E5134CdD8B18",
     ReferralNetwork:     "0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c",
+    GenesisProgram:      "0x92B369Ece9527d4c0526A73E589ca8C7b7a6276c",
   },
   "hardhat": null,      // must pass config.contracts for local testing
 };
@@ -139,6 +140,17 @@ const SUBSCRIPTION_ABI = [
   "function totalSubscriptions() view returns (uint256)",
 ];
 
+const GENESIS_ABI = [
+  "function syncPoints(address agent) external",
+  "function claim() external",
+  "function claimVested() external",
+  "function claimWindowOpen() view returns (bool)",
+  "function seasonInfo() view returns (bool started, bool ended, uint256 start, uint256 end, uint256 participants_, uint256 totalPts, uint256 pool)",
+  "function getParticipant(address agent) view returns (uint256 points, bool claimed, uint256 estimatedAGT, uint256 daysLeft)",
+  "function getVesting(address agent) view returns (uint256 total, uint256 released, uint256 claimable, uint256 startTime)",
+  "function getLeaderboard() view returns (address[] addrs, uint256[] pts)",
+];
+
 const TASKDAG_ABI = [
   "function createTask(string description, string[] tags, uint256 budget, uint256 deadline, uint256 requiredSubtasks) returns (uint256)",
   "function spawnSubtask(uint256 parentId, address assignee, string description, string[] tags, uint256 budget, uint256 deadline) returns (uint256)",
@@ -190,6 +202,7 @@ export class AgentSDK {
   private referral: ethers.Contract | null = null;
   private subManager: ethers.Contract | null = null;
   private taskDAG: ethers.Contract | null = null;
+  private genesis: ethers.Contract | null = null;
 
   private wsClient?: WebSocket;
   private eventHandlers = new Map<string, EventHandler[]>();
@@ -224,6 +237,8 @@ export class AgentSDK {
       this.subManager = new ethers.Contract(addrs.SubscriptionManager, SUBSCRIPTION_ABI, this.signer);
     if (addrs.TaskDAG)
       this.taskDAG = new ethers.Contract(addrs.TaskDAG, TASKDAG_ABI, this.signer);
+    if (addrs.GenesisProgram)
+      this.genesis = new ethers.Contract(addrs.GenesisProgram, GENESIS_ABI, this.signer);
 
     this._backendUrl = config.backendUrl || null;
     if (config.backendUrl) {
@@ -246,6 +261,10 @@ export class AgentSDK {
   private _requireTaskDAG(): ethers.Contract {
     if (!this.taskDAG) throw new Error("TaskDAG not available on this network");
     return this.taskDAG;
+  }
+  private _requireGenesis(): ethers.Contract {
+    if (!this.genesis) throw new Error("GenesisProgram not available on this network");
+    return this.genesis;
   }
 
   // ── Faucet ───────────────────────────────────────────────────────────────────
@@ -669,6 +688,67 @@ export class AgentSDK {
       subtaskIds:        (t.subtaskIds as bigint[]).map(Number),
       requiredSubtasks:  Number(t.requiredSubtasks),
       completedSubtasks: Number(t.completedSubtasks),
+    };
+  }
+
+  // ── GenesisProgram — Season 1 ────────────────────────────────────────────────
+
+  /** Sync on-chain activity points for an agent (or self). Call to update leaderboard. */
+  async syncPoints(agent?: string): Promise<string> {
+    const g = this._requireGenesis();
+    return (await (await g.syncPoints(agent || this.address)).wait()).hash;
+  }
+
+  /** Get Season 1 info: pool, dates, participants, total points. */
+  async getSeasonInfo() {
+    const g = this._requireGenesis();
+    const info = await g.seasonInfo();
+    return {
+      started:      info.started as boolean,
+      ended:        info.ended as boolean,
+      start:        Number(info.start),
+      end:          Number(info.end),
+      participants: Number(info.participants_),
+      totalPoints:  Number(info.totalPts),
+      pool:         ethers.formatEther(info.pool),
+      claimWindowOpen: info.ended && (Date.now() / 1000) >= (Number(info.end) + 30 * 86400),
+    };
+  }
+
+  /** Get points and estimated AGT allocation for an address. */
+  async getMyPoints(address?: string) {
+    const g = this._requireGenesis();
+    const p = await g.getParticipant(address || this.address);
+    return {
+      points:       Number(p.points),
+      claimed:      p.claimed as boolean,
+      estimatedAGT: ethers.formatEther(p.estimatedAGT),
+      daysLeft:     Number(p.daysLeft),
+    };
+  }
+
+  /** Claim immediate 25% AGT after season ends (starts vesting for the remaining 75%). */
+  async claimGenesis(): Promise<string> {
+    const g = this._requireGenesis();
+    return (await (await g.claim()).wait()).hash;
+  }
+
+  /** Claim vested AGT after the initial claim (releases linearly over 180 days). */
+  async claimVested(): Promise<string> {
+    const g = this._requireGenesis();
+    return (await (await g.claimVested()).wait()).hash;
+  }
+
+  /** Get vesting schedule for an address after initial claim. */
+  async getVesting(address?: string) {
+    const g = this._requireGenesis();
+    const v = await g.getVesting(address || this.address);
+    return {
+      total:         ethers.formatEther(v.total),
+      released:      ethers.formatEther(v.released),
+      claimable:     ethers.formatEther(v.claimable),
+      startTime:     Number(v.startTime),
+      vestingEndsAt: Number(v.startTime) + 180 * 86400,
     };
   }
 

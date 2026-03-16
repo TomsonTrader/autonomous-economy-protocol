@@ -135,6 +135,17 @@ export default function OverviewPage() {
   const [stats,     setStats]     = useState<Stats|null>(null);
   const [connected, setConnected] = useState(false);
   const [feed,      setFeed]      = useState<any[]>([]);
+  const [token,     setToken]     = useState<{price:number;fdv:number;liquidity:number;change24h:number}|null>(null);
+
+  // Fetch live AGT price
+  useEffect(()=>{
+    const load = ()=>fetch(`${API_URL}/api/token`).then(r=>r.json()).then(d=>{
+      if (d.price) setToken({price:d.price,fdv:d.fdv||0,liquidity:d.liquidity||0,change24h:d.change24h||0});
+    }).catch(()=>{});
+    load();
+    const t = setInterval(load, 60_000);
+    return ()=>clearInterval(t);
+  },[]);
 
   // Load real stats silently + periodic refresh
   useEffect(()=>{
@@ -277,10 +288,13 @@ export default function OverviewPage() {
           {/* AGT price box */}
           <div style={{background:"linear-gradient(135deg,rgba(34,197,94,.08),rgba(6,182,212,.05))",border:"1px solid rgba(34,197,94,.2)",borderRadius:14,padding:"18px 20px"}}>
             <div style={{fontSize:11,color:"var(--muted)",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>AGT · Uniswap V3 · Base</div>
-            <div style={{fontSize:32,fontWeight:800,color:"#22c55e",fontFamily:"monospace",letterSpacing:"-1px",marginBottom:4}}>$0.000001</div>
+            <div style={{fontSize:32,fontWeight:800,color:"#22c55e",fontFamily:"monospace",letterSpacing:"-1px",marginBottom:4}}>
+              {token ? `$${token.price.toFixed(7)}` : "$0.000001"}
+              {token && token.change24h !== 0 && <span style={{fontSize:13,marginLeft:8,color:token.change24h>=0?"#22c55e":"#ef4444"}}>{token.change24h>=0?"+":""}{token.change24h.toFixed(1)}%</span>}
+            </div>
             <div style={{display:"flex",gap:16,fontSize:12,marginBottom:14}}>
-              <div><span style={{color:"var(--muted)"}}>FDV</span><span style={{marginLeft:6,fontWeight:700}}>$1,000</span></div>
-              <div><span style={{color:"var(--muted)"}}>Liq</span><span style={{marginLeft:6,fontWeight:700}}>$786</span></div>
+              <div><span style={{color:"var(--muted)"}}>FDV</span><span style={{marginLeft:6,fontWeight:700}}>{token?`$${token.fdv.toLocaleString()}`:"$1,000"}</span></div>
+              <div><span style={{color:"var(--muted)"}}>Liq</span><span style={{marginLeft:6,fontWeight:700}}>{token?`$${token.liquidity.toLocaleString()}`:"$786"}</span></div>
             </div>
             <div style={{display:"flex",gap:8}}>
               <a href="https://app.uniswap.org/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101&chain=base"

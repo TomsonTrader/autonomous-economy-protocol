@@ -3,6 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
 
 const NAV = [
   { href: "/dashboard", label: "Overview",  icon: "⚡" },
@@ -17,6 +20,13 @@ const NAV = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [agtPrice, setAgtPrice] = useState<string>("$0.000001");
+
+  useEffect(()=>{
+    fetch(`${API_URL}/api/token`).then(r=>r.json()).then(d=>{
+      if (d.price) setAgtPrice(`$${Number(d.price).toFixed(7)}`);
+    }).catch(()=>{});
+  },[]);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
@@ -99,7 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               marginBottom: 6,
             }}
           >
-            AGT $0.000001 ↗
+            AGT {agtPrice} ↗
           </a>
           <Link
             href="/"

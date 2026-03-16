@@ -11,6 +11,7 @@ export interface ContractAddresses {
   TaskDAG?: string;
   SubscriptionManager?: string;
   ReferralNetwork?: string;
+  GenesisProgram?: string;
 }
 
 export interface SDKConfig {

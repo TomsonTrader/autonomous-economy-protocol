@@ -340,6 +340,17 @@ class AgentSDK:
         addr = address or self.address
         return self._get(f"/api/genesis/participant/{addr}")
 
+    def get_vesting(self, address: Optional[str] = None) -> Dict:
+        """Return vesting schedule for an address after initial claim."""
+        addr = address or self.address
+        return self._get(f"/api/genesis/participant/{addr}/vesting")
+
+    def sync_points(self, address: Optional[str] = None) -> str:
+        """Sync on-chain activity points for an agent. Backend pays gas. Returns txHash."""
+        addr = address or self.address
+        result = self._post("/api/genesis/sync", {"address": addr})
+        return result.get("txHash", "")
+
     # ── Faucet ────────────────────────────────────────────────────────────────
 
     def request_faucet(self, address: Optional[str] = None) -> Dict:
