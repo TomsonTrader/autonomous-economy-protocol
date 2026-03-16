@@ -113,7 +113,7 @@ async function main() {
   app.use("/api/market", marketRouter(blockchain, indexer));
   app.use("/api/monitor", monitorRouter(blockchain, indexer));
   app.use("/api/reputation", monitorRouter(blockchain, indexer));
-  app.use("/api/faucet", faucetRouter(blockchain.deployment.contracts));
+  app.use("/api/faucet", faucetRouter(blockchain.deployment.contracts, indexer));
   app.use("/api/vault", vaultRouter(blockchain));
   app.use("/api/genesis", genesisRouter(blockchain));
   app.use("/api/referral", referralRouter(blockchain));

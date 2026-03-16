@@ -15,10 +15,10 @@ dotenv.config();
 
 const RPC = "https://mainnet.base.org";
 const CONTRACTS = {
-  AgentToken:      "0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed",
-  AgentRegistry:   "0x63b427a39e2e07587CF13b2AecBaEcDD4D20bf23",
-  Marketplace:     "0xc8Dc4a3686887d27d845666d0a7664E995b3F3Ae",
-  NegotiationEngine: "0x5B3529d0fC4aB779D24D605d6549134F9a5853c2",
+  AgentToken:        "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101",
+  AgentRegistry:     "0x601125818d16cb78dD239Bce2c821a588B06d978",
+  Marketplace:       "0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c",
+  NegotiationEngine: "0xFfD596b2703b635059Bc2b6109a3173F29903D27",
 };
 
 const REGISTRY_ABI = [
@@ -58,10 +58,14 @@ async function main() {
   const walletA = new ethers.Wallet(keyA.startsWith("0x") ? keyA : "0x" + keyA, provider);
   const walletB = new ethers.Wallet(keyB.startsWith("0x") ? keyB : "0x" + keyB, provider);
 
-  const registry  = new ethers.Contract(CONTRACTS.AgentRegistry,    REGISTRY_ABI,    provider);
-  const token     = new ethers.Contract(CONTRACTS.AgentToken,        TOKEN_ABI,       provider);
-  const market    = new ethers.Contract(CONTRACTS.Marketplace,       MARKETPLACE_ABI, provider);
-  const engine    = new ethers.Contract(CONTRACTS.NegotiationEngine, NEGOTIATION_ABI, provider);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registry  = new ethers.Contract(CONTRACTS.AgentRegistry,    REGISTRY_ABI,    provider) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const token     = new ethers.Contract(CONTRACTS.AgentToken,        TOKEN_ABI,       provider) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const market    = new ethers.Contract(CONTRACTS.Marketplace,       MARKETPLACE_ABI, provider) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const engine    = new ethers.Contract(CONTRACTS.NegotiationEngine, NEGOTIATION_ABI, provider) as any;
 
   console.log("\n🤖 AEP Mainnet Demo — Base Mainnet (chainId 8453)");
   console.log("═══════════════════════════════════════════════════\n");

@@ -73,6 +73,12 @@ export class EventIndexer {
         key   TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+
+      -- Faucet anti-sybil: persists funded addresses across Railway restarts
+      CREATE TABLE IF NOT EXISTS funded_addresses (
+        address    TEXT PRIMARY KEY,
+        funded_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
     `);
   }
 
@@ -371,6 +377,27 @@ export class EventIndexer {
     }
 
     console.log("[Indexer] Listening for on-chain events...");
+  }
+
+  // ── Faucet funded-address store (SQLite-backed, survives Railway restarts) ──
+
+  isFunded(address: string): boolean {
+    const row = this.db.prepare("SELECT 1 FROM funded_addresses WHERE address = ?").get(address.toLowerCase());
+    return !!row;
+  }
+
+  markFunded(address: string): void {
+    this.db.prepare(
+      "INSERT OR IGNORE INTO funded_addresses (address) VALUES (?)"
+    ).run(address.toLowerCase());
+  }
+
+  unmarkFunded(address: string): void {
+    this.db.prepare("DELETE FROM funded_addresses WHERE address = ?").run(address.toLowerCase());
+  }
+
+  fundedCount(): number {
+    return (this.db.prepare("SELECT COUNT(*) as cnt FROM funded_addresses").get() as { cnt: number }).cnt;
   }
 
   // ── Legacy backfill (events only — kept for compatibility) ─────────────────

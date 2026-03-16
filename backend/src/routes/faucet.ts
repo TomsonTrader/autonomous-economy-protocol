@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
 import { ethers } from "ethers";
-import * as fs from "fs";
-import * as path from "path";
+import { EventIndexer } from "../services/indexer";
 
 const TOKEN_ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
@@ -11,37 +10,6 @@ const TOKEN_ABI = [
 const REGISTRY_ABI = [
   "function isRegistered(address) view returns (bool)",
 ];
-
-// ── Persistent funded set — survives Railway restarts ─────────────────────────
-function getFundedPath(): string {
-  // Railway production: /app is the working dir
-  if (fs.existsSync("/app") && process.env.RAILWAY_ENVIRONMENT) {
-    return "/app/funded-addresses.json";
-  }
-  return path.join(__dirname, "../../../funded-addresses.json");
-}
-
-function loadFunded(): Set<string> {
-  try {
-    const raw = fs.readFileSync(getFundedPath(), "utf-8");
-    const arr: string[] = JSON.parse(raw);
-    return new Set(arr.map(a => a.toLowerCase()));
-  } catch {
-    return new Set();
-  }
-}
-
-function saveFunded(funded: Set<string>): void {
-  try {
-    fs.writeFileSync(getFundedPath(), JSON.stringify([...funded], null, 0), "utf-8");
-  } catch (e: any) {
-    console.error("[Faucet] Failed to persist funded set:", e.message);
-  }
-}
-
-// Load from disk at module init — survives server restarts
-const funded = loadFunded();
-console.log(`[Faucet] Loaded ${funded.size} previously funded addresses from disk`);
 
 // ── Singleton wallet + nonce counter — avoids nonce collisions ───────────────
 let _wallet: ethers.Wallet | null = null;
@@ -68,11 +36,10 @@ async function sendQueued(to: string, amount: bigint, contractAddress: string): 
     _queue.push(async () => {
       try {
         const { token } = await getWallet(contractAddress);
-        const tx = await token.transfer(to, amount, { nonce: _nonce++ });
+        const tx = await (token as any).transfer(to, amount, { nonce: _nonce++ });
         await tx.wait();
         resolve(tx.hash);
       } catch (e: any) {
-        // On error reset nonce so next call re-fetches it
         _nonce = -1;
         _wallet = null;
         _token  = null;
@@ -93,7 +60,10 @@ async function drain() {
   _busy = false;
 }
 
-export function faucetRouter(deploymentContracts: { AgentToken: string; AgentRegistry: string }): Router {
+export function faucetRouter(
+  deploymentContracts: { AgentToken: string; AgentRegistry: string },
+  indexer: EventIndexer
+): Router {
   const router = Router();
   const FAUCET_AMOUNT = ethers.parseEther("15"); // 10 entry fee + 5 buffer
 
@@ -106,8 +76,8 @@ export function faucetRouter(deploymentContracts: { AgentToken: string; AgentReg
 
     const normalized = address.toLowerCase();
 
-    // Check 1: in-memory + file-backed funded set
-    if (funded.has(normalized)) {
+    // Check 1: SQLite-backed funded set (survives Railway restarts)
+    if (indexer.isFunded(normalized)) {
       return res.status(429).json({ error: "Address already funded" });
     }
 
@@ -134,21 +104,18 @@ export function faucetRouter(deploymentContracts: { AgentToken: string; AgentReg
       const registry = new ethers.Contract(deploymentContracts.AgentRegistry, REGISTRY_ABI, wallet.provider!);
       const alreadyRegistered = (await registry.isRegistered(address)) as boolean;
       if (alreadyRegistered) {
-        // Mark funded so we skip the on-chain call next time
-        funded.add(normalized);
-        saveFunded(funded);
+        indexer.markFunded(normalized);
         return res.status(429).json({ error: "Address already registered on-chain" });
       }
 
       // Check 4: faucet balance
-      const balance: bigint = await token.balanceOf(wallet.address);
+      const balance: bigint = await (token as any).balanceOf(wallet.address);
       if (balance < FAUCET_AMOUNT) {
         return res.status(503).json({ error: "Faucet depleted" });
       }
 
       // Mark as funded BEFORE sending — prevents concurrent double-spend
-      funded.add(normalized);
-      saveFunded(funded);
+      indexer.markFunded(normalized);
 
       const txHash = await sendQueued(address, FAUCET_AMOUNT, deploymentContracts.AgentToken);
 
@@ -159,11 +126,7 @@ export function faucetRouter(deploymentContracts: { AgentToken: string; AgentReg
         message: "15 AGT sent. Use 10 to register, keep 5 as buffer.",
       });
     } catch (err: any) {
-      // Rollback only if the error is NOT a duplicate check
-      if (funded.has(normalized)) {
-        funded.delete(normalized);
-        saveFunded(funded);
-      }
+      indexer.unmarkFunded(normalized);
       console.error("[Faucet] Error:", err.message);
       return res.status(500).json({ error: "Faucet transaction failed" });
     }
@@ -176,11 +139,11 @@ export function faucetRouter(deploymentContracts: { AgentToken: string; AgentReg
     }
     try {
       const { wallet, token } = await getWallet(deploymentContracts.AgentToken);
-      const balance: bigint = await token.balanceOf(wallet.address);
+      const balance: bigint = await (token as any).balanceOf(wallet.address);
       return res.json({
         configured: true,
         agtBalance: ethers.formatEther(balance),
-        funded: funded.size,
+        funded: indexer.fundedCount(),
       });
     } catch {
       return res.json({ configured: false });
