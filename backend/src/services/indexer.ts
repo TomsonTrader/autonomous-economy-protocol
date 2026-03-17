@@ -87,6 +87,7 @@ export class EventIndexer {
         seller_address    TEXT    NOT NULL,
         proof_hash        TEXT    NOT NULL,
         delivery_data     TEXT    NOT NULL,
+        delivery_type     TEXT    NOT NULL DEFAULT 'hash',
         signature         TEXT    NOT NULL,
         webhook_sent      INTEGER NOT NULL DEFAULT 0,
         created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
@@ -104,6 +105,19 @@ export class EventIndexer {
         PRIMARY KEY (address, url)
       );
       CREATE INDEX IF NOT EXISTS idx_webhook_address ON webhook_subscriptions(address);
+
+      -- Deal monitoring: tracks registered deals for deadline alerts
+      CREATE TABLE IF NOT EXISTS monitored_deals (
+        agreement_address TEXT    PRIMARY KEY,
+        seller_address    TEXT    NOT NULL,
+        buyer_address     TEXT    NOT NULL,
+        deadline          INTEGER NOT NULL,
+        payment_amount    TEXT    NOT NULL DEFAULT '0',
+        description       TEXT    NOT NULL DEFAULT '',
+        last_alert        TEXT,
+        registered_at     INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_monitored_deadline ON monitored_deals(deadline);
     `);
   }
 
@@ -432,16 +446,18 @@ export class EventIndexer {
     sellerAddress: string;
     proofHash: string;
     deliveryData: string;
+    deliveryType?: string;
     signature: string;
   }): number {
     const result = this.db.prepare(`
-      INSERT INTO delivery_proofs (agreement_address, seller_address, proof_hash, delivery_data, signature)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO delivery_proofs (agreement_address, seller_address, proof_hash, delivery_data, delivery_type, signature)
+      VALUES (?, ?, ?, ?, ?, ?)
     `).run(
       proof.agreementAddress.toLowerCase(),
       proof.sellerAddress.toLowerCase(),
       proof.proofHash,
       proof.deliveryData,
+      proof.deliveryType ?? "hash",
       proof.signature
     );
     return result.lastInsertRowid as number;
@@ -493,6 +509,75 @@ export class EventIndexer {
       const events: string[] = JSON.parse(r.events);
       return events.includes("*") || events.includes(eventType);
     });
+  }
+
+  // ── Deal monitoring ────────────────────────────────────────────────────────
+
+  registerDeal(deal: {
+    agreementAddress: string;
+    sellerAddress: string;
+    buyerAddress: string;
+    deadline: number;
+    paymentAmount?: string;
+    description?: string;
+  }): void {
+    this.db.prepare(`
+      INSERT INTO monitored_deals (agreement_address, seller_address, buyer_address, deadline, payment_amount, description)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(agreement_address) DO UPDATE SET
+        deadline=excluded.deadline, payment_amount=excluded.payment_amount, description=excluded.description
+    `).run(
+      deal.agreementAddress.toLowerCase(),
+      deal.sellerAddress.toLowerCase(),
+      deal.buyerAddress.toLowerCase(),
+      deal.deadline,
+      deal.paymentAmount ?? "0",
+      deal.description ?? ""
+    );
+  }
+
+  unregisterDeal(agreementAddress: string): void {
+    this.db.prepare("DELETE FROM monitored_deals WHERE agreement_address = ?").run(agreementAddress.toLowerCase());
+  }
+
+  getMonitoredDeals(): any[] {
+    return (this.db.prepare("SELECT * FROM monitored_deals ORDER BY deadline ASC").all() as any[])
+      .map(r => ({
+        agreementAddress: r.agreement_address,
+        sellerAddress:    r.seller_address,
+        buyerAddress:     r.buyer_address,
+        deadline:         r.deadline,
+        paymentAmount:    r.payment_amount,
+        description:      r.description,
+        lastAlert:        r.last_alert,
+        registeredAt:     r.registered_at,
+      }));
+  }
+
+  getMonitoredDeal(agreementAddress: string): any | null {
+    const r = this.db.prepare("SELECT * FROM monitored_deals WHERE agreement_address = ?").get(agreementAddress.toLowerCase()) as any;
+    if (!r) return null;
+    return {
+      agreementAddress: r.agreement_address,
+      sellerAddress:    r.seller_address,
+      buyerAddress:     r.buyer_address,
+      deadline:         r.deadline,
+      paymentAmount:    r.payment_amount,
+      description:      r.description,
+      lastAlert:        r.last_alert,
+      registeredAt:     r.registered_at,
+    };
+  }
+
+  getLastDealAlert(agreementAddress: string): string | null {
+    const r = this.db.prepare("SELECT last_alert FROM monitored_deals WHERE agreement_address = ?")
+      .get(agreementAddress.toLowerCase()) as any;
+    return r?.last_alert ?? null;
+  }
+
+  saveDealAlert(agreementAddress: string, alertKey: string): void {
+    this.db.prepare("UPDATE monitored_deals SET last_alert = ? WHERE agreement_address = ?")
+      .run(alertKey, agreementAddress.toLowerCase());
   }
 
   // ── Legacy backfill (events only — kept for compatibility) ─────────────────

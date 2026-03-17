@@ -23,6 +23,8 @@ import { launchpadRouter } from "./routes/launchpad";
 import { referralRouter } from "./routes/referral";
 import { deliveryRouter } from "./routes/delivery";
 import { webhooksRouter } from "./routes/webhooks";
+import { dealsRouter } from "./routes/deals";
+import { DealMonitor } from "./services/dealMonitor";
 
 // x402 — HTTP micropayment middleware (Coinbase)
 // Loaded with require() to avoid ESM/CJS type conflicts
@@ -121,7 +123,12 @@ async function main() {
   app.use("/api/referral", referralRouter(blockchain));
   app.use("/api/delivery", deliveryRouter(indexer, wsService));
   app.use("/api/webhooks", webhooksRouter(indexer));
+  app.use("/api/deals",    dealsRouter(indexer));
   app.use("/api/launchpad", launchpadRouter(blockchain.deployment.contracts));
+
+  // Deal monitor — watches deadlines and fires webhook alerts
+  const dealMonitor = new DealMonitor(indexer, wsService);
+  dealMonitor.start();
 
   // x402 — premium routes gated by USDC micropayments (0.001 USDC / request)
   // Only active on base-mainnet; skipped on other networks to keep dev experience smooth.

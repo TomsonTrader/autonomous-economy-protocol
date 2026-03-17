@@ -831,77 +831,191 @@ export class AgentSDK {
     return wrapFetchWithPayment(fetch, client) as typeof fetch;
   }
 
-  // ── Delivery Verification ────────────────────────────────────────────────────
+  // ── Delivery Verification — Multiple Delivery Types ──────────────────────────
 
   /**
-   * Seller: submit a cryptographic proof of service delivery.
+   * Seller: submit a HASH delivery proof (generic keccak256 of any data).
    *
-   * Signs the delivery proof with the agent's private key and POSTs to the
-   * AEP backend. The backend verifies the signature, stores the proof, and
-   * fires HTTP webhooks to the buyer's registered callback URL (if any).
-   *
-   * The buyer's agent should then call `confirmDelivery(agreementAddress)` to
-   * release the escrowed payment on-chain.
-   *
-   * @param agreementAddress - The AutonomousAgreement contract address
-   * @param deliveryData     - JSON-serialisable result (output, URL, hash, etc.)
-   * @param buyerAddress     - Optional: buyer address to look up their webhook
+   * @param agreementAddress - AutonomousAgreement contract address
+   * @param deliveryData     - The actual delivered content (≤4KB string)
+   * @param buyerAddress     - Optional: buyer address to fire their webhook
    */
   async submitDeliveryProof(
     agreementAddress: string,
     deliveryData: string,
     buyerAddress?: string
-  ): Promise<{ proofId: number; proofHash: string; message: string }> {
-    if (!this._backendUrl) throw new Error("backendUrl required to submit delivery proofs");
-    if (!this.signer) throw new Error("Signer (private key) required to submit delivery proofs");
+  ): Promise<{ proofId: number; proofHash: string; verification: Record<string, unknown> }> {
+    if (!this._backendUrl) throw new Error("backendUrl required");
+    if (!this.signer)      throw new Error("Signer required to submit delivery proofs");
 
-    // 1. Compute proofHash = keccak256(deliveryData)
     const proofHash = ethers.keccak256(ethers.toUtf8Bytes(deliveryData));
-
-    // 2. Sign the canonical message (same format backend verifies)
-    const message = `AEP Delivery Proof\nAgreement: ${ethers.getAddress(agreementAddress)}\nProof: ${proofHash}`;
+    const message   = `AEP Delivery Proof\nAgreement: ${ethers.getAddress(agreementAddress)}\nProof: ${proofHash}`;
     const signature = await this.signer.signMessage(message);
 
-    // 3. POST to backend
-    const body: Record<string, string> = {
-      agreementAddress,
-      sellerAddress: this.address,
-      proofHash,
-      deliveryData,
-      signature,
-    };
+    const body: Record<string, unknown> = { agreementAddress, sellerAddress: this.address, deliveryType: "hash", proofHash, deliveryData, signature };
     if (buyerAddress) body.buyerAddress = buyerAddress;
+    return this._deliveryPost(body);
+  }
 
+  /**
+   * Seller: submit an IPFS delivery proof.
+   * Backend fetches the CID from IPFS gateways and verifies the content hash.
+   *
+   * @param agreementAddress - AutonomousAgreement contract address
+   * @param cid              - IPFS content identifier (CIDv0 or CIDv1)
+   * @param expectedHash     - Optional: keccak256 of content to verify (0x-prefixed)
+   * @param buyerAddress     - Optional: buyer address to fire their webhook
+   */
+  async submitIPFSDelivery(
+    agreementAddress: string,
+    cid: string,
+    expectedHash?: string,
+    buyerAddress?: string
+  ): Promise<{ proofId: number; proofHash: string; verification: Record<string, unknown> }> {
+    if (!this._backendUrl) throw new Error("backendUrl required");
+    if (!this.signer)      throw new Error("Signer required to submit delivery proofs");
+
+    // Sign with placeholder — backend computes real proofHash from IPFS content
+    const tempHash  = expectedHash ?? ethers.keccak256(ethers.toUtf8Bytes(cid));
+    const message   = `AEP Delivery Proof\nAgreement: ${ethers.getAddress(agreementAddress)}\nProof: ${tempHash}`;
+    const signature = await this.signer.signMessage(message);
+
+    const body: Record<string, unknown> = { agreementAddress, sellerAddress: this.address, deliveryType: "ipfs", cid, signature };
+    if (expectedHash) body.proofHash = expectedHash;
+    if (buyerAddress) body.buyerAddress = buyerAddress;
+    return this._deliveryPost(body);
+  }
+
+  /**
+   * Seller: submit a URL delivery proof.
+   * Backend verifies the URL is live (HTTP HEAD/GET).
+   *
+   * @param agreementAddress - AutonomousAgreement contract address
+   * @param url              - Public HTTPS URL where the delivery can be accessed
+   * @param buyerAddress     - Optional: buyer address to fire their webhook
+   */
+  async submitURLDelivery(
+    agreementAddress: string,
+    url: string,
+    buyerAddress?: string
+  ): Promise<{ proofId: number; proofHash: string; verification: Record<string, unknown> }> {
+    if (!this._backendUrl) throw new Error("backendUrl required");
+    if (!this.signer)      throw new Error("Signer required to submit delivery proofs");
+
+    const proofHash = ethers.keccak256(ethers.toUtf8Bytes(url));
+    const message   = `AEP Delivery Proof\nAgreement: ${ethers.getAddress(agreementAddress)}\nProof: ${proofHash}`;
+    const signature = await this.signer.signMessage(message);
+
+    const body: Record<string, unknown> = { agreementAddress, sellerAddress: this.address, deliveryType: "url", url, signature };
+    if (buyerAddress) body.buyerAddress = buyerAddress;
+    return this._deliveryPost(body);
+  }
+
+  /**
+   * Seller: submit an API endpoint delivery proof.
+   * Backend makes a test call to the endpoint and verifies it returns 2xx.
+   *
+   * @param agreementAddress - AutonomousAgreement contract address
+   * @param endpoint         - Base URL of the API (e.g. "https://my-agent.com/api")
+   * @param testPath         - Path to test (default: "/health")
+   * @param buyerAddress     - Optional: buyer address to fire their webhook
+   */
+  async submitAPIDelivery(
+    agreementAddress: string,
+    endpoint: string,
+    testPath = "/health",
+    buyerAddress?: string
+  ): Promise<{ proofId: number; proofHash: string; verification: Record<string, unknown> }> {
+    if (!this._backendUrl) throw new Error("backendUrl required");
+    if (!this.signer)      throw new Error("Signer required to submit delivery proofs");
+
+    const proofHash = ethers.keccak256(ethers.toUtf8Bytes(endpoint));
+    const message   = `AEP Delivery Proof\nAgreement: ${ethers.getAddress(agreementAddress)}\nProof: ${proofHash}`;
+    const signature = await this.signer.signMessage(message);
+
+    const body: Record<string, unknown> = { agreementAddress, sellerAddress: this.address, deliveryType: "api", endpoint, testPath, signature };
+    if (buyerAddress) body.buyerAddress = buyerAddress;
+    return this._deliveryPost(body);
+  }
+
+  /** Internal helper — POST to /api/delivery/submit and parse response. */
+  private async _deliveryPost(body: Record<string, unknown>): Promise<any> {
     const res = await fetch(`${this._backendUrl}/api/delivery/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: "Unknown error" })) as any;
       throw new Error(`Delivery proof rejected: ${err.message ?? res.statusText}`);
     }
-
-    return res.json() as Promise<{ proofId: number; proofHash: string; message: string }>;
+    return res.json();
   }
 
-  /**
-   * Get delivery proof status for an agreement.
-   *
-   * @param agreementAddress - The AutonomousAgreement contract address
-   */
+  /** Get delivery proof status for an agreement. */
   async getDeliveryStatus(agreementAddress: string): Promise<{
     status: "NO_PROOF" | "PROOF_SUBMITTED";
     proofId?: number;
+    deliveryType?: string;
     sellerAddress?: string;
     proofHash?: string;
     webhookSent?: boolean;
     submittedAt?: string;
-    message: string;
   }> {
     if (!this._backendUrl) throw new Error("backendUrl required");
     const res = await fetch(`${this._backendUrl}/api/delivery/status/${agreementAddress}`);
+    return res.json() as any;
+  }
+
+  // ── Deal Monitoring ──────────────────────────────────────────────────────────
+
+  /**
+   * Register an active deal for deadline monitoring.
+   * The DealMonitor service will send webhook alerts at critical milestones.
+   *
+   * @param agreementAddress - AutonomousAgreement contract address
+   * @param sellerAddress    - Seller's wallet address
+   * @param buyerAddress     - Buyer's wallet address
+   * @param deadline         - Unix timestamp (should match on-chain)
+   * @param paymentAmount    - AGT wei string (for display in alerts)
+   * @param description      - Short deal description
+   */
+  async registerDealMonitoring(
+    agreementAddress: string,
+    sellerAddress: string,
+    buyerAddress: string,
+    deadline: number,
+    paymentAmount?: string,
+    description?: string
+  ): Promise<{ success: boolean; monitoring: Record<string, string> }> {
+    if (!this._backendUrl) throw new Error("backendUrl required");
+    const res = await fetch(`${this._backendUrl}/api/deals/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agreementAddress, sellerAddress, buyerAddress, deadline, paymentAmount, description }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Unknown error" })) as any;
+      throw new Error(`Deal registration failed: ${err.message ?? res.statusText}`);
+    }
+    return res.json() as any;
+  }
+
+  /** Get monitoring status and current phase for a registered deal. */
+  async getDealStatus(agreementAddress: string): Promise<{
+    phase: "ACTIVE" | "APPROACHING_DEADLINE" | "IN_GRACE_PERIOD" | "AUTO_CLAIM_AVAILABLE";
+    deadline: string;
+    graceEnd: string;
+    hasProof: boolean;
+    deliveryType: string | null;
+    lastAlert: string | null;
+  }> {
+    if (!this._backendUrl) throw new Error("backendUrl required");
+    const res = await fetch(`${this._backendUrl}/api/deals/${agreementAddress}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Not found" })) as any;
+      throw new Error(err.message);
+    }
     return res.json() as any;
   }
 
