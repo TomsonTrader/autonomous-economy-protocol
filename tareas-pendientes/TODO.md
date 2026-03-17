@@ -1,210 +1,120 @@
-# Tareas Pendientes — AEP
-> Actualizado por Claude. Marca ✅ cuando termines cada tarea.
-> Las tareas con 🔴 son bloqueantes para otras. Las 🟡 son importantes. Las 🟢 son opcionales pero valiosas.
+# AEP — Tareas y Estado del Proyecto
+> Actualizado: 2026-03-17 | Ver plan completo: `/PLAN.md`
+> ✅ hecho · 🔴 urgente · 🟡 importante · 🟢 opcional · ⏳ en espera de resultado
 
 ---
 
-## BLOQUE 1 — Infraestructura base (ya hecho en su mayoría)
+## BLOQUE 0 — BASE TÉCNICA (COMPLETO ✅)
 
-- [x] Contratos desplegados en Base Mainnet (9 contratos)
-- [x] Backend en Railway (https://autonomous-economy-protocol-production.up.railway.app)
-- [x] Dashboard en Vercel (https://aepprotocol.xyz)
-- [x] Dominio aepprotocol.xyz conectado a Vercel (DNS en Porkbun)
-- [x] GitHub repo público (github.com/TomsonTrader/autonomous-economy-protocol)
-- [x] npm package publicado (autonomous-economy-sdk@1.5.1 — con postinstall hook)
-- [x] Python SDK publicado en PyPI (autonomous-economy-sdk@1.0.0)
-- [x] Logo AEP integrado en dashboard (favicon, OG image, sidebar)
-- [x] AutoGen integration (7 tools) — integrations/autogen-integration/
-- [x] CrewAI integration (8 tools) — integrations/crewai-integration/
-- [x] MCP Server (9 tools) — mcp-server/
-- [x] Orchestrator multi-agente — orchestrator/
-- [x] Activity feed (/activity) y agent profiles (/agent/[address])
-- [x] Google A2A AgentCard endpoint
-- [x] GitHub Action para auto-registro
-- [x] README actualizado completamente
+Todo lo que está aquí ya funciona y está en producción.
 
----
-
-## BLOQUE 2 — Token y mercado 🔴
-
-### 2.1 Pool Uniswap
-- [x] Crear pool AGT/USDC en Uniswap V3 (Base Mainnet)
-- [x] Dirección del pool: `0xe72646B25853e6300C80B029D3faCA63fd4e564B`
-- [x] URL Uniswap: https://app.uniswap.org/explore/pools/base/0xe72646B25853e6300C80B029D3faCA63fd4e564B
-- [x] Añadir liquidez suficiente (mínimo $100 para CoinGecko)
-
-### 2.2 DexScreener
-- [ ] 🟡 Ir a dexscreener.com/update-token-info
-- [ ] Subir logo (200x200px de agt-logo-1000.png via squoosh.app)
-- [ ] Añadir: website=aepprotocol.xyz, Twitter=@AEPprotocol, GitHub, descripción
-- [ ] Anotar aquí la URL del pool en DexScreener: `___________________________`
-
-### 2.3 DexTools
-- [ ] 🟢 Ir a dextools.io → Token Manager → buscar AGT → actualizar info
+- [x] 10 contratos Solidity en Base Mainnet (verificados en Basescan)
+- [x] Backend Express en Railway — 13+ endpoints, webhooks, delivery, deal monitor
+- [x] Dashboard Next.js en Vercel (aepprotocol.xyz)
+- [x] TypeScript SDK v1.5.2 en npm (`autonomous-economy-sdk`)
+- [x] Python SDK v1.0.1 en PyPI
+- [x] MCP Server publicado (`@aep/mcp-server`) — 10 tools
+- [x] n8n Node publicado (`n8n-nodes-aep@1.0.0`) — 12 operations
+- [x] LangChain (11 tools), CrewAI (8), AutoGen (7), Eliza (5), Telegram (listo)
+- [x] Orchestrator multi-agente
+- [x] Pool Uniswap V3 AGT/USDC — `0xe72646B25853e6300C80B029D3faCA63fd4e564B`
+- [x] GeckoTerminal: AGT indexado — precio $0.000001
+- [x] Season 1 (GenesisProgram): 50M AGT pool activo — termina ~mayo 2026
+- [x] Demo agent 24/7 en Railway
+- [x] Tests: 55/55 unit + 51/52 E2E (mainnet, transacciones reales)
+- [x] Faucet: 399M AGT disponibles, requisito mínimo ETH bajado a > 0
+- [x] AgentVault staking verificado: Tier 0 (100 AGT) + Tier 1 (500 AGT) ✅
 
 ---
 
-## BLOQUE 3 — Redes sociales 🔴
+## BLOQUE 1 — VISIBILIDAD 🔴 (Esta semana — Mar 17-24)
 
-### 3.1 Twitter/X (@AEPprotocol)
-- [x] Cuenta creada: https://x.com/AEPprotocol
-- [ ] 🔴 Subir foto de perfil (agt-logo-400.png — redimensionar en squoosh.app)
-- [ ] 🔴 Subir banner (twitter-header.png — crear con Grok si no tienes)
-- [ ] 🔴 Añadir bio: `The settlement layer for AI agents. Register · Trade · Build credit on-chain. 9 contracts live on Base Mainnet. $AGT 🔵`
-- [ ] 🔴 Añadir website: https://aepprotocol.xyz
-- [ ] 🔴 Añadir ubicación: `Base Mainnet`
-- [ ] Publicar tweet pin (texto en docs/twitter-launch-thread.md)
-- [ ] Publicar los 4 tweets de lanzamiento
+### 1.1 Token visible en DexScreener
+- [ ] 🔴 **Hacer 1 swap real en Uniswap** (~$5 de AGT) → DexScreener indexa automáticamente
+  - URL: https://app.uniswap.org/explore/pools/base/0xe72646B25853e6300C80B029D3faCA63fd4e564B
+- [ ] 🟡 Actualizar info en DexScreener: dexscreener.com/update-token-info
+  - Logo 200x200px (desde agt-logo-1000.png via squoosh.app)
+  - website=aepprotocol.xyz, Twitter=@AEPprotocol, GitHub
+
+### 1.2 Twitter/X (@AEPprotocol)
+- [ ] 🔴 Subir foto de perfil (agt-logo-400.png — squoosh.app → 400x400)
+- [ ] 🔴 Banner de Twitter (crear con Grok/DALL-E si no tienes)
+- [ ] 🔴 Bio: `The settlement layer for AI agents. Register · Trade · Build credit on-chain. 9 contracts live on Base Mainnet. $AGT 🔵`
+- [ ] 🔴 Website: https://aepprotocol.xyz | Ubicación: `Base Mainnet`
+- [ ] Publicar 3 tweets de lanzamiento (texto en docs/twitter-launch-thread.md)
 - [ ] Seguir: @base @jessepollak @virtuals_io @ai16zdao @LangChainAI @BuildOnBase
 
-### 3.2 Farcaster
-- [ ] 🟡 Crear cuenta si no tienes (warpcast.com)
-- [ ] Publicar cast en /base (texto en docs/outreach-templates.md → sección 3)
-- [ ] Publicar cast en /ai
+### 1.3 Comunidades
+- [ ] 🔴 **ai16z Discord** → canal #show-and-tell — texto en docs/outreach/ai16z-discord-post.md
+- [ ] 🟡 **Farcaster** /base + /ai — texto en docs/outreach-templates.md sección 3
+- [ ] 🔴 **Smithery MCP Registry** → smithery.ai/submit — YAML en mcp-server/smithery.yaml
 
 ---
 
-## BLOQUE 4 — Listings de token 🟡
+## BLOQUE 2 — GRANTS Y PRIMER TRÁFICO 🔴 (Mar 24-31)
 
-### 4.1 CoinGecko
-- [x] Submitted ✅ (pendiente aprobación — 1-14 días)
-- [ ] Publicar tweet de verificación con Request ID cuando te lo den
-- [ ] Anotar Request ID aquí: `___________________________`
+### 2.1 Base Grants — DEADLINE 31 MARZO
+- [ ] 🔴 **Aplicar en grants.base.org** — el doc ya está en docs/base-grants-application.md
+  - El doc está listo, solo hay que rellenarlo y enviarlo
+  - Deadline: 31 de marzo de 2026
 
-### 4.2 CoinMarketCap
-- [x] Submitted ✅ (pendiente aprobación — 2-30 días)
-- [ ] Anotar Request ID aquí: `___________________________`
-
-### 4.3 GeckoTerminal
-- [ ] 🟢 Ya aparece automáticamente si tienes pool Uniswap. Verificar en geckoterminal.com
-- [ ] Actualizar info del token si es necesario
-
----
-
-## BLOQUE 5 — Comunidades de desarrolladores 🔴
-
-### 5.1 ai16z / Eliza Discord ← MENSAJE LISTO
-- [ ] 🔴 Entrar: discord.gg/ai16z → canal #show-and-tell o #projects
-- [ ] Copiar y pegar el mensaje de: **docs/outreach/ai16z-discord-post.md**
-- [ ] Anotar respuestas/feedback aquí: `___________________________`
-
-### 5.2 LangChain GitHub ← PR LISTO
-- [ ] 🟡 Ir a github.com/langchain-ai/langchain/discussions
-- [ ] Copiar título + body de: **docs/outreach/langchain-pr.md**
-- [ ] URL del discussion: `___________________________`
-
-### 5.3 CrewAI GitHub ← POST LISTO
-- [ ] 🟢 Ir a github.com/joaomdmoura/crewAI/discussions
-- [ ] Copiar el post de: **docs/outreach/crewai-github-discussion.md**
-- [ ] URL: `___________________________`
-
-### 5.4 Smithery MCP Registry ← LISTING LISTO
-- [ ] 🔴 Ir a smithery.ai/submit
-- [ ] El archivo de listing ya está en: **mcp-server/smithery.yaml**
-- [ ] También enviar a: glama.ai (directorio alternativo de MCPs)
-
-### 5.5 n8n Community Nodes ← NODE LISTO
-- [ ] 🟡 Ir a community.n8n.io → #share-your-work
-- [ ] Anunciar el nodo: n8n-nodes-aep (código en integrations/n8n-node/)
-- [x] Publicar en npm: `n8n-nodes-aep@1.0.0` live en npmjs.com ✅
-
-### 5.4 Base / Farcaster /base
-- [ ] 🟡 Post en canal /base de Farcaster
-- [ ] Post en canal /ai de Farcaster
+### 2.2 Primeros usuarios reales
+- [ ] 🟡 Invitar 5 personas a registrar agente en aepprotocol.xyz/launch
+  - El faucet da 15 AGT gratis (sin necesidad de ETH mínimo ahora)
+  - También pueden usar el referral link para ganar comisiones
+- [ ] 🟡 **Hugging Face Space** → subir huggingface-space/ a huggingface.co/new-space
+- [ ] 🟡 **LangChain GitHub Discussion** — docs/outreach/langchain-pr.md
+- [ ] 🟢 **CrewAI GitHub Discussion** — docs/outreach/crewai-github-discussion.md
+- [ ] 🟢 **n8n Community post** — community.n8n.io → #share-your-work
 
 ---
 
-## BLOQUE 6 — Hugging Face Space 🟡
+## BLOQUE 3 — REVENUE Y ESCALA (Abr 1-14)
 
-- [ ] Crear cuenta en huggingface.co si no tienes
-- [ ] Ir a huggingface.co/new-space
-  - Name: `aep-protocol`
-  - SDK: Gradio
-  - Visibility: Public
-- [ ] Subir los 3 archivos de la carpeta `huggingface-space/`:
-  - `app.py`
-  - `requirements.txt`
-  - `README.md`
-- [ ] URL del Space: `___________________________`
-- [ ] Compartir en Twitter y Discord
+- [ ] 🟡 **Custom GPT en OpenAI Store** — docs/custom-gpt/ (system prompt + openapi spec)
+- [ ] 🟡 **Gitcoin Grants S23** — docs/gitcoin-grants.md
+- [ ] 🟡 **Agent Launchpad con pricing** — cobrar 5 USDC por agente managed (nuevo revenue)
+- [ ] 🟢 **Dev.to article** — docs/devto-post.md (el artículo ya está escrito)
+- [ ] 🟢 **Mirror.xyz crowdfund** — docs/gitcoin-grants.md sección Mirror
 
 ---
 
-## BLOQUE 7 — Custom GPT (OpenAI) 🟡
+## BLOQUE 4 — CREDIBILIDAD LARGO PLAZO (Mes 2-3)
 
-- [ ] Ir a chat.openai.com/gpts/editor
-- [ ] Name: `AEP Agent Assistant`
-- [ ] Pegar el system prompt de docs/custom-gpt/system-prompt.md
-- [ ] En Actions: subir docs/custom-gpt/openapi-spec.json
-- [ ] Subir logo (agt-logo-1000.png)
-- [ ] Visibility: Public
-- [ ] Publicar en GPT Store
-- [ ] URL del GPT: `___________________________`
+- [ ] 🟡 **Virtuals Protocol outreach** — proponer "AEP Economy Layer for Virtuals Agents"
+- [ ] 🟡 **Bonding Curve AGT** (nuevo contrato) — requiere confirmación tuya para deploy
+- [ ] 🟡 **DexTools** — dextools.io → Token Manager → actualizar info AGT
+- [ ] 🟢 **Security Audit** (Spearbit/Code4rena) — deferred a 100+ agentes ($15-20k)
+- [ ] 🟢 **CoinMarketCap** — ⏳ submitted, pendiente aprobación (2-30 días)
+- [ ] ⏳ **CoinGecko** — submitted, pendiente aprobación (1-14 días)
 
 ---
 
-## BLOQUE 8 — Financiación 🟢
+## SEGUIMIENTO KPIs
 
-### 8.1 Base Grants
-- [ ] Leer docs/base-grants-application.md
-- [ ] Ir a grants.base.org
-- [ ] Rellenar con los datos del doc
-- [ ] Fecha límite próxima convocatoria: `___________________________`
-
-### 8.2 Gitcoin Grants
-- [ ] Leer docs/gitcoin-grants.md
-- [ ] Esperar la próxima ronda de Gitcoin (GG23+)
-- [ ] URL cuando apliques: `___________________________`
-
-### 8.3 Mirror.xyz (crowdfund)
-- [ ] Crear cuenta en mirror.xyz
-- [ ] Publicar el Manifesto de docs/gitcoin-grants.md → sección Mirror
-- [ ] Activar crowdfund con NFTs Genesis (100,000 AGT por NFT)
-- [ ] URL: `___________________________`
+| Semana | Agentes ext. | Deals reales | Treasury | Notas |
+|--------|-------------:|-------------:|---------:|-------|
+| Sem 0 (Mar 17) | 0 | 0 | 0 USDC | Estado inicial |
+| Sem 1 (Mar 24) | | | | Objetivo: DexScreener + Twitter |
+| Sem 2 (Mar 31) | | | | Objetivo: Base Grants submitted |
+| Sem 4 (Abr 14) | | | | Objetivo: 25 agentes externos |
+| Mes 2 (May) | | | | Objetivo: 100 agentes + CoinGecko |
 
 ---
 
-## BLOQUE 9 — Faucet y primeros agentes reales 🔴
+## REFERENCIAS RÁPIDAS
 
-- [ ] 🔴 Cargar el wallet del deployer con más ETH para gas (Railway demo agent)
-  - Dirección deployer: `0x1200BE707C668b0313757Fc7d097B1a498bA62Ba`
-  - Necesita ~0.01 ETH para financiar agentes nuevos vía launchpad
-- [ ] Probar el launchpad manualmente: ir a aepprotocol.xyz/launch
-- [ ] Verificar que funciona end-to-end
-- [ ] Reclutar 5 amigos/conocidos para registrar su primer agente
-
----
-
-## BLOQUE 10 — Seguridad (cuando tengamos tracción) 🟢
-
-- [ ] Contratar auditoría de seguridad (Spearbit, Code4rena, o similar)
-  - Presupuesto estimado: $10,000–$20,000
-  - Prioridad: después de 100 agentes activos
-- [ ] Publicar resultados de auditoría en GitHub
-- [ ] Añadir badge de auditoría al README
-
----
-
-## SEGUIMIENTO DE KPIs
-
-Actualiza esta tabla cada semana:
-
-| Semana | Agentes registrados | Deals totales | Volumen AGT | Notas |
-|--------|--------------------:|-------------:|------------:|-------|
-| Sem 1  | 11 (nuestros)       | 0            | 0           | Pre-lanzamiento |
-| Sem 2  |                     |              |             | |
-| Sem 3  |                     |              |             | |
-| Sem 4  |                     |              |             | |
-| Sem 8  |                     |              |             | |
-| Sem 12 |                     |              |             | |
-
----
-
-## NOTAS IMPORTANTES
-
-- **Deployer wallet**: `0x1200BE707C668b0313757Fc7d097B1a498bA62Ba` — guarda bien la clave privada, no la compartas
-- **Pool Uniswap**: la dirección del pool es necesaria para CoinGecko, DexScreener y el dashboard
-- **Logo 200x200**: para exchanges ve a squoosh.app, sube agt-logo-1000.png, redimensiona a 200x200, descarga como PNG
-- **Logo 400x400**: para Twitter/X perfil, mismo proceso pero 400x400
-- **Todos los textos** para formularios están en `docs/exchange-listings.md`
-- **Todos los mensajes** para comunidades están en `docs/outreach-templates.md`
+| Recurso | URL / Path |
+|---------|-----------|
+| Dashboard | https://aepprotocol.xyz |
+| Backend API | https://autonomous-economy-protocol-production.up.railway.app |
+| GitHub | github.com/TomsonTrader/autonomous-economy-protocol |
+| Pool Uniswap | app.uniswap.org/explore/pools/base/0xe72646... |
+| Faucet | aepprotocol.xyz/launch (15 AGT gratis) |
+| Deployer wallet | 0x1200BE707C668b0313757Fc7d097B1a498bA62Ba |
+| Texts de outreach | docs/outreach-templates.md |
+| Texts para listings | docs/exchange-listings.md |
+| Logo 400x400 | squoosh.app → agt-logo-1000.png → resize 400px |
+| Logo 200x200 | squoosh.app → agt-logo-1000.png → resize 200px |
+| Base Grants app | docs/base-grants-application.md |
+| Plan completo | /PLAN.md |
