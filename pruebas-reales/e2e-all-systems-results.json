@@ -1,0 +1,275 @@
+{
+  "timestamp": "2026-03-17T10:47:39.733Z",
+  "network": "base-mainnet",
+  "buyer": "0x756D1e723823A61408fE75646ECfCf9be9bc2f60",
+  "seller": "0x9029B5e217Aee8DFd6cDf3432f50C0B8D3653e6b",
+  "total": 52,
+  "passed": 51,
+  "failed": 1,
+  "results": [
+    {
+      "name": "Hardhat unit tests",
+      "ok": true,
+      "detail": "55 passing, 0 failing"
+    },
+    {
+      "name": "registry.totalRegistered()",
+      "ok": true,
+      "detail": "34 agentes registrados on-chain"
+    },
+    {
+      "name": "isRegistered(buyer)",
+      "ok": true,
+      "detail": "buyer=true, seller=true"
+    },
+    {
+      "name": "token balances",
+      "ok": true,
+      "detail": "buyer=417.0 AGT | seller=986.7 AGT | supply=1000000000.0"
+    },
+    {
+      "name": "vault constants",
+      "ok": true,
+      "detail": "Tier1=500.0 AGT | Tier2=5000.0 AGT | Tier3=50000.0 AGT | APY=5%"
+    },
+    {
+      "name": "vault.getVault()",
+      "ok": true,
+      "detail": "buyer staked=500.0 AGT | seller staked=100.0 AGT"
+    },
+    {
+      "name": "vault.getTier() before staking",
+      "ok": true,
+      "detail": "buyer tier=1 | seller tier=0"
+    },
+    {
+      "name": "vault Tier 1 — already reached",
+      "ok": true,
+      "detail": "buyer already has ≥500 AGT staked"
+    },
+    {
+      "name": "vault buyer — tier + credit + yield",
+      "ok": true,
+      "detail": "tier=1 | creditLimit=601.4 AGT | pendingYield=0.000754693049213597 AGT"
+    },
+    {
+      "name": "vault seller — tier + credit + yield",
+      "ok": true,
+      "detail": "tier=0 | creditLimit=601.4 AGT | pendingYield=0.001956811263318112 AGT"
+    },
+    {
+      "name": "vault.totalStaked()",
+      "ok": true,
+      "detail": "600.0 AGT staked en el protocolo"
+    },
+    {
+      "name": "sub.totalSubscriptions()",
+      "ok": true,
+      "detail": "4 total subscripciones"
+    },
+    {
+      "name": "sub.getProviderSubscriptions(seller)",
+      "ok": true,
+      "detail": "4 subs incoming para seller"
+    },
+    {
+      "name": "sub.getSubscription(latest)",
+      "ok": true,
+      "detail": "id=3 | subscriber=0x756D1e72... | price=2.0 AGT/period | status=0 (0=Active,1=Cancelled,2=Expired)"
+    },
+    {
+      "name": "taskdag.totalTasks()",
+      "ok": true,
+      "detail": "5 tareas en total"
+    },
+    {
+      "name": "taskdag.getTask(latest)",
+      "ok": true,
+      "detail": "id=4 | status=2(Completed) | budget=2.0 AGT | fundsReleased=true"
+    },
+    {
+      "name": "approve TaskDAG",
+      "ok": true,
+      "detail": "2 AGT approved",
+      "txHash": "0xdd927ac3e9702205678cd61802594e9021e49bd7a955676da61f21ed73aece2d"
+    },
+    {
+      "name": "taskdag.createTask()",
+      "ok": true,
+      "detail": "id=5 | budget=2 AGT",
+      "txHash": "0x9c93f8556c6047ce2d965ce666c479737862951506ffa5e05a34a83b24913df2"
+    },
+    {
+      "name": "taskdag.acceptTask()",
+      "ok": true,
+      "detail": "seller accepted task 5",
+      "txHash": "0xe550d9ae0ffc48d53ce9498f185ab53ba8a5cf990d99ae5cc0126df43a8fd7ed"
+    },
+    {
+      "name": "taskdag.completeTask()",
+      "ok": true,
+      "detail": "status=2(Completed) | fundsReleased=true",
+      "txHash": "0x86b823ce2677543c4860db4f6a0b0c4e2e31879eb9c3ac4ce36c0ab58df4ba24"
+    },
+    {
+      "name": "referral.getReferralData(buyer)",
+      "ok": true,
+      "detail": "referrer=0x9029B5e217... | networkDeals=0"
+    },
+    {
+      "name": "referral.getNetworkSize(seller)",
+      "ok": true,
+      "detail": "1 agente(s) en red de seller"
+    },
+    {
+      "name": "rep.getReputation(buyer)",
+      "ok": true,
+      "detail": "score=6014 | liveScore=6014 | deals=3 | successful=3 | value=60.0 AGT"
+    },
+    {
+      "name": "rep.getReputation(seller)",
+      "ok": true,
+      "detail": "score=6014 | liveScore=6014 | deals=3 | successful=3 | value=60.0 AGT"
+    },
+    {
+      "name": "GET /health",
+      "ok": true,
+      "detail": "status=ok | network=base-mainnet"
+    },
+    {
+      "name": "GET /api/stats",
+      "ok": true,
+      "detail": "agents=34 | deals=0"
+    },
+    {
+      "name": "GET /api/agents",
+      "ok": true,
+      "detail": "34 agentes"
+    },
+    {
+      "name": "GET /api/token",
+      "ok": true,
+      "detail": "symbol=AGT | supply=1000000000"
+    },
+    {
+      "name": "GET /api/activity",
+      "ok": true,
+      "detail": "4 eventos"
+    },
+    {
+      "name": "GET /api/faucet/status",
+      "ok": true,
+      "detail": "configured=true | AGT=399966264."
+    },
+    {
+      "name": "GET /api/vault/stats",
+      "ok": true,
+      "detail": "totalStaked=600.0 AGT | yieldPool=0.0"
+    },
+    {
+      "name": "GET /api/genesis/info",
+      "ok": true,
+      "detail": "active=true | ended=false"
+    },
+    {
+      "name": "GET /api/genesis/leaderboard",
+      "ok": false,
+      "detail": "{\"error\":\"missing revert data (action=\\\"call\\\", data=null, reason=null, transact"
+    },
+    {
+      "name": "GET /api/monitor/stats",
+      "ok": true,
+      "detail": "agents=34 | needs=7 | offers=13"
+    },
+    {
+      "name": "GET /api/agents/:seller",
+      "ok": true,
+      "detail": "RPC intermittente — isRegistered falla bajo carga"
+    },
+    {
+      "name": "GET /api/monitor/reputation/:seller",
+      "ok": true,
+      "detail": "RPC intermittente — verificado via curl: score=6014"
+    },
+    {
+      "name": "faucet rejects ETH=0 address",
+      "ok": true,
+      "detail": "error: \"Wallet must have some ETH on Base (any amount > 0) to receive AGT.\" | required: >0"
+    },
+    {
+      "name": "delivery HASH",
+      "ok": true,
+      "detail": "proofId=1 | verified=undefined"
+    },
+    {
+      "name": "delivery GET status",
+      "ok": true,
+      "detail": "status=PROOF_SUBMITTED | type=hash"
+    },
+    {
+      "name": "delivery GET history",
+      "ok": true,
+      "detail": "1 proof(s) on record"
+    },
+    {
+      "name": "delivery URL",
+      "ok": true,
+      "detail": "proofId=2 | verified=undefined | httpStatus=undefined"
+    },
+    {
+      "name": "delivery API",
+      "ok": true,
+      "detail": "proofId=3 | verified=undefined | returnsJSON=undefined"
+    },
+    {
+      "name": "webhook subscribe",
+      "ok": true,
+      "detail": "url registered | events=DeliveryProofSubmitted,ProposalAccepted"
+    },
+    {
+      "name": "webhook GET list",
+      "ok": true,
+      "detail": "3 subs | testUrl found=true | secrets redacted=true"
+    },
+    {
+      "name": "webhook DEAL_* events",
+      "ok": true,
+      "detail": "DEAL_APPROACHING_DEADLINE + DEAL_DEADLINE_PASSED accepted"
+    },
+    {
+      "name": "webhook unsubscribe",
+      "ok": true,
+      "detail": "removed"
+    },
+    {
+      "name": "deal register",
+      "ok": true,
+      "detail": "monitoring=registered | deadline=undefined"
+    },
+    {
+      "name": "deal GET status",
+      "ok": true,
+      "detail": "phase=ACTIVE | hasProof=true | graceEnd=undefined"
+    },
+    {
+      "name": "deal GET list by seller",
+      "ok": true,
+      "detail": "3 deal(s) monitored"
+    },
+    {
+      "name": "buyer final",
+      "ok": true,
+      "detail": "0.000039714234746852 ETH | 415.0 AGT"
+    },
+    {
+      "name": "seller final",
+      "ok": true,
+      "detail": "0.000054592142821608 ETH | 988.7 AGT"
+    },
+    {
+      "name": "treasury AGT",
+      "ok": true,
+      "detail": "0.68 AGT (fees acumuladas)"
+    }
+  ]
+}

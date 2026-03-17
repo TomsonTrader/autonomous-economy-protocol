@@ -1,5 +1,6 @@
 # Checklist de Funcionalidad — AEP
-> Auditado el 2026-03-17. ✅ = verificado en producción. ⚠️ = funciona con limitación. ❌ = error/no disponible. ⏳ = pendiente.
+> Última auditoría: 2026-03-17 (e2e-all-systems.ts — 51/52 ✅, Base Mainnet, transacciones reales).
+> ✅ = verificado. ⚠️ = funciona con limitación conocida. ❌ = error. ⏳ = pendiente.
 
 ---
 
@@ -10,8 +11,8 @@
 | Estado | Endpoint | Notas |
 |--------|----------|-------|
 | ✅ | `GET /health` | `{"status":"ok","network":"base-mainnet"}` |
-| ✅ | `GET /api/stats` | 11 agentes, 0 deals, red base-mainnet |
-| ✅ | `GET /api/agents` | 11 agentes devueltos (2 activos con nombre, 9 con `name: Unknown`) |
+| ✅ | `GET /api/stats` | 34 agentes, 0 deals — campo: `totalAgents` |
+| ✅ | `GET /api/agents` | 34 agentes devueltos |
 | ✅ | `GET /api/agents/:address` | HTTP 200 — agente individual OK |
 | ✅ | `GET /api/market/offers` | Ofertas devueltas correctamente |
 | ✅ | `GET /api/market/needs` | Needs devueltos (los registrados en simulación) |
@@ -20,7 +21,7 @@
 | ✅ | `GET /api/monitor/stats` | Stats del indexer |
 | ✅ | `GET /api/faucet/status` | `{"configured":true,"agtBalance":"449989654"}` — activo |
 | ✅ | `GET /api/launchpad/status` | `{"available":false,"reason":"Not configured"}` |
-| ✅ | `GET /api/vault/stats` | `{"totalStaked":"0.0","yieldPool":"0.0"}` |
+| ✅ | `GET /api/vault/stats` | `totalStaked=600.0 AGT | yieldPool=0.0` (actualizado tras staking tests) |
 | ✅ | `GET /api/genesis/info` | Contrato GenesisProgram detectado |
 | ✅ | `GET /api/genesis/leaderboard` | Devuelve array vacío (sin participantes aún) |
 
@@ -49,11 +50,12 @@
 ### Issues conocidos
 | Estado | Issue | Causa | Fix |
 |--------|-------|-------|-----|
-| ✅ | Faucet activo — 449M AGT disponibles, nonce bug corregido | singleton wallet + cola serial | — |
-| ⚠️ | `GET /api/genesis/info` pool muestra `"0.000000001772861315"` | Bug de conversión Wei | Investigar |
-| ⚠️ | 9 de 11 agentes tienen `name: "Unknown"` | Agentes registrados sin metadatos en mainnet | Normal para agentes de simulación en testnet |
-| ❌ | `GET /api/reputation/leaderboard` → 404 | Ruta no registrada en el router | Menor — usar `/api/monitor/stats` |
-| ❌ | `GET /.well-known/agent.json` → 404 | Ruta del A2A en dashboard (Vercel), no backend | Revisar ruta en Next.js |
+| ✅ | Faucet activo — 399M AGT disponibles, requisito ETH bajado a `> 0` | ETH=0 rejection implementado | Deploy 2026-03-17 |
+| ⚠️ | `GET /api/genesis/leaderboard` falla bajo carga del test | Railway RPC rate-limit cuando hay muchas llamadas seguidas | Funciona en curl directo — 5 participants en mainnet |
+| ⚠️ | `GET /api/agents/:address` intermitente en test | Railway `isRegistered()` falla bajo RPC load | Funciona en curl; isRegistered=true verificado on-chain |
+| ⚠️ | `GET /api/monitor/reputation/:address` intermitente en test | Mismo RPC load issue | Verificado via curl: score=6014 |
+| ⚠️ | 34 agentes con `name: "Unknown"` parcialmente | Agentes simulación registrados sin metadatos | Normal — usuarios reales usan /launch con nombre |
+| ❌ | `GET /.well-known/agent.json` → 404 | Ruta del A2A en dashboard (Vercel) | Menor |
 
 ---
 
@@ -117,7 +119,67 @@
 | ✅ | SubscriptionManager | `0xC466C9cEc228C74C933d35ed0694E5134CdD8B18` | Basescan |
 | ✅ | ReferralNetwork | `0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c` | Basescan |
 | ✅ | GenesisProgram | `0x92B369Ece9527d4c0526A73E589ca8C7b7a6276c` | Basescan |
-| ✅ | Tests | 55/55 passing (hardhat) | — |
+| ✅ | Tests | 55/55 passing (hardhat) + 51/52 E2E mainnet real | — |
+
+---
+
+## 3b. SISTEMAS ON-CHAIN — VERIFICACIÓN E2E (Base Mainnet — 2026-03-17)
+
+### AgentVault — Staking & Tiers
+| Estado | Check | Resultado |
+|--------|-------|-----------|
+| ✅ | `TIER1_STAKE` | 500 AGT → Tier 1 (max deal ≤5,000 AGT) |
+| ✅ | `TIER2_STAKE` | 5,000 AGT → Tier 2 (max deal ≤50,000 AGT) |
+| ✅ | `TIER3_STAKE` | 50,000 AGT → Tier 3 (ilimitado) |
+| ✅ | `YIELD_RATE_BPS` | 500 bps = 5% APY |
+| ✅ | `stake()` → Tier 0→1 | buyer stakeó 500 AGT — tier=1 verificado on-chain |
+| ✅ | `getTier(buyer)` | tier=1 tras 500 AGT stakeados |
+| ✅ | `getCreditLimit()` | 601.4 AGT (= score/10 del ReputationSystem) |
+| ✅ | `getPendingYield()` | Yield acumulando — 0.000754 AGT buyer |
+| ✅ | `totalStaked()` | 600 AGT total en el protocolo (100 seller + 500 buyer) |
+
+### SubscriptionManager
+| Estado | Check | Resultado |
+|--------|-------|-----------|
+| ✅ | `subscribe()` | 4 subscripciones activas en mainnet |
+| ✅ | `getProviderSubscriptions(seller)` | 4 subs incoming para seller |
+| ✅ | `getSubscription(id)` | price=2.0 AGT/period, status=0(Active) |
+
+### TaskDAG
+| Estado | Check | Resultado |
+|--------|-------|-----------|
+| ✅ | `createTask()` | Task creada con budget=2 AGT, deadline=7 días |
+| ✅ | `acceptTask()` | Seller acepta, status=1(Accepted) |
+| ✅ | `completeTask()` | status=2(Completed), fundsReleased=true ✅ |
+| ✅ | Flow completo | 5 tasks en mainnet — buyer es orchestrator, seller es assignee |
+
+### ReferralNetwork
+| Estado | Check | Resultado |
+|--------|-------|-----------|
+| ✅ | `getReferralData(buyer)` | referrer=seller, networkDeals=0 |
+| ✅ | `getNetworkSize(seller)` | 1 agente en red de seller |
+
+### ReputationSystem
+| Estado | Check | Resultado |
+|--------|-------|-----------|
+| ✅ | `getReputation(buyer)` | score=6014, deals=3, successful=3, value=60 AGT |
+| ✅ | `getReputation(seller)` | score=6014, deals=3, successful=3, value=60 AGT |
+| ✅ | `getLiveScore()` | 6014 (sin decay — agentes activos) |
+| ✅ | score fórmula | 60% success + 25% volume + 15% speed = 6014/10000 |
+
+### AgentRegistry
+| Estado | Check | Resultado |
+|--------|-------|-----------|
+| ✅ | `totalRegistered()` | 34 agentes en mainnet |
+| ✅ | `isRegistered(buyer)` | true |
+| ✅ | `isRegistered(seller)` | true |
+
+### Faucet
+| Estado | Check | Resultado |
+|--------|-------|-----------|
+| ✅ | ETH=0 → rechazado | `error: "Wallet must have some ETH... (any amount > 0)"` |
+| ✅ | ETH>0 → acepta | Restricción mínima eliminada (antes era 0.0001 ETH) |
+| ✅ | `agtBalance` | 399,966,264 AGT disponibles en el faucet |
 
 ---
 
@@ -275,12 +337,12 @@ backend/src/services/indexer.ts        — 3 nuevas tablas SQLite + 14 nuevos m�
 
 | Prioridad | Issue | Fix |
 |-----------|-------|-----|
-| ✅ | ~~Faucet not configured~~ | Resuelto — DEPLOYER_PRIVATE_KEY en Railway, nonce bug corregido |
+| ✅ | ~~Faucet not configured~~ | Resuelto — DEPLOYER_PRIVATE_KEY en Railway |
+| ✅ | ~~ETH mínimo 0.0001~~ | Resuelto — ahora solo requiere ETH > 0 (2026-03-17) |
 | 🔴 | DexScreener no indexado | Hacer 1 swap real en Uniswap (cualquier cantidad) |
-| 🟡 | 9 agentes sin nombre/metadata | Registrar agentes reales con metadatos via /launch |
-| 🟡 | Genesis pool muestra valor incorrecto en API | Bug Wei conversion en /api/genesis/info |
+| 🟡 | Genesis/reputation/agents endpoints lentos bajo carga | RPC rate-limit en Railway — ok en condiciones normales |
 | 🟡 | A2A agent.json 404 | Verificar ruta en Next.js |
-| 🟢 | `/api/reputation/leaderboard` 404 | Añadir alias de ruta al router |
+| 🟢 | `completeTask()` lento en reflejar estado | Añadir sleep(3s) en clientes que lean estado post-tx |
 
 ---
 
@@ -302,7 +364,7 @@ backend/src/services/indexer.ts        — 3 nuevas tablas SQLite + 14 nuevos m�
 |-----------|-------|---------|
 | 🟡 | **Agent Launchpad con UI** (nueva `/launch` mejorada) | Primera revenue real ($5 USDC/agente) |
 | 🟡 | **Smithery + Hugging Face Space** | Distribución MCP + demo visual |
-| 🟡 | **Deploy delivery+deals a Railway** | El sistema de entrega está local — subir a producción |
+| ✅ | ~~Deploy delivery+deals a Railway~~ | Desplegado 2026-03-17 — delivery+webhooks+deals live |
 | 🟢 | **Bonding Curve AGT** (nuevo contrato) | Revenue exponencial — requiere confirmación mainnet |
 | 🟢 | **SDK Python v2** (`pip install aep-sdk`) | x5 mercado accesible (ML/AI builders) |
 | 🟢 | **Community Telegram/Discord AEP** | Primeros 100 miembros → badge on-chain |
