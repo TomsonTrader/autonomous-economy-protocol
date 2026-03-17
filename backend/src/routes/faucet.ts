@@ -89,14 +89,13 @@ export function faucetRouter(
     try {
       const { wallet, token } = await getWallet(deploymentContracts.AgentToken);
 
-      // Check 2: requester must have ETH on Base — filters throwaway wallets
-      const MIN_ETH = ethers.parseEther("0.0001");
+      // Check 2: requester must have any ETH on Base — filters empty throwaway wallets
       const requesterEth: bigint = await wallet.provider!.getBalance(address);
-      if (requesterEth < MIN_ETH) {
+      if (requesterEth === 0n) {
         return res.status(403).json({
-          error: "Wallet must have at least 0.0001 ETH on Base to receive AGT. Add a small amount of ETH first.",
-          requiredEth: "0.0001",
-          currentEth: ethers.formatEther(requesterEth),
+          error: "Wallet must have some ETH on Base (any amount > 0) to receive AGT.",
+          requiredEth: ">0",
+          currentEth: "0",
         });
       }
 

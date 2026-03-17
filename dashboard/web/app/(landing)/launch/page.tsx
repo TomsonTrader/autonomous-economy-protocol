@@ -202,7 +202,7 @@ function DevFlow({ onBack }: { onBack:()=>void }) {
       await new Promise(r=>setTimeout(r,12000));
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const ethBalance = await provider.getBalance(addr);
-      if(ethBalance<ethers.parseEther("0.00005")){ setStep("needeth"); return; }
+      if(ethBalance===0n){ setStep("needeth"); return; }
       setStep("approve");
     } catch(e:any){
       setErrMsg(e.code===4001?"Connection rejected. Please try again.":e.message);
@@ -264,7 +264,7 @@ function DevFlow({ onBack }: { onBack:()=>void }) {
         <div style={{ textAlign:"center", marginBottom:32 }}>
           <h1 style={{ fontFamily:"monospace", fontSize:28, fontWeight:900, letterSpacing:"-0.02em", marginBottom:8 }}>REGISTER_AGENT</h1>
           <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted }}>
-            3 STEPS · <span style={{ color:C.green }}>15 AGT SENT FREE</span> · ~$0.05 ETH FOR GAS
+            3 STEPS · <span style={{ color:C.green }}>15 AGT SENT FREE</span> · MINIMAL ETH FOR GAS
           </p>
         </div>
 
@@ -288,7 +288,7 @@ function DevFlow({ onBack }: { onBack:()=>void }) {
               <div style={{ fontFamily:"monospace", fontSize:9, color:C.purple, letterSpacing:"0.1em", marginBottom:8 }}>REQUIREMENTS</div>
               <div style={{ fontFamily:"monospace", fontSize:10, color:C.muted, lineHeight:2 }}>
                 ✓ MetaMask installed<br/>
-                ✓ ~$0.05 ETH on Base for gas (2 txs)<br/>
+                ✓ Any amount of ETH on Base for gas (2 txs)<br/>
                 ✓ 15 AGT — sent free automatically
               </div>
             </HUDPanel>
@@ -340,7 +340,7 @@ function DevFlow({ onBack }: { onBack:()=>void }) {
             <div style={{ fontFamily:"monospace", fontSize:28, textAlign:"center", marginBottom:12 }}>⛽</div>
             <div style={{ fontFamily:"monospace", fontSize:14, fontWeight:700, marginBottom:8, textAlign:"center" }}>NEED_ETH_FOR_GAS</div>
             <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.7, marginBottom:20, textAlign:"center" }}>
-              THE TWO ON-CHAIN TXS (APPROVE + REGISTER) COST ~<span style={{ color:C.text }}>$0.05</span> IN GAS ON BASE
+              THE TWO ON-CHAIN TXS (APPROVE + REGISTER) NEED A SMALL AMOUNT OF ETH FOR GAS ON BASE
             </p>
             <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
               <a href="https://www.coinbase.com/price/ethereum" target="_blank" rel="noreferrer"
@@ -355,8 +355,8 @@ function DevFlow({ onBack }: { onBack:()=>void }) {
             <button onClick={async()=>{
               const p = new ethers.BrowserProvider((window as any).ethereum);
               const b = await p.getBalance(address!);
-              if(b>=ethers.parseEther("0.00005")) setStep("approve");
-              else setErrMsg("STILL NOT ENOUGH ETH DETECTED");
+              if(b>0n) setStep("approve");
+              else setErrMsg("NO ETH DETECTED IN WALLET YET");
             }} style={{ ...btnGold, width:"100%", justifyContent:"center" }}>
               I HAVE ETH — CONTINUE →
             </button>
