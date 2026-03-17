@@ -1,5 +1,5 @@
 # Checklist de Funcionalidad — AEP
-> Auditado el 2026-03-11. ✅ = verificado en producción. ⚠️ = funciona con limitación. ❌ = error/no disponible.
+> Auditado el 2026-03-16. ✅ = verificado en producción. ⚠️ = funciona con limitación. ❌ = error/no disponible. ⏳ = pendiente.
 
 ---
 
@@ -18,7 +18,7 @@
 | ✅ | `GET /api/token` | Metadata AGT + pool data live de GeckoTerminal |
 | ✅ | `GET /api/activity` | Devuelve array de eventos (vacío actualmente) |
 | ✅ | `GET /api/monitor/stats` | Stats del indexer |
-| ✅ | `GET /api/faucet/status` | `{"configured":false}` — faucet wallet sin ETH |
+| ✅ | `GET /api/faucet/status` | `{"configured":true,"agtBalance":"449989654"}` — activo |
 | ✅ | `GET /api/launchpad/status` | `{"available":false,"reason":"Not configured"}` |
 | ✅ | `GET /api/vault/stats` | `{"totalStaked":"0.0","yieldPool":"0.0"}` |
 | ✅ | `GET /api/genesis/info` | Contrato GenesisProgram detectado |
@@ -27,8 +27,7 @@
 ### Issues conocidos
 | Estado | Issue | Causa | Fix |
 |--------|-------|-------|-----|
-| ⚠️ | `GET /api/faucet/status` → `configured:false` | Wallet del faucet sin ETH para gas | Cargar `0x1200BE707C668b0313757Fc7d097B1a498bA62Ba` con ~0.01 ETH |
-| ⚠️ | `GET /api/launchpad/status` → `available:false` | Sin configurar (mismo wallet) | Mismo fix que arriba |
+| ✅ | Faucet activo — 449M AGT disponibles, nonce bug corregido | singleton wallet + cola serial | — |
 | ⚠️ | `GET /api/genesis/info` pool muestra `"0.000000001772861315"` | Bug de conversión Wei | Investigar |
 | ⚠️ | 9 de 11 agentes tienen `name: "Unknown"` | Agentes registrados sin metadatos en mainnet | Normal para agentes de simulación en testnet |
 | ❌ | `GET /api/reputation/leaderboard` → 404 | Ruta no registrada en el router | Menor — usar `/api/monitor/stats` |
@@ -42,13 +41,32 @@
 ### Páginas
 | Estado | Página | Notas |
 |--------|--------|-------|
-| ✅ | `/` | Landing completa — hero, stats live, ticker, pool chart, CTA |
+| ✅ | `/` | Landing completa — hero, stats live, AgentNetwork canvas, waveform, ticker, CTA |
 | ✅ | `/whitepaper` | Whitepaper completo con nav, abstract, contratos, tokenomics, roadmap |
 | ✅ | `/season1` | Página Season 1 — countdown, leaderboard, reglas |
-| ✅ | `/launch` | Launchpad — registro de agentes |
+| ✅ | `/launch` | Launchpad — registro de agentes con wallet connect + faucet |
 | ✅ | `/dashboard` | Dashboard interno — métricas, deals, vault |
-| ✅ | `/activity` | Feed de actividad en tiempo real |
+| ✅ | `/activity` | Feed de actividad en tiempo real (WebSocket) |
 | ✅ | `/refer` | Página de referidos con generación de URL |
+| ✅ | `/token` | Token page — stats live, tokenomics, trade links |
+| ✅ | `/roi` | Calculadora de ROI con sliders |
+
+### Sistema de diseño (nuevo — 2026-03-16)
+| Estado | Componente | Path | Notas |
+|--------|-----------|------|-------|
+| ✅ | Design System completo | `app/(landing)/_components.tsx` | Paleta C, AepStyles, Scanlines |
+| ✅ | `HUDPanel` | _components.tsx | Panel con 4 corner brackets, accent color |
+| ✅ | `GlitchText` | _components.tsx | Efecto glitch CSS clip-path |
+| ✅ | `AepNav` | _components.tsx | Nav fijo con hex logo spinning, live dot |
+| ✅ | `AepFooter` | _components.tsx | Footer con links |
+| ✅ | `btnGold`, `btnPrimary`, `btnSecondary` | _components.tsx | Botones clipPath polygon |
+| ✅ | `StatPill`, `Tag`, `DataRow`, `SectionLabel` | _components.tsx | Utilidades |
+| ✅ | AgentNetwork canvas | page.tsx, preview/page.tsx | 18 nodos, partículas viajando, 60fps |
+| ✅ | Waveform canvas | page.tsx | Sine wave animada como heartbeat |
+| ✅ | Typewriter | page.tsx | Texto rotante con animación de escritura |
+| ✅ | ActivityLog | page.tsx | Feed auto-actualizable cada 1.8s |
+| ✅ | Ticker | page.tsx | Precio AGT con micro-fluctuaciones |
+| ✅ | Scanlines overlay | _components.tsx | CRT effect fixed sobre toda la UI |
 
 ### SEO / Meta
 | Estado | Elemento | Notas |
@@ -85,9 +103,15 @@
 
 | Estado | Paquete | Versión | URL |
 |--------|---------|---------|-----|
-| ✅ | `autonomous-economy-sdk` (npm) | 1.5.1 | npmjs.com/package/autonomous-economy-sdk |
-| ✅ | `autonomous-economy-sdk` (PyPI) | 1.0.0 | pypi.org/project/autonomous-economy-sdk |
+| ✅ | `autonomous-economy-sdk` (npm) | 1.5.2 | npmjs.com/package/autonomous-economy-sdk |
+| ✅ | `autonomous-economy-sdk` (PyPI) | 1.0.1 | pypi.org/project/autonomous-economy-sdk |
 | ✅ | `n8n-nodes-aep` (npm) | 1.0.0 | npmjs.com/package/n8n-nodes-aep |
+
+### Métodos SDK incluídos
+- `registerAgent`, `faucet`, `getAgent`, `browseMarket`, `publishOffer`, `publishNeed`
+- `getReputation`, `getMarketStats`, `stakeInVault`, `getVaultStats`
+- `getGenesisInfo`, `getGenesisLeaderboard`, `claimGenesisReward`
+- `subscribeToAgent`, `createTask`, `addReferral`
 
 ---
 
@@ -99,7 +123,7 @@
 | ✅ | CrewAI | `integrations/crewai-integration/` | 8 tools |
 | ✅ | AutoGen | `integrations/autogen-integration/` | 7 tools |
 | ✅ | Eliza/ai16z | `integrations/eliza-plugin/` | 5 actions |
-| ✅ | MCP Server | `mcp-server/` | 9 tools para Claude Desktop |
+| ✅ | MCP Server | `mcp-server/` | 10 tools para Claude Desktop/Cursor/Windsurf |
 | ✅ | n8n | `integrations/n8n-node/` | 12 operations, publicado en npm |
 | ✅ | Telegram Bot | `integrations/telegram-bot/` | Listo para usar (necesita token) |
 | ✅ | Orchestrator | `orchestrator/` | Multi-agente |
@@ -119,26 +143,75 @@
 
 ---
 
-## 7. REDES SOCIALES / PRESENCIA
+## 7. SEASON 1 — AGENT GENESIS PROGRAM
+
+| Estado | Elemento | Notas |
+|--------|----------|-------|
+| ✅ | Contrato GenesisProgram | `0x92B369Ece9527d4c0526A73E589ca8C7b7a6276c` — mainnet, verificado |
+| ✅ | Pool 50M AGT | 60 días de duración (termina ~mayo 2026) |
+| ✅ | Backend routes | `/api/genesis/info`, `/api/genesis/leaderboard`, `/api/genesis/participant/:address` |
+| ✅ | Dashboard `/season1` | Countdown, leaderboard, reglas, cómo participar |
+| ✅ | Vesting + delay | Protección contra dump al crear pool Uniswap |
+| ✅ | Demo agent 24/7 | Genera actividad en Railway, wallet `0x905...720A` |
+| ⏳ | Primeros participantes reales | 0 wallets externas registradas aún |
+
+---
+
+## 8. REDES SOCIALES / PRESENCIA
 
 | Estado | Canal | URL | Notas |
 |--------|-------|-----|-------|
 | ✅ | GitHub | github.com/TomsonTrader/autonomous-economy-protocol | Público, AGPL-3.0 |
 | ✅ | Twitter/X | x.com/AEPprotocol | Cuenta creada |
 | ✅ | Telegram | t.me/AEPprotocol | Canal creado |
-| ⏳ | Twitter — perfil completo | — | Foto, banner, bio, tweets pendientes |
+| ⏳ | Twitter — perfil completo + tweets | — | Foto, banner, bio, primeros tweets pendientes |
+| ⏳ | Farcaster | warpcast.com | Posts preparados en /base, /dev, /ai — sin publicar |
+| ⏳ | ai16z Discord | — | Post en #projects con gancho Eliza — sin publicar |
 | ⏳ | Smithery MCP registry | smithery.ai/submit | Listing YAML listo en mcp-server/ |
 | ⏳ | Hugging Face Space | — | Archivos listos en huggingface-space/ |
 
 ---
 
-## 8. PROBLEMAS ABIERTOS (por prioridad)
+## 9. PROBLEMAS ABIERTOS (por prioridad)
 
 | Prioridad | Issue | Fix |
 |-----------|-------|-----|
-| 🔴 | Faucet/Launchpad `not configured` | Cargar wallet `0x1200BE707C668b0313757Fc7d097B1a498bA62Ba` con 0.01 ETH |
+| ✅ | ~~Faucet not configured~~ | Resuelto — DEPLOYER_PRIVATE_KEY en Railway, nonce bug corregido |
 | 🔴 | DexScreener no indexado | Hacer 1 swap real en Uniswap (cualquier cantidad) |
 | 🟡 | 9 agentes sin nombre/metadata | Registrar agentes reales con metadatos via /launch |
 | 🟡 | Genesis pool muestra valor incorrecto en API | Bug Wei conversion en /api/genesis/info |
 | 🟡 | A2A agent.json 404 | Verificar ruta en Next.js |
 | 🟢 | `/api/reputation/leaderboard` 404 | Añadir alias de ruta al router |
+
+---
+
+## 10. LO QUE FALTA (priorizado)
+
+### Acciones inmediatas (esta semana)
+| Prioridad | Tarea | Impacto |
+|-----------|-------|---------|
+| 🔴 | **Swap real en Uniswap** | DexScreener indexa → más visibilidad |
+| 🔴 | **Publicar en Farcaster** (/base, /dev, /ai) | Primeros usuarios externos |
+| 🔴 | **Post en ai16z Discord #projects** | Comunidad Eliza = mayor adopción SDK |
+| 🔴 | **Twitter — completar perfil + 3 tweets** | Credibilidad con inversores |
+| 🟡 | **Dominio aep.finance** (~$10/año) | URL profesional para inversores |
+| 🟡 | **Base Grants application** | $100k — doc listo en `docs/base-grants-application.md` |
+| 🟡 | **Gitcoin S23 application** | Funding + visibilidad comunitaria |
+
+### Desarrollo pendiente (próximas semanas)
+| Prioridad | Tarea | Impacto |
+|-----------|-------|---------|
+| 🟡 | **Agent Launchpad con UI** (nueva `/launch` mejorada) | Primera revenue real ($5 USDC/agente) |
+| 🟡 | **Smithery + Hugging Face Space** | Distribución MCP + demo visual |
+| 🟢 | **Bonding Curve AGT** (nuevo contrato) | Revenue exponencial — requiere confirmación mainnet |
+| 🟢 | **SDK Python v2** (`pip install aep-sdk`) | x5 mercado accesible (ML/AI builders) |
+| 🟢 | **Community Telegram/Discord AEP** | Primeros 100 miembros → badge on-chain |
+| 🟢 | **Security Audit** (Spearbit/Code4rena) | Necesario para enterprise + DeFiLlama |
+
+### Largo plazo (mes 3+)
+| Tarea | Notas |
+|-------|-------|
+| Acercamiento Virtuals Protocol | Demo: agente Virtuals comprando via AEP |
+| Multichain (Optimism, Arbitrum) | LayerZero bridge AGT |
+| DAO governance | AGT holders votan parámetros de protocolo |
+| Series A / CEX listing | Con 1000+ agentes, audit limpio, $100k+ treasury |

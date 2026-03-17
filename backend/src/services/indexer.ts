@@ -79,6 +79,31 @@ export class EventIndexer {
         address    TEXT PRIMARY KEY,
         funded_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       );
+
+      -- Delivery proofs: seller-submitted cryptographic proofs of service delivery
+      CREATE TABLE IF NOT EXISTS delivery_proofs (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        agreement_address TEXT    NOT NULL,
+        seller_address    TEXT    NOT NULL,
+        proof_hash        TEXT    NOT NULL,
+        delivery_data     TEXT    NOT NULL,
+        signature         TEXT    NOT NULL,
+        webhook_sent      INTEGER NOT NULL DEFAULT 0,
+        created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_delivery_agreement ON delivery_proofs(agreement_address);
+      CREATE INDEX IF NOT EXISTS idx_delivery_seller    ON delivery_proofs(seller_address);
+
+      -- Webhook subscriptions: callback URLs registered by agents
+      CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+        address     TEXT    NOT NULL,
+        url         TEXT    NOT NULL,
+        secret      TEXT    NOT NULL,
+        events      TEXT    NOT NULL DEFAULT '["*"]',
+        created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        PRIMARY KEY (address, url)
+      );
+      CREATE INDEX IF NOT EXISTS idx_webhook_address ON webhook_subscriptions(address);
     `);
   }
 
@@ -398,6 +423,76 @@ export class EventIndexer {
 
   fundedCount(): number {
     return (this.db.prepare("SELECT COUNT(*) as cnt FROM funded_addresses").get() as { cnt: number }).cnt;
+  }
+
+  // ── Delivery proofs ────────────────────────────────────────────────────────
+
+  saveDeliveryProof(proof: {
+    agreementAddress: string;
+    sellerAddress: string;
+    proofHash: string;
+    deliveryData: string;
+    signature: string;
+  }): number {
+    const result = this.db.prepare(`
+      INSERT INTO delivery_proofs (agreement_address, seller_address, proof_hash, delivery_data, signature)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      proof.agreementAddress.toLowerCase(),
+      proof.sellerAddress.toLowerCase(),
+      proof.proofHash,
+      proof.deliveryData,
+      proof.signature
+    );
+    return result.lastInsertRowid as number;
+  }
+
+  markWebhookSent(id: number): void {
+    this.db.prepare("UPDATE delivery_proofs SET webhook_sent = 1 WHERE id = ?").run(id);
+  }
+
+  getDeliveryProofs(agreementAddress: string): any[] {
+    return (this.db.prepare(
+      "SELECT * FROM delivery_proofs WHERE agreement_address = ? ORDER BY created_at DESC"
+    ).all(agreementAddress.toLowerCase()) as any[]);
+  }
+
+  getLatestDeliveryProof(agreementAddress: string): any | null {
+    return this.db.prepare(
+      "SELECT * FROM delivery_proofs WHERE agreement_address = ? ORDER BY created_at DESC LIMIT 1"
+    ).get(agreementAddress.toLowerCase()) ?? null;
+  }
+
+  // ── Webhook subscriptions ──────────────────────────────────────────────────
+
+  saveWebhookSubscription(address: string, url: string, secret: string, events: string[]): void {
+    this.db.prepare(`
+      INSERT INTO webhook_subscriptions (address, url, secret, events)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(address, url) DO UPDATE SET secret=excluded.secret, events=excluded.events
+    `).run(address.toLowerCase(), url, secret, JSON.stringify(events));
+  }
+
+  deleteWebhookSubscription(address: string, url: string): boolean {
+    const result = this.db.prepare(
+      "DELETE FROM webhook_subscriptions WHERE address = ? AND url = ?"
+    ).run(address.toLowerCase(), url);
+    return result.changes > 0;
+  }
+
+  getWebhookSubscriptions(address: string): Array<{ url: string; events: string[]; created_at: number }> {
+    return (this.db.prepare(
+      "SELECT url, events, created_at FROM webhook_subscriptions WHERE address = ?"
+    ).all(address.toLowerCase()) as any[]).map(r => ({ ...r, events: JSON.parse(r.events) }));
+  }
+
+  getWebhooksForEvent(targetAddress: string, eventType: string): Array<{ url: string; secret: string }> {
+    return (this.db.prepare(
+      "SELECT url, secret FROM webhook_subscriptions WHERE address = ?"
+    ).all(targetAddress.toLowerCase()) as any[]).filter(r => {
+      const events: string[] = JSON.parse(r.events);
+      return events.includes("*") || events.includes(eventType);
+    });
   }
 
   // ── Legacy backfill (events only — kept for compatibility) ─────────────────

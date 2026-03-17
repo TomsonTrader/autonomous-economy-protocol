@@ -831,6 +831,144 @@ export class AgentSDK {
     return wrapFetchWithPayment(fetch, client) as typeof fetch;
   }
 
+  // ── Delivery Verification ────────────────────────────────────────────────────
+
+  /**
+   * Seller: submit a cryptographic proof of service delivery.
+   *
+   * Signs the delivery proof with the agent's private key and POSTs to the
+   * AEP backend. The backend verifies the signature, stores the proof, and
+   * fires HTTP webhooks to the buyer's registered callback URL (if any).
+   *
+   * The buyer's agent should then call `confirmDelivery(agreementAddress)` to
+   * release the escrowed payment on-chain.
+   *
+   * @param agreementAddress - The AutonomousAgreement contract address
+   * @param deliveryData     - JSON-serialisable result (output, URL, hash, etc.)
+   * @param buyerAddress     - Optional: buyer address to look up their webhook
+   */
+  async submitDeliveryProof(
+    agreementAddress: string,
+    deliveryData: string,
+    buyerAddress?: string
+  ): Promise<{ proofId: number; proofHash: string; message: string }> {
+    if (!this._backendUrl) throw new Error("backendUrl required to submit delivery proofs");
+    if (!this.signer) throw new Error("Signer (private key) required to submit delivery proofs");
+
+    // 1. Compute proofHash = keccak256(deliveryData)
+    const proofHash = ethers.keccak256(ethers.toUtf8Bytes(deliveryData));
+
+    // 2. Sign the canonical message (same format backend verifies)
+    const message = `AEP Delivery Proof\nAgreement: ${ethers.getAddress(agreementAddress)}\nProof: ${proofHash}`;
+    const signature = await this.signer.signMessage(message);
+
+    // 3. POST to backend
+    const body: Record<string, string> = {
+      agreementAddress,
+      sellerAddress: this.address,
+      proofHash,
+      deliveryData,
+      signature,
+    };
+    if (buyerAddress) body.buyerAddress = buyerAddress;
+
+    const res = await fetch(`${this._backendUrl}/api/delivery/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Unknown error" })) as any;
+      throw new Error(`Delivery proof rejected: ${err.message ?? res.statusText}`);
+    }
+
+    return res.json() as Promise<{ proofId: number; proofHash: string; message: string }>;
+  }
+
+  /**
+   * Get delivery proof status for an agreement.
+   *
+   * @param agreementAddress - The AutonomousAgreement contract address
+   */
+  async getDeliveryStatus(agreementAddress: string): Promise<{
+    status: "NO_PROOF" | "PROOF_SUBMITTED";
+    proofId?: number;
+    sellerAddress?: string;
+    proofHash?: string;
+    webhookSent?: boolean;
+    submittedAt?: string;
+    message: string;
+  }> {
+    if (!this._backendUrl) throw new Error("backendUrl required");
+    const res = await fetch(`${this._backendUrl}/api/delivery/status/${agreementAddress}`);
+    return res.json() as any;
+  }
+
+  // ── Webhook Subscriptions ────────────────────────────────────────────────────
+
+  /**
+   * Register an HTTP callback URL to receive event notifications.
+   *
+   * The backend will POST to this URL when events occur for `address`.
+   * Each POST includes `X-AEP-Signature: sha256=<hmac>` for verification.
+   *
+   * @param address  - Ethereum address to watch (typically your agent address)
+   * @param url      - HTTPS callback URL (your server must respond 2xx)
+   * @param events   - Event types to subscribe to (default: all)
+   * @param secret   - Optional HMAC secret (auto-generated if omitted)
+   * @returns        - The subscription including the secret for HMAC verification
+   */
+  async registerWebhook(
+    address: string,
+    url: string,
+    events: string[] = ["*"],
+    secret?: string
+  ): Promise<{ success: boolean; url: string; events: string[]; secret: string }> {
+    if (!this._backendUrl) throw new Error("backendUrl required");
+
+    const res = await fetch(`${this._backendUrl}/api/webhooks/subscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, url, events, secret }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Unknown error" })) as any;
+      throw new Error(`Webhook registration failed: ${err.message ?? res.statusText}`);
+    }
+
+    return res.json() as any;
+  }
+
+  /**
+   * Remove a previously registered webhook callback URL.
+   */
+  async unregisterWebhook(address: string, url: string): Promise<void> {
+    if (!this._backendUrl) throw new Error("backendUrl required");
+
+    const res = await fetch(`${this._backendUrl}/api/webhooks/unsubscribe`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, url }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: "Unknown error" })) as any;
+      throw new Error(`Webhook removal failed: ${err.message ?? res.statusText}`);
+    }
+  }
+
+  /**
+   * List all registered webhook subscriptions for an address.
+   */
+  async listWebhooks(address: string): Promise<Array<{ url: string; events: string[]; createdAt: string }>> {
+    if (!this._backendUrl) throw new Error("backendUrl required");
+    const res = await fetch(`${this._backendUrl}/api/webhooks/${address}`);
+    const data = await res.json() as any;
+    return data.subscriptions ?? [];
+  }
+
   // ── Events ──────────────────────────────────────────────────────────────────
 
   on(event: ProtocolEvent | string, handler: EventHandler): void {
