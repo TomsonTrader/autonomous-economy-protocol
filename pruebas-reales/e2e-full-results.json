@@ -1,0 +1,286 @@
+{
+  "timestamp": "2026-03-17T10:00:14.978Z",
+  "network": "base-mainnet",
+  "buyer": "0x756D1e723823A61408fE75646ECfCf9be9bc2f60",
+  "seller": "0x9029B5e217Aee8DFd6cDf3432f50C0B8D3653e6b",
+  "total": 54,
+  "passed": 54,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Balances before stake",
+      "ok": true,
+      "detail": "buyer=932.0 AGT | seller=974.7 AGT"
+    },
+    {
+      "name": "Protocol totalStaked before",
+      "ok": true,
+      "detail": "100.0 AGT"
+    },
+    {
+      "name": "Seller already has ≥100 AGT staked",
+      "ok": true,
+      "detail": "staked=100.0 AGT — skipping stake tx"
+    },
+    {
+      "name": "Vault data",
+      "ok": true,
+      "detail": "staked=100.0 AGT | tier=0 | creditLimit=601.4 AGT"
+    },
+    {
+      "name": "Pending yield",
+      "ok": true,
+      "detail": "0.001508751902587519 AGT"
+    },
+    {
+      "name": "Protocol totalStaked after",
+      "ok": true,
+      "detail": "100.0 AGT"
+    },
+    {
+      "name": "Subscriptions before",
+      "ok": true,
+      "detail": "3"
+    },
+    {
+      "name": "Approve SubscriptionManager",
+      "ok": true,
+      "detail": "6 AGT approved",
+      "txHash": "0xcd43b680afa86eff6f7804ba5d13a5e458e0a33f4967894ff61a1673837e3b20"
+    },
+    {
+      "name": "Subscription created",
+      "ok": true,
+      "detail": "id=3",
+      "txHash": "0x1bb788be362cb88736d62bf9f32e5724359566923a289765c2c8d46f98074a6b"
+    },
+    {
+      "name": "Subscription details",
+      "ok": true,
+      "detail": "subscriber=0x756D1e... provider=0x9029B5... price=2.0 AGT/period | status=0 (0=Active)"
+    },
+    {
+      "name": "Provider subscriptions",
+      "ok": true,
+      "detail": "seller has 4 subscription(s) incoming"
+    },
+    {
+      "name": "Tasks before",
+      "ok": true,
+      "detail": "2"
+    },
+    {
+      "name": "TaskDAG already approved",
+      "ok": true,
+      "detail": "allowance=5.0 AGT"
+    },
+    {
+      "name": "Task created",
+      "ok": true,
+      "detail": "id=2 | budget=5 AGT",
+      "txHash": "0x4b6b9705aafff6322fec02b8d87b15731f7f4db4e90f31e31fc6aeaaa0bf7a24"
+    },
+    {
+      "name": "Task details",
+      "ok": true,
+      "detail": "status=0 (0=Open) | orchestrator=0x756D1e... | budget=5.0 AGT"
+    },
+    {
+      "name": "Task accepted",
+      "ok": true,
+      "detail": "seller=0x9029B5...",
+      "txHash": "0xf9af015c55fcbd59e8e7f80a700a0089cfb416ebb8bb4954c37c6ebb995c64fc"
+    },
+    {
+      "name": "Task state after accept",
+      "ok": true,
+      "detail": "status=1 (1=Accepted) | assignee=0x9029B5..."
+    },
+    {
+      "name": "Task completed",
+      "ok": true,
+      "detail": "budget released to seller",
+      "txHash": "0x6ccae96a10e2769455bb56220d060c078f223032c94e161a228694b3c4942bea"
+    },
+    {
+      "name": "Task state final",
+      "ok": true,
+      "detail": "status=2 (2=Completed) | fundsReleased=true"
+    },
+    {
+      "name": "Total tasks",
+      "ok": true,
+      "detail": "3 tasks on-chain"
+    },
+    {
+      "name": "Buyer already has referrer",
+      "ok": true,
+      "detail": "referrer=0x9029B5e217Aee8DFd6cDf3432f50C0B8D3653e6b"
+    },
+    {
+      "name": "Buyer referral data",
+      "ok": true,
+      "detail": "referrer=0x9029B5... | totalNetworkDeals=0"
+    },
+    {
+      "name": "Seller network size",
+      "ok": true,
+      "detail": "1 agent(s) referred"
+    },
+    {
+      "name": "Buyer reputation",
+      "ok": true,
+      "detail": "score=6014 | totalDeals=3 | successful=3 | value=60.0 AGT"
+    },
+    {
+      "name": "Seller reputation",
+      "ok": true,
+      "detail": "score=6014 | totalDeals=3 | successful=3 | value=60.0 AGT"
+    },
+    {
+      "name": "GET /health",
+      "ok": true,
+      "detail": "status=ok | network=base-mainnet"
+    },
+    {
+      "name": "GET /api/stats",
+      "ok": true,
+      "detail": "agents=34 | deals=0 | needs=0 | offers=0"
+    },
+    {
+      "name": "GET /api/agents",
+      "ok": true,
+      "detail": "34 agents returned"
+    },
+    {
+      "name": "GET /api/token",
+      "ok": true,
+      "detail": "symbol=AGT | totalSupply=1000000000 | pool_data=live"
+    },
+    {
+      "name": "GET /api/activity",
+      "ok": true,
+      "detail": "15 recent events"
+    },
+    {
+      "name": "GET /api/genesis/info",
+      "ok": true,
+      "detail": "pool=50000000.0 | active=true"
+    },
+    {
+      "name": "GET /api/vault/stats",
+      "ok": true,
+      "detail": "totalStaked=100.0 | yieldPool=0.0"
+    },
+    {
+      "name": "POST /api/webhooks/subscribe",
+      "ok": true,
+      "detail": "url registered | events=DeliveryProofSubmitted,ProposalAccepted"
+    },
+    {
+      "name": "GET /api/webhooks/:address",
+      "ok": true,
+      "detail": "1 webhook(s) | secrets redacted"
+    },
+    {
+      "name": "POST /api/webhooks/subscribe (buyer)",
+      "ok": true,
+      "detail": "buyer webhook registered for DeliveryProofSubmitted"
+    },
+    {
+      "name": "POST /api/deals/register",
+      "ok": true,
+      "detail": "monitoring=registered | deadline=2026-03-24"
+    },
+    {
+      "name": "Deal milestones",
+      "ok": true,
+      "detail": "approaching=2026-03-23 | graceEnd=2026-03-31"
+    },
+    {
+      "name": "GET /api/deals/:address",
+      "ok": true,
+      "detail": "phase=ACTIVE | hasProof=true | graceEnd=2026-03-31"
+    },
+    {
+      "name": "GET /api/deals?seller=",
+      "ok": true,
+      "detail": "1 deal(s) monitored for seller"
+    },
+    {
+      "name": "EIP-191 signature",
+      "ok": true,
+      "detail": "seller signed proof message | sig=0xdee753b2fa0d093b2c..."
+    },
+    {
+      "name": "POST /api/delivery/submit",
+      "ok": true,
+      "detail": "proofId=14 | verified=true"
+    },
+    {
+      "name": "Delivery next step",
+      "ok": true,
+      "detail": "Buyer should call AutonomousAgreement.confirmDelivery() on-chain to release payment."
+    },
+    {
+      "name": "GET /api/delivery/status/:address",
+      "ok": true,
+      "detail": "status=PROOF_SUBMITTED | proofId=14 | deliveryType=hash"
+    },
+    {
+      "name": "GET /api/delivery/:address",
+      "ok": true,
+      "detail": "14 proof(s) on record for this agreement"
+    },
+    {
+      "name": "POST /api/delivery/submit (URL)",
+      "ok": true,
+      "detail": "proofId=15 | verified=true | httpStatus=200"
+    },
+    {
+      "name": "POST /api/delivery/submit (API)",
+      "ok": true,
+      "detail": "proofId=16 | verified=true | returnsJSON=true"
+    },
+    {
+      "name": "GET /api/delivery/:address (final)",
+      "ok": true,
+      "detail": "16 total proof(s) submitted for this agreement"
+    },
+    {
+      "name": "Latest proof detail",
+      "ok": true,
+      "detail": "type=hash | hash=0xc279864b9ae0eb... | seller=0x9029b5..."
+    },
+    {
+      "name": "GET /api/deals/:address (final)",
+      "ok": true,
+      "detail": "phase=ACTIVE | hasProof=true | deliveryType=hash"
+    },
+    {
+      "name": "GET /api/monitor/stats",
+      "ok": true,
+      "detail": "needs=20 | offers=34 | proposals=6"
+    },
+    {
+      "name": "DELETE /api/webhooks/unsubscribe",
+      "ok": true,
+      "detail": "test webhook removed"
+    },
+    {
+      "name": "Buyer final",
+      "ok": true,
+      "detail": "0.000047728950061534 ETH | 921.0 AGT"
+    },
+    {
+      "name": "Seller final",
+      "ok": true,
+      "detail": "0.000055983567059866 ETH | 979.7 AGT"
+    },
+    {
+      "name": "Treasury AGT",
+      "ok": true,
+      "detail": "0.68 AGT (accumulated fees)"
+    }
+  ]
+}

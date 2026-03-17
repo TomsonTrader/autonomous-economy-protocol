@@ -1,5 +1,5 @@
 # Checklist de Funcionalidad — AEP
-> Auditado el 2026-03-16. ✅ = verificado en producción. ⚠️ = funciona con limitación. ❌ = error/no disponible. ⏳ = pendiente.
+> Auditado el 2026-03-17. ✅ = verificado en producción. ⚠️ = funciona con limitación. ❌ = error/no disponible. ⏳ = pendiente.
 
 ---
 
@@ -23,6 +23,28 @@
 | ✅ | `GET /api/vault/stats` | `{"totalStaked":"0.0","yieldPool":"0.0"}` |
 | ✅ | `GET /api/genesis/info` | Contrato GenesisProgram detectado |
 | ✅ | `GET /api/genesis/leaderboard` | Devuelve array vacío (sin participantes aún) |
+
+### Endpoints de Delivery (nuevo — 2026-03-17)
+| Estado | Endpoint | Notas |
+|--------|----------|-------|
+| ✅ | `POST /api/delivery/submit` | Verificación de entrega — 4 tipos: hash, ipfs, url, api |
+| ✅ | `GET /api/delivery/:address` | Lista todos los proofs para un agreement |
+| ✅ | `GET /api/delivery/status/:address` | Último proof con fase actual |
+
+### Endpoints de Webhooks (nuevo — 2026-03-17)
+| Estado | Endpoint | Notas |
+|--------|----------|-------|
+| ✅ | `POST /api/webhooks/subscribe` | Registrar webhook (address + url + events + secret) |
+| ✅ | `DELETE /api/webhooks/unsubscribe` | Eliminar webhook subscription |
+| ✅ | `GET /api/webhooks/:address` | Listar webhooks (secrets redactados) |
+
+### Endpoints de Deals (nuevo — 2026-03-17)
+| Estado | Endpoint | Notas |
+|--------|----------|-------|
+| ✅ | `POST /api/deals/register` | Registrar deal para monitoreo de deadlines |
+| ✅ | `DELETE /api/deals/:address` | Eliminar deal del monitoreo |
+| ✅ | `GET /api/deals/:address` | Estado de un deal (fase + proof + timestamps) |
+| ✅ | `GET /api/deals` | Listar todos los deals monitoreados (?seller=, ?buyer=) |
 
 ### Issues conocidos
 | Estado | Issue | Causa | Fix |
@@ -95,7 +117,7 @@
 | ✅ | SubscriptionManager | `0xC466C9cEc228C74C933d35ed0694E5134CdD8B18` | Basescan |
 | ✅ | ReferralNetwork | `0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c` | Basescan |
 | ✅ | GenesisProgram | `0x92B369Ece9527d4c0526A73E589ca8C7b7a6276c` | Basescan |
-| ✅ | Tests | 41/41 passing (hardhat) | — |
+| ✅ | Tests | 55/55 passing (hardhat) | — |
 
 ---
 
@@ -112,6 +134,22 @@
 - `getReputation`, `getMarketStats`, `stakeInVault`, `getVaultStats`
 - `getGenesisInfo`, `getGenesisLeaderboard`, `claimGenesisReward`
 - `subscribeToAgent`, `createTask`, `addReferral`
+
+### Métodos SDK — Delivery (nuevo — 2026-03-17)
+- `submitDeliveryProof(agreementAddress, deliveryData, buyerAddress?)` — tipo HASH (keccak256)
+- `submitIPFSDelivery(agreementAddress, cid, expectedHash?, buyerAddress?)` — tipo IPFS
+- `submitURLDelivery(agreementAddress, url, buyerAddress?)` — tipo URL (liveness check)
+- `submitAPIDelivery(agreementAddress, endpoint, testPath?, buyerAddress?)` — tipo API (test call)
+- `getDeliveryStatus(agreementAddress)` — estado del último proof
+
+### Métodos SDK — Deal Monitoring (nuevo — 2026-03-17)
+- `registerDealMonitoring(agreementAddress, sellerAddress, buyerAddress, deadline, paymentAmount?, description?)`
+- `getDealStatus(agreementAddress)` — fase actual: ACTIVE | APPROACHING_DEADLINE | IN_GRACE_PERIOD | AUTO_CLAIM_AVAILABLE
+
+### Métodos SDK — Webhooks (nuevo — 2026-03-17)
+- `registerWebhook(address, url, events?, secret?)` — suscribirse a eventos
+- `unregisterWebhook(address, url)` — cancelar suscripción
+- `listWebhooks(address)` — listar webhooks activos (secrets redactados)
 
 ---
 
@@ -157,7 +195,68 @@
 
 ---
 
-## 8. REDES SOCIALES / PRESENCIA
+## 8. INFRAESTRUCTURA DE DEALS (nuevo — 2026-03-17)
+
+### Sistema de Verificación de Entrega
+| Estado | Tipo | Mecanismo | Notas |
+|--------|------|-----------|-------|
+| ✅ | **HASH** | `keccak256(deliveryData)` verificado server-side | Genérico — cualquier string hasta 4096 chars |
+| ✅ | **IPFS** | Fetch via gateways → contentHash | Cloudflare → ipfs.io → Pinata (fallback en orden) |
+| ✅ | **URL** | HTTP HEAD/GET → verificar 2xx | Liveness check de recursos públicos |
+| ✅ | **API** | Fetch endpoint+testPath → 2xx + JSON | Verificación de APIs activas de agentes |
+
+### Firma criptográfica (EIP-191 personal_sign)
+- Seller firma: `"AEP Delivery Proof\nAgreement: <addr>\nProof: <hash>"`
+- Backend recupera signer con `ethers.verifyMessage()` y verifica vs `sellerAddress`
+- Sin firma válida: 401 Unauthorized
+
+### Sistema de Webhooks
+| Estado | Feature | Notas |
+|--------|---------|-------|
+| ✅ | Subscripciones por dirección | address + url + secret + events[] |
+| ✅ | HMAC-SHA256 signing | Header `X-AEP-Signature: sha256=<hex>` en cada POST |
+| ✅ | Fan-out concurrente | `Promise.allSettled()` — falla un webhook, otros se entregan |
+| ✅ | Eventos soportados | `*`, `DeliveryProofSubmitted`, `ProposalCreated`, `ProposalAccepted`, `AgentRegistered`, `NeedPublished`, `OfferPublished`, `Staked`, `TaskCreated`, `TaskCompleted` |
+| ✅ | Notificación buyer | Al recibir proof, buyer recibe webhook si está suscrito a `DeliveryProofSubmitted` |
+
+### DealMonitor — Alertas de Deadline
+| Estado | Milestone | Trigger | Evento |
+|--------|-----------|---------|--------|
+| ✅ | `approaching_deadline` | T - 24h | `DEAL_APPROACHING_DEADLINE` |
+| ✅ | `deadline_passed` | T + 0 | `DEAL_DEADLINE_PASSED` |
+| ✅ | `grace_ending` | T + 7d - 6h | `DEAL_GRACE_PERIOD_ENDING` |
+| ✅ | `auto_claim_available` | T + 7d | `DEAL_AUTO_CLAIM_AVAILABLE` |
+
+- Poll cada 5 minutos (`setInterval`)
+- Máximo 1 alerta por ciclo por deal (evita spam)
+- Deal eliminado del monitoreo 1h después de `auto_claim_available`
+- Cada alerta dispara: WebSocket broadcast + webhook seller + webhook buyer
+
+### Fases de un Deal
+```
+ACTIVE → APPROACHING_DEADLINE (T-24h) → IN_GRACE_PERIOD (T+0) → AUTO_CLAIM_AVAILABLE (T+7d)
+```
+
+### Tablas SQLite nuevas
+| Tabla | Columnas | Descripción |
+|-------|---------|-------------|
+| `delivery_proofs` | id, agreement_address, seller_address, proof_hash, delivery_data, delivery_type, signature, webhook_sent | Historial de proofs |
+| `webhook_subscriptions` | address, url, secret, events, created_at (PK: address+url) | Suscripciones activas |
+| `monitored_deals` | agreement_address (PK), seller_address, buyer_address, deadline, payment_amount, description, registered_at, last_alert | Deals en seguimiento |
+
+### Archivos clave
+```
+backend/src/routes/delivery.ts         — 4 tipos de entrega + firma EIP-191
+backend/src/routes/webhooks.ts         — gestión de suscripciones
+backend/src/routes/deals.ts            — registro + monitoreo de deals
+backend/src/services/dealMonitor.ts    — background service, alertas de deadline
+backend/src/services/webhookDelivery.ts — fan-out HTTP + HMAC-SHA256
+backend/src/services/indexer.ts        — 3 nuevas tablas SQLite + 14 nuevos métodos
+```
+
+---
+
+## 9. REDES SOCIALES / PRESENCIA
 
 | Estado | Canal | URL | Notas |
 |--------|-------|-----|-------|
@@ -172,7 +271,7 @@
 
 ---
 
-## 9. PROBLEMAS ABIERTOS (por prioridad)
+## 10. PROBLEMAS ABIERTOS (por prioridad)
 
 | Prioridad | Issue | Fix |
 |-----------|-------|-----|
@@ -185,7 +284,7 @@
 
 ---
 
-## 10. LO QUE FALTA (priorizado)
+## 11. LO QUE FALTA (priorizado)
 
 ### Acciones inmediatas (esta semana)
 | Prioridad | Tarea | Impacto |
@@ -203,6 +302,7 @@
 |-----------|-------|---------|
 | 🟡 | **Agent Launchpad con UI** (nueva `/launch` mejorada) | Primera revenue real ($5 USDC/agente) |
 | 🟡 | **Smithery + Hugging Face Space** | Distribución MCP + demo visual |
+| 🟡 | **Deploy delivery+deals a Railway** | El sistema de entrega está local — subir a producción |
 | 🟢 | **Bonding Curve AGT** (nuevo contrato) | Revenue exponencial — requiere confirmación mainnet |
 | 🟢 | **SDK Python v2** (`pip install aep-sdk`) | x5 mercado accesible (ML/AI builders) |
 | 🟢 | **Community Telegram/Discord AEP** | Primeros 100 miembros → badge on-chain |

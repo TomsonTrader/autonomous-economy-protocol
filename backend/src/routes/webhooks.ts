@@ -40,6 +40,11 @@ export function webhooksRouter(indexer: EventIndexer): Router {
     "Staked",
     "TaskCreated",
     "TaskCompleted",
+    // Deal monitoring milestones (fired by DealMonitor)
+    "DEAL_APPROACHING_DEADLINE",
+    "DEAL_DEADLINE_PASSED",
+    "DEAL_GRACE_PERIOD_ENDING",
+    "DEAL_AUTO_CLAIM_AVAILABLE",
   ]);
 
   // ── POST /api/webhooks/subscribe ──────────────────────────────────────────
