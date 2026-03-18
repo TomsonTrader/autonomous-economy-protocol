@@ -70,7 +70,7 @@ export function faucetRouter(
   router.post("/", async (req: Request, res: Response) => {
     const { address } = req.body as { address?: string };
 
-    if (!address || !ethers.isAddress(address)) {
+    if (!address || !ethers.isAddress(address) || BigInt(address) === 0n) {
       return res.status(400).json({ error: "Invalid address" });
     }
 

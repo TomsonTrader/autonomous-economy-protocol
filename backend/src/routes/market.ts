@@ -57,10 +57,31 @@ export function marketRouter(blockchain: BlockchainService, indexer: EventIndexe
   });
 
   // GET /api/market/proposals
-  router.get("/proposals", (req: Request, res: Response) => {
+  router.get("/proposals", (_req: Request, res: Response) => {
     try {
       const proposals = indexer.getStoredProposals();
       res.json({ proposals, total: proposals.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/market/deals — funded deals from event index
+  router.get("/deals", (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(parseInt((req.query.limit as string) ?? "") || 50, 200);
+      const events = indexer.getRecentEvents(limit, "DealFunded");
+      const deals = events.map((e: any) => ({
+        agreementAddress: e.data.agreementAddress ?? e.data.agreement ?? null,
+        proposalId:       e.data.proposalId       ?? null,
+        buyer:            e.data.buyer            ?? null,
+        seller:           e.data.seller           ?? null,
+        amount:           e.data.amount           ?? null,
+        txHash:           e.tx_hash,
+        blockNumber:      e.block_number,
+        timestamp:        e.timestamp,
+      }));
+      res.json({ deals, total: deals.length });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

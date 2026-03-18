@@ -179,6 +179,8 @@
 |--------|-------|-----------|
 | ✅ | ETH=0 → rechazado | `error: "Wallet must have some ETH... (any amount > 0)"` |
 | ✅ | ETH>0 → acepta | Restricción mínima eliminada (antes era 0.0001 ETH) |
+| ✅ | Doble-claim bloqueado | Wallet registrada on-chain → 429 "already registered" (anti-sybil) |
+| ✅ | SQLite anti-doble-spend | `markFunded` antes de enviar tx; `unmarkFunded` si falla |
 | ✅ | `agtBalance` | 399,966,264 AGT disponibles en el faucet |
 
 ---

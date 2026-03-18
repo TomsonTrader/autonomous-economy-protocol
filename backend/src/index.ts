@@ -155,15 +155,29 @@ async function main() {
     console.log("ℹ️  x402 premium routes in dev mode (no payment required)");
   }
 
-  // Health check
-  app.get("/health", (_req, res) => {
+  // Root endpoint — API info
+  app.get("/", (_req, res) => {
     res.json({
-      status: "ok",
+      name: "Autonomous Economy Protocol API",
+      version: "2.0.0",
       network: blockchain.deployment.network,
-      wsClients: wsService.clientCount,
-      timestamp: new Date().toISOString(),
+      docs: "https://aepprotocol.xyz",
+      github: "https://github.com/TomsonTrader/autonomous-economy-protocol",
+      endpoints: ["/api/agents", "/api/market/needs", "/api/market/offers", "/api/market/deals",
+                  "/api/stats", "/api/genesis/info", "/api/vault", "/api/reputation/:address",
+                  "/api/faucet", "/api/token", "/health"],
     });
   });
+
+  // Health check — available at both /health and /api/health (standard convention)
+  const healthHandler = (_req: any, res: any) => res.json({
+    status: "ok",
+    network: blockchain.deployment.network,
+    wsClients: wsService.clientCount,
+    timestamp: new Date().toISOString(),
+  });
+  app.get("/health", healthHandler);
+  app.get("/api/health", healthHandler);
 
   // Public activity feed — last 50 indexed events (for /activity page)
   app.get("/api/activity", async (_req, res) => {
@@ -175,20 +189,21 @@ async function main() {
     }
   });
 
-  // Global stats (for /activity page and public SEO)
+  // Global stats — reads from chain directly so values are always accurate
   app.get("/api/stats", async (_req, res) => {
     try {
-      const [agents, needs, offers] = await Promise.all([
-        blockchain.registry.getActiveAgents().catch(() => []),
-        blockchain.marketplace.getNeedCount ? blockchain.marketplace.getNeedCount().catch(() => 0) : Promise.resolve(0),
-        blockchain.marketplace.getOfferCount ? blockchain.marketplace.getOfferCount().catch(() => 0) : Promise.resolve(0),
+      const [agents, totalNeeds, totalOffers] = await Promise.all([
+        blockchain.registry.getActiveAgents().catch(() => [] as string[]),
+        blockchain.marketplace.totalNeeds().catch(() => 0n),
+        blockchain.marketplace.totalOffers().catch(() => 0n),
       ]);
+      const eventStats = indexer.getEventStats();
       res.json({
         totalAgents:  (agents as string[]).length,
-        totalDeals:   indexer.getEventStats()["DealFunded"] ?? 0,
+        totalDeals:   eventStats["DealFunded"] ?? 0,
         totalVolume:  "0",
-        activeNeeds:  needs,
-        activeOffers: offers,
+        activeNeeds:  Number(totalNeeds),
+        activeOffers: Number(totalOffers),
         network:      blockchain.deployment.network,
         timestamp:    new Date().toISOString(),
       });

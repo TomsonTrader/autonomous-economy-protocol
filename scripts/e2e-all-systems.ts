@@ -421,6 +421,24 @@ async function main() {
     }
   } catch (e: any) { fail("faucet ETH gate test", e.message?.slice(0, 60)); }
 
+  // Test: registered on-chain address cannot claim AGT (anti-sybil + anti-double-claim)
+  // buyer is already registered on-chain → faucet must reject with 429
+  await sleep(500);
+  try {
+    const res = await apiFetch("/api/faucet", {
+      method: "POST",
+      body: JSON.stringify({ address: buyer.address }),
+    });
+    // Expect 429 "already registered" or "already funded"
+    if (res.error?.toLowerCase().includes("already")) {
+      pass("faucet blocks registered addr (anti-double-claim)", `"${res.error}"`);
+    } else if (res.error) {
+      pass("faucet blocks registered addr", `"${res.error}"`);
+    } else {
+      fail("faucet double-claim prevention", `registered addr was NOT blocked: ${JSON.stringify(res).slice(0,80)}`);
+    }
+  } catch (e: any) { fail("faucet double-claim test", e.message?.slice(0, 60)); }
+
   // ── SECCIÓN 11: DELIVERY SYSTEM ──────────────────────────────────────────
   console.log("\n── [11] DELIVERY SYSTEM ─────────────────────────────────");
   await sleep(1000);

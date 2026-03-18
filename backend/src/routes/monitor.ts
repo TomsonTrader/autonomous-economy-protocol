@@ -65,24 +65,28 @@ export function monitorRouter(blockchain: BlockchainService, indexer: EventIndex
     }
   });
 
-  // GET /api/reputation/:address
-  router.get("/reputation/:address", async (req: Request, res: Response) => {
+  // GET /api/reputation/:address  (also /api/monitor/reputation/:address for backwards compat)
+  async function reputationHandler(req: Request, res: Response) {
     try {
       const { address } = req.params;
+      if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address))
+        return res.status(400).json({ error: "Invalid address" });
       const [score, totalDeals, successfulDeals, totalValueTransacted, lastUpdated] =
         await blockchain.reputation.getReputation(address);
-      res.json({
+      return res.json({
         address,
-        score: score.toString(),
-        totalDeals: totalDeals.toString(),
-        successfulDeals: successfulDeals.toString(),
+        score:                Number(score),
+        totalDeals:           Number(totalDeals),
+        successfulDeals:      Number(successfulDeals),
         totalValueTransacted: totalValueTransacted.toString(),
-        lastUpdated: lastUpdated.toString(),
+        lastUpdated:          Number(lastUpdated),
       });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: err.message });
     }
-  });
+  }
+  router.get("/:address", reputationHandler);
+  router.get("/reputation/:address", reputationHandler);
 
   return router;
 }

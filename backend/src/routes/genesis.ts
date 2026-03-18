@@ -2,6 +2,14 @@ import { Router } from "express";
 import { ethers } from "ethers";
 import { BlockchainService } from "../services/blockchain";
 
+/** Wrap a promise with a timeout — returns fallback value instead of throwing */
+function withTimeout<T>(promise: Promise<T>, fallback: T, ms = 8000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 export function genesisRouter(blockchain: BlockchainService): Router {
   const router = Router();
 
@@ -12,9 +20,14 @@ export function genesisRouter(blockchain: BlockchainService): Router {
         return res.json({ active: false, message: "GenesisProgram not deployed on this network" });
       }
       const [info, genesisBalance] = await Promise.all([
-        blockchain.genesis.seasonInfo(),
-        blockchain.token.balanceOf(blockchain.deployment.contracts.GenesisProgram).catch(() => 0n),
+        withTimeout(blockchain.genesis.seasonInfo(), null),
+        withTimeout(blockchain.token.balanceOf(blockchain.deployment.contracts.GenesisProgram), 0n),
       ]);
+
+      if (!info) {
+        return res.status(503).json({ error: "Genesis contract RPC timeout — try again shortly" });
+      }
+
       const now = Math.floor(Date.now() / 1000);
       const end = Number(info.end);
       const start = Number(info.start);
@@ -26,7 +39,6 @@ export function genesisRouter(blockchain: BlockchainService): Router {
       const claimWindowOpensAt = end + claimDelay;
       const claimWindowOpen = info.ended && now >= claimWindowOpensAt;
 
-      // Use actual token balance — avoids tuple-decoding bug with info.pool on deployed contract
       const poolFormatted = ethers.formatEther(genesisBalance);
 
       return res.json({
@@ -41,14 +53,13 @@ export function genesisRouter(blockchain: BlockchainService): Router {
         daysRemaining,
         totalPoints: info.totalPts.toString(),
         contract: blockchain.deployment.contracts.GenesisProgram,
-        // v2 tokenomics
         claimWindowOpensAt,
         claimWindowOpen,
         vesting: { immediatePercent: 25, vestedPercent: 75, vestingDays: 180 },
         antiWhaleCap: "1000000",
       });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(503).json({ error: "Genesis info unavailable: " + err.message });
     }
   });
 
@@ -58,37 +69,32 @@ export function genesisRouter(blockchain: BlockchainService): Router {
       if (!blockchain.genesis) {
         return res.json({ leaderboard: [] });
       }
-      const [addrs, pts] = await blockchain.genesis.getLeaderboard();
+      const result = await withTimeout<[string[], bigint[]] | null>(
+        blockchain.genesis.getLeaderboard(),
+        null
+      );
 
-      // Enrich with agent names
+      if (!result) {
+        return res.status(503).json({ error: "Leaderboard RPC timeout — try again shortly" });
+      }
+      const [addrs, pts] = result;
+
       const leaderboard = await Promise.all(
         addrs.map(async (addr: string, i: number) => {
-          try {
-            const agent = await blockchain.registry.getAgent(addr);
-            return {
-              rank: i + 1,
-              address: addr,
-              name: agent.name || addr.slice(0, 8) + "...",
-              points: Number(pts[i]),
-            };
-          } catch {
-            return {
-              rank: i + 1,
-              address: addr,
-              name: addr.slice(0, 8) + "...",
-              points: Number(pts[i]),
-            };
-          }
+          const name = await withTimeout(
+            blockchain.registry.getAgent(addr).then((a: any) => a.name || addr.slice(0, 8) + "..."),
+            addr.slice(0, 8) + "..."
+          );
+          return { rank: i + 1, address: addr, name, points: Number(pts[i]) };
         })
       );
 
-      // Sort by points descending
       leaderboard.sort((a, b) => b.points - a.points);
       leaderboard.forEach((p, i) => { p.rank = i + 1; });
 
       return res.json({ leaderboard });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(503).json({ error: "Leaderboard unavailable: " + err.message });
     }
   });
 
@@ -99,7 +105,11 @@ export function genesisRouter(blockchain: BlockchainService): Router {
         return res.json({ found: false });
       }
       const { address } = req.params;
-      const p = await blockchain.genesis.getParticipant(address);
+      if (!ethers.isAddress(address)) return res.status(400).json({ error: "Invalid address" });
+
+      const p = await withTimeout(blockchain.genesis.getParticipant(address), null);
+      if (!p) return res.status(503).json({ error: "Participant lookup RPC timeout" });
+
       return res.json({
         address,
         points:       Number(p.points),
@@ -108,7 +118,7 @@ export function genesisRouter(blockchain: BlockchainService): Router {
         daysLeft:     Number(p.daysLeft),
       });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return res.status(503).json({ error: "Participant lookup failed: " + err.message });
     }
   });
 
