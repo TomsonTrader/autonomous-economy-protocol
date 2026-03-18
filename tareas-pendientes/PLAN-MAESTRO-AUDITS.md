@@ -227,38 +227,40 @@ con TypeScript strict. No confirmado si v1.5.4 lo arregla.
 
 | # | Tarea | Archivo | Estado |
 |---|-------|---------|--------|
-| 1 | B1: `/api/agents/:address` fallback a RPC | `routes/agents.ts` | ❌ |
-| 2 | B2: `GET /api/token/supply` endpoint | `index.ts` | ❌ |
-| 3 | B3: `/api/vault/:address` — envolver en catch | `routes/vault.ts` | ❌ |
-| 4 | B4: `/api/reputation/:address` — debug ABI | `routes/monitor.ts` | ❌ |
-| 5 | B5: `/api/referrals` — verificar métodos contrato | `routes/referral.ts` | ❌ |
-| 6 | B6: Faucet blackhole prefix check | `routes/faucet.ts` | ❌ |
-| 7 | C1: Investigar GenesisProgram en Basescan | Basescan + `routes/genesis.ts` | ❌ |
-| 8 | C3: Documentar ReferralNetwork "solo marketplace" | SDK README | ❌ |
-| 9 | D4: SDK TypeScript `skipLibCheck` | `sdk/tsconfig.json` | ❌ |
-| 10 | D1: Contar deals reales en `/api/stats` desde indexer | `index.ts` | ❌ |
+| 1 | B1: `/api/agents/:address` fallback a RPC | `routes/agents.ts` | ✅ ya lee RPC directo |
+| 2 | B2: `GET /api/token/supply` endpoint | `index.ts` | ✅ Sprint 1 |
+| 3 | B3: `/api/vault/:address` — envolver en catch | `routes/vault.ts` | ✅ Sprint 1 |
+| 4 | B4: `/api/reputation/:address` — debug ABI | `routes/monitor.ts` | ✅ ABI OK, mainnet verificado |
+| 5 | B5: `/api/referrals` — verificar métodos contrato | `routes/referral.ts` | ✅ Sprint 1 |
+| 6 | B6: Faucet blackhole prefix check | `routes/faucet.ts` | ✅ `BigInt < 256n` |
+| 7 | C1: GenesisProgram — season activa | mainnet verificado | ✅ started=true, 4100 pts |
+| 8 | C3: Documentar ReferralNetwork "solo marketplace" | SDK README | ❌ pendiente |
+| 9 | D4: SDK TypeScript `skipLibCheck` | `sdk/tsconfig.json` | ✅ ya incluido |
+| 10 | D1: DealFunded listener en indexer | `services/indexer.ts` | ✅ Sprint 2 |
+| 11 | SubscriptionManager ABI `getSubscription` faltaba | `services/blockchain.ts` | ✅ Sprint 2 |
+| 12 | GET /api/events polling (BUG-17 fallback WS) | `index.ts` | ✅ Sprint 2 |
 
-### Sprint 2 — Semana siguiente (requiere decisión)
+### Sprint 2 — Pendiente (requiere decisión)
 
 | # | Tarea | Decisión necesaria |
 |---|-------|-------------------|
-| 11 | D5: WebSocket real | ¿$5/mes Railway Pro? |
-| 12 | D2: Faucet firma EIP-191 | ¿Añadir fricción de firma? |
-| 13 | C2: TaskDAG documentación precondiciones | Solo documentar |
-| 14 | D3: Gas optimization (contentHash) | Para v2 del protocolo |
+| 13 | D5: WebSocket real en Railway | ¿$5/mes Railway Pro? (polling ya disponible) |
+| 14 | D2: Faucet firma EIP-191 | ¿Añadir fricción de firma? |
+| 15 | C2: TaskDAG documentación precondiciones | Solo documentar |
+| 16 | D3: Gas optimization (contentHash) | Para v2 del protocolo |
 
 ---
 
 ## OBJETIVO FINAL: SCORE AUDIT → 30/30
 
-| Área | Ahora | Después Sprint 1 | Después Sprint 2 |
-|------|-------|-----------------|-----------------|
-| Endpoints API | 19/30 (63%) | 26/30 (87%) | 29/30 (97%) |
-| Seguridad | 6/7 (86%) | 7/7 (100%) | 7/7 (100%) |
-| SDK funcionalidad | 7/11 contratos | 9/11 | 11/11 |
-| Deal lifecycle | ✅ 3/3 | ✅ | ✅ |
-| Genesis | ❌ 503 | ⚠️ (pendiente C1) | ✅ |
-| WebSocket | ❌ | ❌ (polling fallback) | ✅ (si Railway Pro) |
+| Área | Ahora (Sprint 2 ✅) | Pendiente |
+|------|---------------------|-----------|
+| Endpoints API | ~28/30 (93%) | WS real opcional |
+| Seguridad | 7/7 (100%) | — |
+| SDK funcionalidad | 9/11 contratos | — |
+| Deal lifecycle | ✅ 3/3 | — |
+| Genesis | ✅ activa (4100 pts) | — |
+| WebSocket | ✅ polling /api/events | Pro plan opcional |
 
 ---
 
