@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import * as path from "path";
-import { BlockchainService } from "./blockchain";
+import { ethers } from "ethers";
+import { BlockchainService, AGREEMENT_ABI_EXPORT } from "./blockchain";
 import { WebSocketService } from "./websocket";
 
 // DB path: use Railway Volume if configured (DB_PATH=/data/aep.db),
@@ -349,6 +350,18 @@ export class EventIndexer {
         if (p) this.db.prepare("INSERT INTO proposals (id, data, updated_at) VALUES (?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at")
           .run(id, JSON.stringify(p));
       }).catch(() => {});
+      // Subscribe to Funded/DeliveryConfirmed events on the dynamically-deployed agreement contract
+      const agreement = new ethers.Contract(
+        agreementContract, AGREEMENT_ABI_EXPORT, this.blockchain.provider
+      );
+      agreement.on("Funded", (buyer: string, amount: bigint, ev: any) => {
+        console.log(`[Event] DealFunded: agreement=${agreementContract} buyer=${buyer}`);
+        this.saveEvent("DealFunded", { agreementContract, proposalId: proposalId.toString(), buyer, amount: amount.toString() }, ev.log?.transactionHash, ev.log?.blockNumber);
+      });
+      agreement.on("DeliveryConfirmed", (buyer: string, ev: any) => {
+        console.log(`[Event] DeliveryConfirmed: agreement=${agreementContract} buyer=${buyer}`);
+        this.saveEvent("DeliveryConfirmed", { agreementContract, proposalId: proposalId.toString(), buyer }, ev.log?.transactionHash, ev.log?.blockNumber);
+      });
     });
 
     engine.on("CounterOffered", (newProposalId: bigint, parentProposalId: bigint, newPrice: bigint, event: { log: { transactionHash: string; blockNumber: number } }) => {

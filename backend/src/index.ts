@@ -290,6 +290,21 @@ async function main() {
   // GET /api/token/info — alias
   app.get("/api/token/info", (_req, res) => res.redirect(307, "/api/token/supply"));
 
+  // GET /api/events?since=<unix_ts>&limit=100&type=DealFunded
+  // Polling fallback for clients that can't use WebSocket
+  app.get("/api/events", (req, res) => {
+    try {
+      const limit = Math.min(parseInt((req.query.limit as string) ?? "") || 100, 500);
+      const type  = req.query.type as string | undefined;
+      const since = parseInt((req.query.since as string) ?? "") || 0;
+      let events = indexer.getRecentEvents(limit, type);
+      if (since > 0) events = events.filter((e: any) => e.timestamp >= since);
+      res.json({ events, total: events.length, serverTime: Math.floor(Date.now() / 1000) });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Start server
   server.listen(PORT, () => {
     console.log(`\n🚀 Backend running at http://localhost:${PORT}`);

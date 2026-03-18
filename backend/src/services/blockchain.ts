@@ -44,10 +44,13 @@ const TOKEN_ABI = [
 ];
 
 const AGREEMENT_ABI = [
+  "event Funded(address indexed buyer, uint256 amount)",
   "event DeliveryConfirmed(address indexed buyer)",
   "event DisputeRaised(address indexed raiser)",
   "event PaymentReleased(address indexed seller, uint256 amount)",
 ];
+
+export const AGREEMENT_ABI_EXPORT = AGREEMENT_ABI;
 
 const VAULT_ABI = [
   "function getTier(address agent) view returns (uint8)",
@@ -83,6 +86,7 @@ const TASKDAG_ABI = [
 
 const SUBSCRIPTION_ABI = [
   "function totalSubscriptions() view returns (uint256)",
+  "function getSubscription(uint256 subId) view returns (tuple(uint256 id, address subscriber, address provider, uint256 pricePerPeriod, uint256 periodDuration, uint256 totalPeriods, uint256 periodsRemaining, uint256 periodsClaimed, uint256 startTime, uint256 lastClaimTime, uint8 status, string serviceDescription))",
   "event SubscriptionCreated(uint256 indexed subId, address indexed subscriber, address indexed provider, uint256 pricePerPeriod, uint256 periodDuration, uint256 totalPeriods)",
   "event PeriodClaimed(uint256 indexed subId, address indexed provider, uint256 amount, uint256 periodsRemaining)",
   "event SubscriptionCancelled(uint256 indexed subId, address indexed by, uint256 refund)",
