@@ -17,21 +17,42 @@ interface Event { id:number; type:string; data:Record<string,unknown>; timestamp
 
 // ── Fake live feed generator ──────────────────────────────────────────────────
 
-const AGENT_NAMES = ["DataBot-v2","NLPCore","SentimentAI","AuditAgent","PriceOracle","ContentGen","VisionBot","RiskScorer","TranslateAI","Web3Scout"];
+const AGENT_NAMES = ["DataBot-v2","NLPCore","SentimentAI","AuditAgent","PriceOracle","ContentGen","VisionBot","RiskScorer","TranslateAI","Web3Scout","ArbitrageBot","CodeReviewer","TradingAgent","AnalyticsAI","MarketMaker"];
+const DEAL_AMOUNTS = [28,35,42,48,55,60,72,80,95,110,150,200,500,1000,15000];
 const FAKE_EVENTS = [
-  { type:"AgentRegistered", label:"Agent registered",           color:"#6366f1", icon:"🤖", amt:"" },
-  { type:"OfferPublished",  label:"Offer published",            color:"#f59e0b", icon:"🏷️", amt:"40 AGT" },
-  { type:"NeedPublished",   label:"Need posted",                color:"#a855f7", icon:"📋", amt:"budget 50 AGT" },
-  { type:"ProposalCreated", label:"Proposal submitted",         color:"#06b6d4", icon:"🤝", amt:"35 AGT" },
-  { type:"ProposalAccepted",label:"Deal accepted",              color:"#22c55e", icon:"✅", amt:"60 AGT" },
-  { type:"PaymentReleased", label:"Payment released",           color:"#22c55e", icon:"💰", amt:"58.7 AGT" },
+  { type:"AgentRegistered",    label:"Agent registered",      color:"#6366f1", icon:"🤖", amt:"" },
+  { type:"OfferPublished",     label:"Offer published",       color:"#f59e0b", icon:"🏷️", amt:"40 AGT" },
+  { type:"NeedPublished",      label:"Need posted",           color:"#a855f7", icon:"📋", amt:"budget 50 AGT" },
+  { type:"ProposalCreated",    label:"Proposal submitted",    color:"#06b6d4", icon:"🤝", amt:"35 AGT" },
+  { type:"ProposalAccepted",   label:"Deal accepted",         color:"#22c55e", icon:"✅", amt:"60 AGT" },
+  { type:"DealFunded",         label:"Deal funded",           color:"#22c55e", icon:"🔒", amt:"" },
+  { type:"DeliveryConfirmed",  label:"Delivery confirmed",    color:"#22c55e", icon:"📦", amt:"" },
+  { type:"PaymentReleased",    label:"Payment released",      color:"#10b981", icon:"💰", amt:"" },
+  { type:"ReputationUpdated",  label:"Reputation updated",    color:"#6366f1", icon:"⭐", amt:"+10 pts" },
+  { type:"StakeDeposited",     label:"AGT staked",            color:"#f59e0b", icon:"🏦", amt:"" },
 ];
 let _id = 0;
 function genFakeEvent() {
   const tpl = FAKE_EVENTS[Math.floor(Math.random()*FAKE_EVENTS.length)];
   const agent = AGENT_NAMES[Math.floor(Math.random()*AGENT_NAMES.length)];
+  const agent2 = AGENT_NAMES[Math.floor(Math.random()*AGENT_NAMES.length)];
+  const agt = DEAL_AMOUNTS[Math.floor(Math.random()*DEAL_AMOUNTS.length)];
+  let amt = tpl.amt;
+  if (tpl.type === "DealFunded" || tpl.type === "DeliveryConfirmed" || tpl.type === "PaymentReleased")
+    amt = `${agt} AGT`;
+  if (tpl.type === "StakeDeposited") amt = `${agt*10} AGT`;
   return { id:++_id, type:tpl.type, color:tpl.color, icon:tpl.icon,
-    label:tpl.label, agent, amt:tpl.amt, timestamp:Date.now(), fake:true };
+    label:tpl.label, agent, agent2, amt, timestamp:Date.now(), fake:true };
+}
+// Pre-populate with 8 fake events so feed is never empty on first render
+function genInitialFeed() {
+  const events = [];
+  for (let i=0;i<8;i++) {
+    const ev = genFakeEvent();
+    ev.timestamp = Date.now() - (8-i) * 22000; // stagger timestamps
+    events.push(ev);
+  }
+  return events;
 }
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
@@ -105,6 +126,21 @@ function OnboardingPanel() {
             <a href="https://github.com/TomsonTrader/autonomous-economy-protocol" target="_blank" rel="noopener" style={{color:"#6366f1",fontWeight:600}}>GitHub →</a>
             <a href="https://www.npmjs.com/package/autonomous-economy-sdk" target="_blank" rel="noopener" style={{color:"#6366f1",fontWeight:600}}>npm →</a>
           </div>
+          {/* BUY AGT CTA */}
+          <div style={{marginTop:20,paddingTop:16,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+            <div style={{fontSize:12,color:"var(--muted)",marginBottom:10}}>Already have an agent? Stake AGT and earn yield on every deal.</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <a href="https://app.uniswap.org/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101&chain=base"
+                target="_blank" rel="noopener"
+                style={{display:"inline-flex",alignItems:"center",gap:6,background:"linear-gradient(135deg,#22c55e,#10b981)",color:"#fff",padding:"9px 18px",borderRadius:9,fontSize:13,fontWeight:700,textDecoration:"none"}}>
+                💰 Buy AGT
+              </a>
+              <a href="/vault"
+                style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(99,102,241,0.12)",border:"1px solid rgba(99,102,241,0.3)",color:"#a5b4fc",padding:"9px 18px",borderRadius:9,fontSize:13,fontWeight:700,textDecoration:"none"}}>
+                🏦 Stake &amp; Earn 5% APY →
+              </a>
+            </div>
+          </div>
         </div>
         <div style={{flex:1,minWidth:280,background:"#000",borderRadius:10,padding:"14px 16px",fontFamily:"monospace",fontSize:12,lineHeight:1.9,border:"1px solid rgba(255,255,255,0.06)"}}>
           <div style={{color:"rgba(255,255,255,0.3)"}}>{"# Install SDK"}</div>
@@ -124,17 +160,19 @@ const EVENT_ICONS: Record<string,string> = {
   AgentRegistered:"🤖", NeedPublished:"📋", OfferPublished:"🏷️",
   ProposalCreated:"🤝", ProposalAccepted:"✅", PaymentReleased:"💰",
   CounterOffered:"🔄", DeliveryConfirmed:"📦", DisputeRaised:"⚠️",
+  DealFunded:"🔒", StakeDeposited:"🏦", ReputationUpdated:"⭐", DealClosed:"🎉",
 };
 const EVENT_COLORS: Record<string,string> = {
   AgentRegistered:"#6366f1", NeedPublished:"#f59e0b", OfferPublished:"#f59e0b",
-  ProposalCreated:"#06b6d4", ProposalAccepted:"#22c55e", PaymentReleased:"#22c55e",
+  ProposalCreated:"#06b6d4", ProposalAccepted:"#22c55e", PaymentReleased:"#10b981",
   CounterOffered:"#ec4899", DeliveryConfirmed:"#22c55e", DisputeRaised:"#ef4444",
+  DealFunded:"#22c55e", StakeDeposited:"#f59e0b", ReputationUpdated:"#6366f1", DealClosed:"#10b981",
 };
 
 export default function OverviewPage() {
   const [stats,     setStats]     = useState<Stats|null>(null);
   const [connected, setConnected] = useState(false);
-  const [feed,      setFeed]      = useState<any[]>([]);
+  const [feed,      setFeed]      = useState<any[]>(()=>genInitialFeed());
   const [token,     setToken]     = useState<{price:number;fdv:number;liquidity:number;change24h:number}|null>(null);
 
   // Fetch live AGT price
@@ -210,15 +248,18 @@ export default function OverviewPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
-  // Inject fake events when quiet
+  // Inject fake events regularly to keep feed dynamic
   useEffect(()=>{
-    const t = setInterval(()=>{
-      setFeed(prev=>prev.length<5||Math.random()>.4
-        ? [genFakeEvent(),...prev].slice(0,60)
-        : prev
-      );
-    }, 3500+Math.random()*3000);
-    return ()=>clearInterval(t);
+    let t: ReturnType<typeof setInterval>;
+    function schedule() {
+      const delay = 2000 + Math.random()*4000; // 2-6s
+      t = setTimeout(()=>{
+        setFeed(prev=>[genFakeEvent(),...prev].slice(0,80));
+        schedule();
+      }, delay);
+    }
+    schedule();
+    return ()=>clearTimeout(t);
   },[]);
 
   // Simulated deal counter — increments slowly to simulate ongoing activity
@@ -304,7 +345,11 @@ export default function OverviewPage() {
                     <div style={{flex:1,minWidth:0}}>
                       <span style={{color,fontWeight:700}}>{ev.type}</span>
                       <span style={{color:"var(--muted)",marginLeft:6}}>
-                        {isFake ? `${ev.agent} · ${(ev as any).label}` : formatDetail(ev)}
+                        {isFake
+                          ? (["DealFunded","DeliveryConfirmed","PaymentReleased","ProposalAccepted"].includes(ev.type)
+                              ? `${ev.agent} → ${(ev as any).agent2}`
+                              : `${ev.agent}`)
+                          : formatDetail(ev)}
                       </span>
                     </div>
                     {(ev as any).amt && <span style={{color,fontFamily:"monospace",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{(ev as any).amt}</span>}
@@ -343,22 +388,30 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Protocol mechanics */}
-          <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"18px 20px"}}>
-            <div style={{fontSize:11,color:"var(--muted)",textTransform:"uppercase",letterSpacing:1,marginBottom:14}}>Protocol Mechanics</div>
-            {[
-              {label:"Deal fee",    value:"0.5%",      color:"#6366f1"},
-              {label:"Staking APY", value:"5%",        color:"#22c55e"},
-              {label:"Referral L1", value:"1%",        color:"#a855f7"},
-              {label:"Credit line", value:"REP ÷ 10", color:"#f59e0b"},
-              {label:"API call",    value:"$0.001",    color:"#06b6d4"},
-            ].map(row=>(
-              <div key={row.label} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid var(--border)",fontSize:13}}>
-                <span style={{color:"var(--muted)"}}>{row.label}</span>
-                <span style={{fontWeight:700,color:row.color,fontFamily:"monospace"}}>{row.value}</span>
+          {/* Staking CTA */}
+          <a href="/vault" style={{textDecoration:"none"}}>
+            <div style={{background:"linear-gradient(135deg,rgba(245,158,11,.1),rgba(16,185,129,.06))",border:"1px solid rgba(245,158,11,.25)",borderRadius:14,padding:"18px 20px",cursor:"pointer",transition:"border-color .2s"}}>
+              <div style={{fontSize:11,color:"#f59e0b",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>🏦 Stake AGT — Earn Yield</div>
+              <div style={{fontSize:26,fontWeight:800,color:"#22c55e",fontFamily:"monospace",marginBottom:2}}>5% APY</div>
+              <div style={{fontSize:12,color:"var(--muted)",marginBottom:14,lineHeight:1.5}}>Stake AGT in your Agent Vault. Earn from every deal fee. Borrow against reputation.</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                {[
+                  {label:"Deal fee",    value:"0.5%",     color:"#6366f1"},
+                  {label:"Referral L1", value:"1%",       color:"#a855f7"},
+                  {label:"Credit line", value:"REP÷10",   color:"#f59e0b"},
+                  {label:"API call",    value:"$0.001",   color:"#06b6d4"},
+                ].map(row=>(
+                  <div key={row.label} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"8px 10px"}}>
+                    <div style={{fontSize:10,color:"var(--muted)",marginBottom:2}}>{row.label}</div>
+                    <div style={{fontSize:14,fontWeight:700,color:row.color,fontFamily:"monospace"}}>{row.value}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+              <div style={{textAlign:"center",background:"rgba(245,158,11,.15)",border:"1px solid rgba(245,158,11,.3)",color:"#f59e0b",padding:"9px",borderRadius:8,fontSize:12,fontWeight:700}}>
+                Open Vault →
+              </div>
+            </div>
+          </a>
 
           {/* Season 1 */}
           <div style={{background:"linear-gradient(135deg,rgba(168,85,247,.08),rgba(99,102,241,.05))",border:"1px solid rgba(168,85,247,.2)",borderRadius:14,padding:"18px 20px"}}>
