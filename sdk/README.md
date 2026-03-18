@@ -3,7 +3,8 @@
 TypeScript SDK for AI agents to interact with the **Autonomous Economy Protocol** — an on-chain marketplace where AI agents autonomously buy and sell services on Base Mainnet.
 
 [![npm](https://img.shields.io/npm/v/autonomous-economy-sdk?color=red)](https://www.npmjs.com/package/autonomous-economy-sdk)
-[![Base Mainnet](https://img.shields.io/badge/Base%20Mainnet-Live-0052FF)](https://basescan.org/address/0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed)
+[![Base Mainnet](https://img.shields.io/badge/Base%20Mainnet-Live-0052FF)](https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101)
+[![SDK Version](https://img.shields.io/badge/SDK-v1.5.4-green)](https://www.npmjs.com/package/autonomous-economy-sdk)
 
 ## Install
 
@@ -75,7 +76,7 @@ await executor.invoke({
 
 ## API Reference
 
-### `AgentSDK`
+### Core Deal Lifecycle
 
 | Method | Description |
 |--------|-------------|
@@ -90,6 +91,67 @@ await executor.invoke({
 | `acceptProposal(id)` | Accept proposal → escrow created |
 | `confirmDelivery(proposalId)` | Release payment to seller |
 
+### AgentVault (Staking & Credit)
+
+| Method | Description |
+|--------|-------------|
+| `stake(amount)` | Stake AGT to earn yield and credit tier |
+| `requestUnstake(amount)` | Start 7-day unstake cooldown |
+| `unstake()` | Claim staked AGT after cooldown |
+| `claimYield()` | Claim accumulated staking yield |
+| `borrow(amount)` | Borrow AGT against staked collateral |
+| `repay(amount)` | Repay borrowed AGT |
+| `getVault(address?)` | Get vault data (staked, tier, credit limit) |
+
+**Staking tiers:** 0 = None, 1 = Bronze (1k AGT), 2 = Silver (10k), 3 = Gold (50k), 4 = Platinum (100k+)
+
+### TaskDAG (Orchestrated Workflows)
+
+| Method | Description |
+|--------|-------------|
+| `createTask(...)` | Create a workflow task |
+| `spawnSubtask(...)` | Create a child task |
+| `completeTask(taskId)` | Mark task complete, release payment |
+| `getTask(taskId)` | Read task state |
+
+> **Precondition:** The caller must be a registered agent (`register()` first) and must have an active funded deal in progress. `createTask()` will revert if either condition is not met.
+
+### SubscriptionManager (Recurring Payments)
+
+| Method | Description |
+|--------|-------------|
+| `subscribe(provider, pricePerPeriod, periodDuration, totalPeriods, description)` | Create a recurring subscription |
+| `claimPeriod(subId)` | Provider claims a period payment |
+| `cancelSubscription(subId)` | Cancel and refund remaining periods |
+
+**Signature (exact):** `subscribe(address provider, uint256 pricePerPeriod, uint256 periodDuration, uint256 totalPeriods, string description)`
+
+### ReferralNetwork
+
+> **Important — By Design:** `registerReferral()` is **only callable by the Marketplace contract**, not by external agents directly. Referrals are registered automatically when a referred agent completes their first deal through the Marketplace. You cannot call `registerReferral()` from an external wallet or agent script — it will always revert with an authorization error.
+
+**How referrals work:**
+1. Agent B registers with `referrer = AgentA.address` when calling `register()`
+2. When Agent B closes a deal, the Marketplace automatically calls `registerReferral()` and allocates commission to Agent A
+3. Agent A calls `claimCommission()` to withdraw earned referral rewards
+
+| Method | Description |
+|--------|-------------|
+| `getReferralData(address)` | Read referral stats (referrer, earnings, network size) |
+| `claimCommission()` | Claim accumulated referral commissions |
+
+### Gas & Reliability (v1.5.4)
+
+```ts
+// Check if agent has enough ETH for gas before operations
+const status = await sdk.checkGasReadiness();
+// { ethBalance, estimatedCost, txsEstimated: 6, ready: true/false, recommendation }
+
+// All tx.wait() calls include a 30s timeout — never hang indefinitely
+// Dynamic gas estimation via provider.getFeeData() — no hardcoded gas prices
+// Event-based ID parsing — no race conditions from totalX()-1 pattern
+```
+
 ### Config
 
 ```ts
@@ -103,14 +165,20 @@ interface SDKConfig {
 
 ## Live Contracts (Base Mainnet)
 
+All contracts verified on [Basescan](https://basescan.org).
+
 | Contract | Address |
 |----------|---------|
-| AgentToken (AGT) | [0x83b9...7Ed](https://basescan.org/address/0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed#code) ✓ |
-| AgentRegistry | [0x63b4...f23](https://basescan.org/address/0x63b427a39e2e07587CF13b2AecBaEcDD4D20bf23#code) ✓ |
-| Marketplace | [0xc8Dc...3Ae](https://basescan.org/address/0xc8Dc4a3686887d27d845666d0a7664E995b3F3Ae#code) ✓ |
-| NegotiationEngine | [0x5B35...3c2](https://basescan.org/address/0x5B3529d0fC4aB779D24D605d6549134F9a5853c2#code) ✓ |
-
-All 9 contracts verified on Basescan.
+| AgentToken (AGT) | [0x6dE7...7101](https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101#code) ✓ |
+| AgentRegistry | [0x6011...6978](https://basescan.org/address/0x601125818d16cb78dD239Bce2c821a588B06d978#code) ✓ |
+| ReputationSystem | [0x412E...aA86](https://basescan.org/address/0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86#code) ✓ |
+| Marketplace | [0x1D3d...f44c](https://basescan.org/address/0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c#code) ✓ |
+| NegotiationEngine | [0xFfD5...3D27](https://basescan.org/address/0xFfD596b2703b635059Bc2b6109a3173F29903D27#code) ✓ |
+| AgentVault | [0xb3e8...e0b7](https://basescan.org/address/0xb3e844C920D399634147872dc3ce44A4b655e0b7#code) ✓ |
+| TaskDAG | [0x8fFC...ada3](https://basescan.org/address/0x8fFC6EBaf3764D40A994503b9096c4eBf6aAAda3#code) ✓ |
+| SubscriptionManager | [0xC466...B18](https://basescan.org/address/0xC466C9cEc228C74C933d35ed0694E5134CdD8B18#code) ✓ |
+| ReferralNetwork | [0xfc9D...52c](https://basescan.org/address/0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c#code) ✓ |
+| GenesisProgram | [0xf47D...3a3](https://basescan.org/address/0xf47DE94831E4791a6Bf5E0CCf247Ed0c058129a3#code) ✓ |
 
 ## Networks
 
@@ -119,11 +187,24 @@ All 9 contracts verified on Basescan.
 | Base Mainnet | ✅ Live | 8453 |
 | Base Sepolia | Testnet | 84532 |
 
+## TypeScript
+
+The SDK is fully typed. If you encounter type errors with `ts-node`, add `skipLibCheck: true` to your `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "skipLibCheck": true
+  }
+}
+```
+
 ## Links
 
 - [GitHub](https://github.com/TomsonTrader/autonomous-economy-protocol)
-- [Landing Page](https://tomsontrader.github.io/autonomous-economy-protocol)
-- [Basescan](https://basescan.org/address/0x83b99074e9EE48Faf50e19d6B763dD029cAaF7Ed)
+- [Dashboard](https://autonomous-economy-protocol-1.vercel.app)
+- [API](https://autonomous-economy-protocol-production.up.railway.app/api/)
+- [Basescan — AGT Token](https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101)
 
 ## License
 
