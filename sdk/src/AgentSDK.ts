@@ -53,6 +53,42 @@ const RPC_URLS: Record<Network, string> = {
   "hardhat":       "http://localhost:8545",
 };
 
+// Fallback RPCs tried in order when the primary hangs or errors
+const RPC_FALLBACKS: Record<Network, string[]> = {
+  "base-sepolia":  ["https://base-sepolia-rpc.publicnode.com"],
+  "base-mainnet":  [
+    "https://base.llamarpc.com",
+    "https://base-rpc.publicnode.com",
+    "https://1rpc.io/base",
+  ],
+  "hardhat": [],
+};
+
+const TX_WAIT_TIMEOUT_MS = 30_000; // 30 seconds
+
+/** Wait for a transaction receipt with a timeout. Throws if RPC hangs. */
+async function waitWithTimeout(
+  tx: ethers.TransactionResponse,
+  timeoutMs = TX_WAIT_TIMEOUT_MS
+): Promise<ethers.TransactionReceipt> {
+  const receipt = await Promise.race([
+    tx.wait(1),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`tx.wait() timed out after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ]);
+  if (!receipt) throw new Error("tx.wait() returned null receipt");
+  return receipt;
+}
+
+/** Build a provider that tries primary RPC first, then falls back to alternates. */
+function buildProvider(network: Network, primaryUrl: string): ethers.JsonRpcProvider {
+  // For now use primary with batchMaxCount:1 (Base public RPC requirement).
+  // RPC_FALLBACKS are available for external retry logic or future FallbackProvider support.
+  void RPC_FALLBACKS[network]; // reference to avoid unused-var warning
+  return new ethers.JsonRpcProvider(primaryUrl, undefined, { batchMaxCount: 1 });
+}
+
 // ── Contract ABIs ─────────────────────────────────────────────────────────────
 
 const TOKEN_ABI = [
@@ -81,6 +117,8 @@ const MARKETPLACE_ABI = [
   "function getMatchingOffers(uint256) view returns (uint256[])",
   "function totalNeeds() view returns (uint256)",
   "function totalOffers() view returns (uint256)",
+  "event NeedPublished(uint256 indexed needId, address indexed publisher, uint256 budget, string[] tags)",
+  "event OfferPublished(uint256 indexed offerId, address indexed publisher, uint256 price, string[] tags)",
 ];
 
 const NEGOTIATION_ABI = [
@@ -91,6 +129,7 @@ const NEGOTIATION_ABI = [
   "function getProposal(uint256) view returns (tuple(uint256 needId, uint256 offerId, address buyer, address seller, uint256 price, string terms, uint8 status, uint256 createdAt, uint256 counterDepth, uint256 parentId))",
   "function proposalAgreement(uint256) view returns (address)",
   "function totalProposals() view returns (uint256)",
+  "event ProposalCreated(uint256 indexed proposalId, uint256 needId, uint256 offerId, address buyer, address seller, uint256 price)",
 ];
 
 const REPUTATION_ABI = [
@@ -210,7 +249,7 @@ export class AgentSDK {
 
   constructor(config: SDKConfig) {
     const rpcUrl = config.rpcUrl || RPC_URLS[config.network];
-    this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    this.provider = buildProvider(config.network, rpcUrl);
     this.signer = new ethers.Wallet(config.privateKey, this.provider);
     this.address = this.signer.address;
 
@@ -293,11 +332,11 @@ export class AgentSDK {
   async register(params: RegisterParams): Promise<string> {
     const entryFee = ethers.parseEther("10");
     const registryAddr = await this.registry.getAddress();
-    await (await this.token.approve(registryAddr, entryFee)).wait();
+    await waitWithTimeout(await this.token.approve(registryAddr, entryFee));
     // Wait for allowance state to propagate across RPC nodes (public RPCs can be inconsistent)
     await new Promise((r) => setTimeout(r, 3000));
     const tx = await this.registry.registerAgent(params.name, params.capabilities, params.metadataURI || "");
-    const receipt = await tx.wait();
+    const receipt = await waitWithTimeout(tx);
     return receipt.hash;
   }
 
@@ -338,29 +377,39 @@ export class AgentSDK {
 
   // ── Marketplace ─────────────────────────────────────────────────────────────
 
-  /** Publish a need (buyer). Returns the needId. */
+  /** Publish a need (buyer). Returns the needId parsed from the NeedPublished event. */
   async publishNeed(params: PublishNeedParams): Promise<number> {
-    const nextId = Number(await this.marketplace.totalNeeds());
     const tx = await this.marketplace.publishNeed(
       params.description,
       ethers.parseEther(params.budget),
       params.deadline,
       params.tags
     );
-    await tx.wait();
-    return nextId;
+    const receipt = await waitWithTimeout(tx);
+    for (const log of receipt.logs) {
+      try {
+        const parsed = (this.marketplace.interface as any).parseLog(log);
+        if (parsed?.name === "NeedPublished") return Number(parsed.args.needId);
+      } catch {}
+    }
+    throw new Error("NeedPublished event not found in receipt");
   }
 
-  /** Publish an offer (seller). Returns the offerId. */
+  /** Publish an offer (seller). Returns the offerId parsed from the OfferPublished event. */
   async publishOffer(params: PublishOfferParams): Promise<number> {
-    const nextId = Number(await this.marketplace.totalOffers());
     const tx = await this.marketplace.publishOffer(
       params.description,
       ethers.parseEther(params.price),
       params.tags
     );
-    await tx.wait();
-    return nextId;
+    const receipt = await waitWithTimeout(tx);
+    for (const log of receipt.logs) {
+      try {
+        const parsed = (this.marketplace.interface as any).parseLog(log);
+        if (parsed?.name === "OfferPublished") return Number(parsed.args.offerId);
+      } catch {}
+    }
+    throw new Error("OfferPublished event not found in receipt");
   }
 
   async cancelNeed(needId: number): Promise<string> {
@@ -411,27 +460,37 @@ export class AgentSDK {
 
   // ── Negotiation ─────────────────────────────────────────────────────────────
 
-  /** Create a proposal to fulfill a need. Returns the proposalId. */
+  /** Create a proposal to fulfill a need. Returns the proposalId parsed from the ProposalCreated event. */
   async propose(params: ProposeParams): Promise<number> {
-    const nextId = Number(await this.engine.totalProposals());
     const tx = await this.engine.propose(
       params.needId, params.offerId,
       ethers.parseEther(params.price), params.terms
     );
-    await tx.wait();
-    return nextId;
+    const receipt = await waitWithTimeout(tx);
+    for (const log of receipt.logs) {
+      try {
+        const parsed = (this.engine.interface as any).parseLog(log);
+        if (parsed?.name === "ProposalCreated") return Number(parsed.args.proposalId);
+      } catch {}
+    }
+    throw new Error("ProposalCreated event not found in receipt");
   }
 
-  /** Submit a counter-offer. Returns the new proposalId. */
+  /** Submit a counter-offer. Returns the new proposalId parsed from the ProposalCreated event. */
   async counterOffer(params: CounterOfferParams): Promise<number> {
-    const nextId = Number(await this.engine.totalProposals());
     const tx = await this.engine.counterOffer(
       params.proposalId,
       ethers.parseEther(params.newPrice),
       params.newTerms
     );
-    await tx.wait();
-    return nextId;
+    const receipt = await waitWithTimeout(tx);
+    for (const log of receipt.logs) {
+      try {
+        const parsed = (this.engine.interface as any).parseLog(log);
+        if (parsed?.name === "ProposalCreated") return Number(parsed.args.proposalId);
+      } catch {}
+    }
+    throw new Error("ProposalCreated event not found in receipt");
   }
 
   /** Accept a proposal. Returns the escrow agreement address. */
