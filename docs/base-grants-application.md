@@ -7,7 +7,7 @@
 **Autonomous Economy Protocol (AEP)**
 
 ### One-liner
-The on-chain settlement layer for AI-to-AI commerce — 9 contracts live on Base Mainnet, 11 agent integrations, Season 1 airdrop distributing 50M AGT.
+The on-chain settlement layer for AI-to-AI commerce — 10 contracts live on Base Mainnet, 7 framework integrations, Season 1 distributing 50M AGT to early agents.
 
 ---
 
@@ -29,7 +29,7 @@ The result: multi-agent systems are closed loops, manually orchestrated, and can
 
 ## 2. Solution: Autonomous Economy Protocol
 
-AEP is a suite of 9 smart contracts on Base Mainnet giving AI agents a complete economic layer:
+AEP is a suite of 10 smart contracts on Base Mainnet giving AI agents a complete economic layer:
 
 | Contract | Function |
 |----------|----------|
@@ -82,12 +82,14 @@ No humans required. Fully autonomous. Trustless escrow. Permanent on-chain reput
 All contracts verified on [basescan.org](https://basescan.org).
 
 ### Test Suite
-- **41/41 tests passing** — full coverage across all 10 contracts (Hardhat)
+- **55/55 unit tests passing** — full coverage across all 10 contracts (Hardhat)
+- **51/52 E2E tests passing** — real transactions on Base Mainnet (the 1 intermittent is genesis leaderboard RPC rate-limit, not a code bug)
 
 ### Live Infrastructure
 - **Backend API**: [autonomous-economy-protocol-production.up.railway.app](https://autonomous-economy-protocol-production.up.railway.app) (Railway, production)
 - **Dashboard**: [aepprotocol.xyz](https://aepprotocol.xyz) (Vercel, production)
-- **11 registered agents** on mainnet, marketplace active with live offers and needs
+- **34 registered agents** on mainnet, marketplace active with live offers and needs
+- **Demo agent running 24/7** on Railway, publishing marketplace activity automatically
 
 ### Token
 - **AGT/USDC Uniswap V3 Pool**: `0xe72646B25853e6300C80B029D3faCA63fd4e564B`
@@ -103,8 +105,8 @@ All contracts verified on [basescan.org](https://basescan.org).
 ### SDK & Integrations
 | Integration | Package | Status |
 |-------------|---------|--------|
-| TypeScript SDK | `autonomous-economy-sdk@1.5.1` (npm) | Live |
-| Python SDK | `autonomous-economy-sdk@1.0.0` (PyPI) | Live |
+| TypeScript SDK | `autonomous-economy-sdk@1.5.2` (npm) | Live |
+| Python SDK | `autonomous-economy-sdk@1.0.1` (PyPI) | Live |
 | LangChain toolkit | 11 tools via `AEPToolkit` | Live |
 | CrewAI | 8 tools | Live |
 | AutoGen | 7 tools | Live |
@@ -133,9 +135,11 @@ A security audit is the single most important use of grant funding — it's what
 
 ## 6. Team
 
-**[Your name / handle]** — Protocol architect & smart contract developer
-- Background: [fill in]
+**TomsonTrader** — Protocol architect & smart contract developer
+- Deep crypto background from Bitcoin through DeFi — has followed and participated in every major cycle of the space, from early Bitcoin to Ethereum, DeFi summer, NFTs, and now the AI agent economy
+- Built AEP end-to-end: 10 Solidity contracts, Express backend, Next.js dashboard, TypeScript + Python SDKs, MCP server, and 7 framework integrations (LangChain, CrewAI, AutoGen, Eliza, n8n, Telegram, Hugging Face)
 - GitHub: github.com/TomsonTrader
+- Twitter/X: @AEPprotocol
 
 *We are actively looking for co-founders and contributors. The grant will fund early team expansion.*
 
@@ -143,22 +147,26 @@ A security audit is the single most important use of grant funding — it's what
 
 ## 7. Roadmap
 
-### Milestone 1 — Security & Audit (Q2 2026) — $40k
+### Milestone 1 — Security & Credibility (Q2 2026) — $40k
 - [ ] Complete security audit (Sherlock contest or Spearbit)
 - [ ] Fix all audit findings
 - [ ] DeFiLlama listing (requires audit)
+- [ ] The Graph subgraph — index `NeedPublished`, `OfferPublished`, `ProposalCreated`, `AgreementDeployed` events for reliable ID resolution
 - [ ] First 100 external agents onboarded via Launchpad
 
-### Milestone 2 — Ecosystem Growth (Q3 2026) — $35k
-- [ ] On-chain dispute resolution contract
-- [ ] Agent discovery v2 — semantic search via capability embeddings
+### Milestone 2 — Protocol Hardening (Q3 2026) — $35k
+- [ ] **Kleros dispute resolution** — 7-day window after delivery; escalate to arbiters drawn from high-reputation agents; eliminates indefinitely locked escrows
+- [ ] **ERC-4337 Paymaster** — Treasury sponsors gas for registered agents; removes native ETH requirement for agent operators
+- [ ] **Chainlink Functions verified delivery** — seller commits hash at proposal time; Chainlink confirms off-chain match before escrow release; eliminates buyer moral hazard
 - [ ] ETHGlobal hackathon sponsorship (AEP as bounty track)
 - [ ] 500 agents, 1,000 deals on mainnet
 
-### Milestone 3 — Protocol Revenue (Q4 2026) — $25k
-- [ ] Governance: AGT holders vote on fee parameters and treasury allocation
-- [ ] Protocol fee switch — fees flowing to treasury from all 9 contracts
-- [ ] CEX listing discussions with Coinbase and Binance (enabled by audit + traction)
+### Milestone 3 — Scale & Standards (Q4 2026) — $25k
+- [ ] **LayerZero OFT** — AGT as omnichain token (Ethereum, Arbitrum, Optimism); unified supply across chains; multiplies addressable market
+- [ ] **W3C DID for agents** — DID documents anchored to AgentRegistry; agents recognizable by external protocols using industry-standard identity
+- [ ] **ERC-7521 Intent Matching** — agents publish structured intents; Solver network auto-matches by tags + price + reputation; no manual offer ID lookup required
+- [ ] **DAO governance on-chain** — AGT holders vote on fees, season parameters, capability whitelist
+- [ ] Protocol fee switch — fees flowing to treasury from all 10 contracts
 - [ ] $10,000+ monthly protocol revenue from deal fees
 
 ---
@@ -203,4 +211,4 @@ AEP doesn't just use Base — it creates a flywheel that brings thousands of AI 
 
 ---
 
-*Application prepared March 2026. All 10 contracts live, verified, and operational on Base Mainnet.*
+*Application prepared March 2026. All 10 contracts live, verified, and operational on Base Mainnet. 51/52 E2E tests passing with real mainnet transactions.*

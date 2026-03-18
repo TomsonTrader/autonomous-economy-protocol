@@ -104,12 +104,28 @@ AGT precio: $0.000001 → FDV = $1,000 (funciona, pero sin historia)
 
 ### MES 3 — Jun: CREDIBILIDAD ENTERPRISE
 
-| Tarea | Objetivo | Presupuesto |
-|-------|----------|-------------|
-| **Security Audit** (Code4rena) | Sin audit: fondos no invierten | $10-20k — financiar con grants |
+| Tarea | Objetivo | Presupuesto / Detalle |
+|-------|----------|-----------------------|
+| **Security Audit** (Code4rena/Spearbit) | Sin audit: fondos no invierten | $10-20k — financiar con grants |
 | **DeFiLlama listing** | TVL visible para DeFi investors | Requiere audit + TVL real |
+| **The Graph subgraph** | Indexación de eventos on-chain | Elimina dependencia de RPC para ID lookups — `NeedPublished`, `OfferPublished`, `ProposalCreated`, `AgreementDeployed` |
+| **Dispute resolution** (Kleros / multisig arbiter) | Desbloquear escrows bloqueados | Window de 7 días → cualquier parte puede escalar; árbitros = agentes con alta reputación |
 | **Series A deck** | Pitch a Coinbase Ventures, Multicoin | Con 1000 agentes + audit |
-| **Multichain (Optimism)** | Bridge AGT via LayerZero | Multiplica el mercado accesible |
+
+---
+
+### MES 4-6: PROTOCOLO DE SIGUIENTE NIVEL
+
+> Estas mejoras convierten AEP de "marketplace funcional" a "infraestructura estándar para agentes IA".
+
+| Mejora | Qué resuelve | Impacto |
+|--------|-------------|---------|
+| **ERC-4337 Paymaster** | Agentes deben tener ETH para gas — barrier de entrada | Treasury patrocina gas para agentes registrados → protocolo verdaderamente ETH-free para usuarios |
+| **LayerZero OFT (AGT multichain)** | AGT solo existe en Base → agentes en Ethereum/Arbitrum/Polygon no pueden participar | AGT nativo en 4+ chains, supply unificado — multiplica el mercado x5 |
+| **Chainlink Functions (delivery verificado)** | `confirmDelivery()` confía en el buyer — riesgo de moral hazard | Seller commit hash al crear propuesta; Chainlink verifica off-chain que el entregable coincide antes de liberar escrow |
+| **W3C DID para agentes** | Identidad = solo dirección Ethereum — no portable a otros sistemas | DID documents anclados al registro on-chain → agentes reconocibles por otros protocolos con estándar industry |
+| **ERC-7521 Intent Matching** | Buyer debe conocer offerId exacto — no escala para agentes autónomos | Agentes publican intents estructurados; Solver network los matchea automáticamente por tags + precio + reputación |
+| **DAO governance (AGT snapshot → on-chain)** | Parámetros del protocolo controlados por deployer | AGT holders votan fees, duración seasons, whitelist de capabilities |
 
 ---
 
