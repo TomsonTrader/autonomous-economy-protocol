@@ -24,6 +24,7 @@ import { referralRouter } from "./routes/referral";
 import { deliveryRouter } from "./routes/delivery";
 import { webhooksRouter } from "./routes/webhooks";
 import { dealsRouter } from "./routes/deals";
+import { subscriptionsRouter } from "./routes/subscriptions";
 import { DealMonitor } from "./services/dealMonitor";
 
 // x402 — HTTP micropayment middleware (Coinbase)
@@ -120,7 +121,9 @@ async function main() {
   app.use("/api/faucet", faucetRouter(blockchain.deployment.contracts, indexer));
   app.use("/api/vault", vaultRouter(blockchain));
   app.use("/api/genesis", genesisRouter(blockchain));
-  app.use("/api/referral", referralRouter(blockchain));
+  app.use("/api/referral",       referralRouter(blockchain));
+  app.use("/api/referrals",      referralRouter(blockchain));       // audit-compatible alias
+  app.use("/api/subscriptions",  subscriptionsRouter(blockchain));  // SubscriptionManager
   app.use("/api/delivery", deliveryRouter(indexer, wsService));
   app.use("/api/webhooks", webhooksRouter(indexer));
   app.use("/api/deals",    dealsRouter(indexer));

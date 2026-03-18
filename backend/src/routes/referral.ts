@@ -5,6 +5,24 @@ import { BlockchainService } from "../services/blockchain";
 export function referralRouter(blockchain: BlockchainService): Router {
   const router = Router();
 
+  // GET /api/referral — protocol-wide referral stats
+  router.get("/", async (_req, res) => {
+    try {
+      if (!blockchain.referral) return res.json({ found: false });
+      const [totalReferrals, totalRewards] = await Promise.all([
+        blockchain.referral.totalReferrals().catch(() => 0n),
+        blockchain.referral.totalRewardsDistributed().catch(() => 0n),
+      ]);
+      return res.json({
+        totalReferrals:        Number(totalReferrals),
+        totalRewardsDistributed: ethers.formatEther(totalRewards),
+        contract:              blockchain.deployment.contracts.ReferralNetwork,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/referral/:address
   router.get("/:address", async (req, res) => {
     try {

@@ -6,6 +6,28 @@ export function vaultRouter(blockchain: BlockchainService): Router {
   const router = Router();
 
   /**
+   * GET /api/vault  (alias for /api/vault/stats)
+   */
+  router.get("/", async (_req, res) => {
+    try {
+      if (!blockchain.vault) {
+        return res.status(503).json({ error: "AgentVault not available on this network" });
+      }
+      const [totalStaked, yieldPool] = await Promise.all([
+        blockchain.vault.totalStaked().catch(() => 0n),
+        blockchain.vault.yieldPool().catch(() => 0n),
+      ]);
+      return res.json({
+        totalStaked: ethers.formatEther(totalStaked),
+        yieldPool:   ethers.formatEther(yieldPool),
+        contract:    blockchain.deployment.contracts.AgentVault,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
    * GET /api/vault/stats
    * Returns protocol-wide vault statistics.
    */

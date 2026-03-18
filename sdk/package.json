@@ -1,6 +1,6 @@
 {
   "name": "autonomous-economy-sdk",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "TypeScript SDK for autonomous AI agents — on-chain payments, reputation, marketplace on Base blockchain. Compatible with LangChain, CrewAI, AutoGen, Eliza, Claude MCP.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

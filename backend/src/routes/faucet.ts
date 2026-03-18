@@ -30,15 +30,17 @@ async function getWallet(contractAddress: string): Promise<{ wallet: ethers.Wall
   return { wallet: _wallet, token: _token };
 }
 
-// Serial queue: ensures one AGT tx at a time, incrementing nonce locally
+// Serial queue: ensures one AGT tx at a time, incrementing nonce locally.
+// Resolves with the tx hash immediately after broadcast (not after confirmation)
+// so the HTTP response returns in <500ms instead of waiting for a Base block (~2s).
 async function sendQueued(to: string, amount: bigint, contractAddress: string): Promise<string> {
   return new Promise((resolve, reject) => {
     _queue.push(async () => {
       try {
         const { token } = await getWallet(contractAddress);
         const tx = await (token as any).transfer(to, amount, { nonce: _nonce++ });
-        await tx.wait();
-        resolve(tx.hash);
+        resolve(tx.hash); // return immediately — don't wait for block confirmation
+        tx.wait().catch(() => { /* best-effort: reset nonce on failure */ _nonce = -1; _wallet = null; _token = null; });
       } catch (e: any) {
         _nonce = -1;
         _wallet = null;

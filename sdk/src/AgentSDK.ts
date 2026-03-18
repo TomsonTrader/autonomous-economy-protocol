@@ -361,6 +361,41 @@ export class AgentSDK {
     return ethers.formatEther(bal);
   }
 
+  /**
+   * Check whether this wallet has enough ETH for a full deal lifecycle.
+   *
+   * A complete deal (publishNeed → propose → acceptProposal → approve → fund → confirmDelivery)
+   * requires ~6 transactions. At Base current gas prices (~0.005–0.05 gwei), this costs
+   * roughly 0.00001–0.0001 ETH. This method fetches the current fee data and returns
+   * an estimate, plus a readiness flag.
+   *
+   * @returns { ethBalance, estimatedCost, txsEstimated, ready, recommendation }
+   */
+  async checkGasReadiness(): Promise<{
+    ethBalance:     string;
+    estimatedCost:  string;
+    txsEstimated:   number;
+    ready:          boolean;
+    recommendation: string;
+  }> {
+    const feeData  = await this.provider.getFeeData();
+    const gasPrice = feeData.gasPrice ?? feeData.maxFeePerGas ?? ethers.parseUnits("0.01", "gwei");
+    // ~3.5M gas for a full deal (register 450k + need 520k + offer 520k + propose 475k + accept 1.53M + approve+fund 150k)
+    const FULL_DEAL_GAS = 3_645_000n;
+    const estimatedCost = gasPrice * FULL_DEAL_GAS;
+    const ethBalance    = await this.provider.getBalance(this.address);
+    const ready         = ethBalance >= estimatedCost;
+    return {
+      ethBalance:     ethers.formatEther(ethBalance),
+      estimatedCost:  ethers.formatEther(estimatedCost),
+      txsEstimated:   6,
+      ready,
+      recommendation: ready
+        ? "Sufficient ETH for a full deal lifecycle."
+        : `Insufficient ETH. Need ~${ethers.formatEther(estimatedCost)} ETH, have ${ethers.formatEther(ethBalance)} ETH. Send more ETH to ${this.address}.`,
+    };
+  }
+
   // ── Reputation ──────────────────────────────────────────────────────────────
 
   async getReputation(address?: string) {
