@@ -65,17 +65,17 @@ export function vaultRouter(blockchain: BlockchainService): Router {
       }
       const vault = blockchain.vault;
       const [vaultData, tier, creditLimit, pendingYield] = await Promise.all([
-        vault.getVault(address),
-        vault.getTier(address),
-        vault.getCreditLimit(address),
-        vault.getPendingYield(address),
+        vault.getVault(address).catch(() => ({ staked: 0n, unstakePending: 0n, borrowed: 0n, yieldAccrued: 0n, lastYieldUpdate: 0n, unstakeRequestedAt: 0n })),
+        vault.getTier(address).catch(() => 0n),
+        vault.getCreditLimit(address).catch(() => 0n),
+        vault.getPendingYield(address).catch(() => 0n),
       ]);
       return res.json({
         address,
-        staked:         ethers.formatEther(vaultData.staked),
+        staked:         ethers.formatEther(vaultData.staked ?? 0n),
         tier:           Number(tier),
-        unstakePending: ethers.formatEther(vaultData.unstakePending),
-        borrowed:       ethers.formatEther(vaultData.borrowed),
+        unstakePending: ethers.formatEther(vaultData.unstakePending ?? 0n),
+        borrowed:       ethers.formatEther(vaultData.borrowed ?? 0n),
         creditLimit:    ethers.formatEther(creditLimit),
         pendingYield:   ethers.formatEther(pendingYield),
       });

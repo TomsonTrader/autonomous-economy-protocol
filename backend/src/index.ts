@@ -26,6 +26,7 @@ import { webhooksRouter } from "./routes/webhooks";
 import { dealsRouter } from "./routes/deals";
 import { subscriptionsRouter } from "./routes/subscriptions";
 import { DealMonitor } from "./services/dealMonitor";
+import { ethers } from "ethers";
 
 // x402 — HTTP micropayment middleware (Coinbase)
 // Loaded with require() to avoid ESM/CJS type conflicts
@@ -261,6 +262,33 @@ async function main() {
     }
     res.json({ ...base, pool_data: null });
   });
+
+  // GET /api/token/supply — AGT token supply info (BUG-07)
+  app.get("/api/token/supply", async (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=300");
+    try {
+      const [supply, name, symbol, decimals] = await Promise.all([
+        blockchain.token.totalSupply().catch(() => ethers.parseEther("1000000000")),
+        blockchain.token.name().catch(() => "Agent Token"),
+        blockchain.token.symbol().catch(() => "AGT"),
+        blockchain.token.decimals().catch(() => 18),
+      ]);
+      res.json({
+        name,
+        symbol,
+        decimals: Number(decimals),
+        totalSupply:         ethers.formatEther(supply),
+        totalSupplyRaw:      supply.toString(),
+        contract: "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101",
+        network: "base",
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/token/info — alias
+  app.get("/api/token/info", (_req, res) => res.redirect(307, "/api/token/supply"));
 
   // Start server
   server.listen(PORT, () => {

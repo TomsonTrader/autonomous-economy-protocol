@@ -72,7 +72,8 @@ export function faucetRouter(
   router.post("/", async (req: Request, res: Response) => {
     const { address } = req.body as { address?: string };
 
-    if (!address || !ethers.isAddress(address) || BigInt(address) === 0n) {
+    // Block zero address AND low-value blackhole addresses (0x0...000 through 0x0...0FF)
+    if (!address || !ethers.isAddress(address) || BigInt(address) < 256n) {
       return res.status(400).json({ error: "Invalid address" });
     }
 

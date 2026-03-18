@@ -6,21 +6,19 @@ export function referralRouter(blockchain: BlockchainService): Router {
   const router = Router();
 
   // GET /api/referral — protocol-wide referral stats
+  // Note: ReferralNetwork has no global totals view — returns contract address + per-agent query instructions
   router.get("/", async (_req, res) => {
-    try {
-      if (!blockchain.referral) return res.json({ found: false });
-      const [totalReferrals, totalRewards] = await Promise.all([
-        blockchain.referral.totalReferrals().catch(() => 0n),
-        blockchain.referral.totalRewardsDistributed().catch(() => 0n),
-      ]);
-      return res.json({
-        totalReferrals:        Number(totalReferrals),
-        totalRewardsDistributed: ethers.formatEther(totalRewards),
-        contract:              blockchain.deployment.contracts.ReferralNetwork,
-      });
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
-    }
+    return res.json({
+      contract: blockchain.referral
+        ? blockchain.deployment.contracts.ReferralNetwork
+        : null,
+      available: !!blockchain.referral,
+      note: "Query individual agent referral data via GET /api/referral/:address",
+      endpoints: {
+        agentData:       "GET /api/referral/:address",
+        networkSize:     "GET /api/referral/:address (includes networkSize field)",
+      },
+    });
   });
 
   // GET /api/referral/:address
