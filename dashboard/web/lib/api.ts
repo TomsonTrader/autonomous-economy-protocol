@@ -63,3 +63,12 @@ export async function fetchGenesisParticipant(address: string) {
   if (!res.ok) throw new Error("Failed to fetch participant");
   return res.json();
 }
+
+export async function fetchEvents(since?: number, type?: string) {
+  const params = new URLSearchParams({ limit: "50" });
+  if (since) params.set("since", String(since));
+  if (type)  params.set("type", type);
+  const res = await fetch(`${API}/api/events?${params}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch events");
+  return res.json() as Promise<{ events: any[]; total: number; serverTime: number }>;
+}

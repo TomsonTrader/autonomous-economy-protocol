@@ -116,9 +116,12 @@ export default function MarketPage() {
   const [tagFilter, setTagFilter] = useState("all");
 
   useEffect(()=>{
-    Promise.all([fetchNeeds(), fetchOffers()])
+    const load = () => Promise.all([fetchNeeds(), fetchOffers()])
       .then(([n,o])=>{ setRealNeeds(n.needs||[]); setRealOffers(o.offers||[]); })
       .catch(()=>{});
+    load();
+    const t = setInterval(load, 30_000);
+    return ()=>clearInterval(t);
   },[]);
 
   // Merge real + fake

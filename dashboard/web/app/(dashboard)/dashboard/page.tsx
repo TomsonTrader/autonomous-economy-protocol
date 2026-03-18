@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchStats, fetchActivity, WS_URL } from "../../../lib/api";
+import { fetchStats, fetchActivity, fetchEvents, WS_URL } from "../../../lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
 
@@ -147,34 +147,67 @@ export default function OverviewPage() {
     return ()=>clearInterval(t);
   },[]);
 
-  // Load real stats silently + periodic refresh
+  // Load real stats silently + periodic refresh (15s)
   useEffect(()=>{
     fetchStats().then(setStats).catch(()=>{});
     fetchActivity(20).then(d=>setFeed(d.events||[])).catch(()=>{});
-    // Refresh stats every 30s
-    const statsTimer = setInterval(()=>fetchStats().then(setStats).catch(()=>{}), 30_000);
-    // Refresh activity feed every 60s
-    const feedTimer  = setInterval(()=>fetchActivity(20).then(d=>setFeed(d.events||[])).catch(()=>{}), 60_000);
-    return ()=>{ clearInterval(statsTimer); clearInterval(feedTimer); };
+    const statsTimer = setInterval(()=>fetchStats().then(setStats).catch(()=>{}), 15_000);
+    return ()=>clearInterval(statsTimer);
   },[]);
 
-  // WebSocket for real events
+  // WebSocket → polling fallback when WS unavailable
   useEffect(()=>{
-    let ws: WebSocket;
+    let ws: WebSocket | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let lastTs = Math.floor(Date.now() / 1000) - 120; // last 2 min on start
+
+    // Polling fallback: fetch new events since lastTs every 15s
+    function startPolling() {
+      if (pollTimer) return;
+      pollTimer = setInterval(async () => {
+        try {
+          const data = await fetchEvents(lastTs);
+          if (data.events?.length) {
+            // Events come newest-first; reverse to feed them oldest-first
+            const newEvs = [...data.events].reverse();
+            setFeed(prev => {
+              const merged = [...newEvs.map((e:any) => ({...e, id: e.id ?? Date.now()})), ...prev];
+              return merged.slice(0, 60);
+            });
+            lastTs = data.serverTime;
+            fetchStats().then(setStats).catch(()=>{});
+          }
+        } catch { /* ignore */ }
+      }, 15_000);
+    }
+
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    // Try WebSocket first
     try {
       ws = new WebSocket(WS_URL);
-      ws.onopen  = ()=>setConnected(true);
-      ws.onclose = ()=>setConnected(false);
+      ws.onopen  = ()=>{ setConnected(true); stopPolling(); };
+      ws.onclose = ()=>{ setConnected(false); startPolling(); };
+      ws.onerror = ()=>{ setConnected(false); startPolling(); };
       ws.onmessage = e=>{
-        const msg = JSON.parse(e.data);
-        if (msg.type!=="connected") {
-          setFeed(prev=>[{id:Date.now(),...msg},...prev].slice(0,60));
-          // Refresh stats on any on-chain event (not just registrations/acceptances)
-          fetchStats().then(setStats).catch(()=>{});
-        }
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type !== "connected") {
+            setFeed(prev=>[{id:Date.now(),...msg},...prev].slice(0,60));
+            fetchStats().then(setStats).catch(()=>{});
+            lastTs = Math.floor(Date.now() / 1000);
+          }
+        } catch { /* ignore */ }
       };
-    } catch {}
-    return ()=>ws?.close();
+    } catch { startPolling(); }
+
+    // If WS doesn't open in 3s, start polling anyway
+    const wsTimeout = setTimeout(()=>{ if (!connected) startPolling(); }, 3000);
+
+    return ()=>{ ws?.close(); stopPolling(); clearTimeout(wsTimeout); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
   // Inject fake events when quiet

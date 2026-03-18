@@ -65,8 +65,13 @@ export default function Season1Page() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchGenesisInfo().then(setInfo).catch(console.error);
-    fetchGenesisLeaderboard().then((d) => setLeaderboard(d.leaderboard || [])).catch(console.error);
+    const load = () => {
+      fetchGenesisInfo().then(setInfo).catch(console.error);
+      fetchGenesisLeaderboard().then((d) => setLeaderboard(d.leaderboard || [])).catch(console.error);
+    };
+    load();
+    const t = setInterval(load, 60_000); // refresh leaderboard every minute
+    return () => clearInterval(t);
   }, []);
 
   async function handleLookup() {
