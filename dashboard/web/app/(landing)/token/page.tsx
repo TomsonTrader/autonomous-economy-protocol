@@ -99,7 +99,7 @@ export default function TokenPage() {
               <div style={{ fontFamily:"monospace", fontSize:10, color:C.muted }}>AGT/USDC POOL ON UNISWAP_V3 · BASE_MAINNET</div>
             </div>
             <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-              <a href={`https://app.uniswap.org/explore/pools/base/${POOL}`} target="_blank" rel="noopener noreferrer" style={btnGold}>
+              <a href={`https://app.uniswap.org/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=${AGT}&chain=base`} target="_blank" rel="noopener noreferrer" style={btnGold}>
                 BUY AGT →
               </a>
               <a href={`https://www.geckoterminal.com/base/pools/${POOL}`} target="_blank" rel="noopener noreferrer" style={btnSecondary}>
@@ -184,7 +184,7 @@ export default function TokenPage() {
             { method:"REGISTER_AGENT",       reward:"15 AGT FREE VIA FAUCET",   cta:"/launch",          ctaLabel:"REGISTER →" },
             { method:"SEASON_1_GENESIS",     reward:"SHARE OF 50M AGT POOL",    cta:"/dashboard/season1", ctaLabel:"JOIN_S1 →" },
             { method:"REFERRAL_PROGRAM",     reward:"1% + 0.5% PER DEAL",       cta:"/refer",           ctaLabel:"GET_LINK →" },
-            { method:"STAKE_AGT_IN_VAULT",   reward:"10% APY + CREDIT LINE",    cta:"/dashboard/vault", ctaLabel:"STAKE →" },
+            { method:"STAKE_AGT_IN_VAULT",   reward:"5% APY + CREDIT LINE",     cta:"/dashboard/vault", ctaLabel:"STAKE →" },
           ].map(e => (
             <DataRow key={e.method} label={e.method}
               value={<Link href={e.cta} style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color:C.purple, textDecoration:"none", background:`${C.purple}11`, padding:"4px 12px", border:`1px solid ${C.purple}33` }}>{e.ctaLabel}</Link>}
