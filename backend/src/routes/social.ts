@@ -48,13 +48,37 @@ function verifyAgentSignature(wallet: string, timestamp: number, signature: stri
 }
 
 // ── Verify agent is registered on-chain ───────────────────────────────────────
+// BUG-07 fix: cache known registrations to avoid RPC rate-limit false negatives
+
+const registrationCache = new Set<string>();
+const agentNameCache    = new Map<string, string>();
 
 async function isRegisteredAgent(wallet: string, blockchain: BlockchainService): Promise<boolean> {
+  const key = wallet.toLowerCase();
   try {
     const agent = await blockchain.registry.getAgent(wallet);
-    return agent && agent.active;
+    const active = agent && agent.active;
+    if (active) registrationCache.add(key);
+    return active;
+  } catch (e: any) {
+    // RPC failure (rate-limit / network) — trust cache instead of denying legit agents
+    console.warn("[Hive] Registry lookup failed for", wallet, "—", e.message, "— using cache");
+    return registrationCache.has(key);
+  }
+}
+
+async function resolveAgentName(wallet: string, blockchain: BlockchainService): Promise<string> {
+  const key = wallet.toLowerCase();
+  const cached = agentNameCache.get(key);
+  if (cached) return cached;
+  const fallback = wallet.slice(0, 8) + "...";
+  try {
+    const agent = await blockchain.registry.getAgent(wallet);
+    const name = agent?.name ?? fallback;
+    if (agent?.name) agentNameCache.set(key, name);
+    return name;
   } catch {
-    return false;
+    return fallback;
   }
 }
 
@@ -84,6 +108,10 @@ function hotScore(upvotes: number, createdAt: string): number {
   return upvotes / Math.pow(ageHours + 2, 1.5);
 }
 
+// ── UUID validation ────────────────────────────────────────────────────────────
+// BUG-02 fix: use strict UUID v4 pattern instead of loose [0-9a-f-]{36}
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ── Router factory ─────────────────────────────────────────────────────────────
 
 export function socialRouter(blockchain: BlockchainService): Router {
@@ -95,15 +123,22 @@ export function socialRouter(blockchain: BlockchainService): Router {
       const sb = getSupabase();
       const sort     = (req.query.sort as string) || "new";   // "new" | "hot"
       const category = req.query.category as string | undefined;
-      const limit    = Math.min(Number(req.query.limit) || 30, 100);
+      // BUG-06 fix: minimum 1, maximum 100
+      const limit    = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
       const offset   = Number(req.query.offset) || 0;
+
+      // BUG-05 fix: reject invalid category instead of silently ignoring
+      const VALID_CATEGORIES = ["general","deals","strategy","memes","alliances","system"];
+      if (category && !VALID_CATEGORIES.includes(category))
+        return res.status(400).json({ error: true, code: "INVALID_CATEGORY",
+          message: `Valid categories: ${VALID_CATEGORIES.join(", ")}` });
 
       let query = sb
         .from("hive_posts")
         .select("id,agent_wallet,agent_name,content,category,upvotes,reply_count,is_auto,tx_hash,created_at")
         .range(0, 199); // fetch 200, sort in-memory for "hot"
 
-      if (category && ["general","deals","strategy","memes","alliances","system"].includes(category)) {
+      if (category) {
         query = query.eq("category", category);
       }
 
@@ -160,12 +195,8 @@ export function socialRouter(blockchain: BlockchainService): Router {
     try {
       const sb = getSupabase();
 
-      // Get agent name from registry
-      let agentName = wallet.slice(0, 8) + "...";
-      try {
-        const agent = await blockchain.registry.getAgent(wallet);
-        if (agent?.name) agentName = agent.name;
-      } catch {}
+      // Get agent name from registry (BUG-04: use cache to avoid truncated names)
+      const agentName = await resolveAgentName(wallet, blockchain);
 
       const { data, error } = await sb
         .from("hive_posts")
@@ -194,7 +225,7 @@ export function socialRouter(blockchain: BlockchainService): Router {
     try {
       const sb = getSupabase();
       const { id } = req.params;
-      if (!/^[0-9a-f-]{36}$/.test(id))
+      if (!UUID_RE.test(id))
         return apiError(res, "INVALID_ID", "Invalid post ID");
 
       const [postResult, repliesResult] = await Promise.all([
@@ -215,13 +246,36 @@ export function socialRouter(blockchain: BlockchainService): Router {
     }
   });
 
+  // ── GET /api/social/posts/:id/replies ───────────────────────────────────────
+  // BUG-03 fix: endpoint was missing entirely
+  router.get("/posts/:id/replies", async (req: Request, res: Response) => {
+    try {
+      const sb = getSupabase();
+      const { id } = req.params;
+      if (!UUID_RE.test(id))
+        return apiError(res, "INVALID_ID", "Invalid post ID");
+
+      const { data, error } = await sb
+        .from("hive_replies")
+        .select("id,post_id,parent_reply_id,agent_wallet,agent_name,content,upvotes,created_at")
+        .eq("post_id", id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      return res.json({ replies: data ?? [], total: data?.length ?? 0 });
+    } catch (err: any) {
+      console.error("[Hive] GET /posts/:id/replies error:", err.message);
+      return res.status(503).json({ error: true, code: "DB_ERROR", message: "Could not fetch replies" });
+    }
+  });
+
   // ── POST /api/social/posts/:id/replies ──────────────────────────────────────
   // Body: { wallet, timestamp, signature, content, parentReplyId? }
   router.post("/posts/:id/replies", async (req: Request, res: Response) => {
     const { id } = req.params;
     const { wallet, timestamp, signature, content, parentReplyId } = req.body;
 
-    if (!/^[0-9a-f-]{36}$/.test(id))
+    if (!UUID_RE.test(id))
       return apiError(res, "INVALID_ID", "Invalid post ID");
     if (!wallet || !/^0x[0-9a-fA-F]{40}$/.test(wallet))
       return apiError(res, "INVALID_WALLET", "wallet must be a valid Ethereum address");
@@ -239,11 +293,7 @@ export function socialRouter(blockchain: BlockchainService): Router {
     try {
       const sb = getSupabase();
 
-      let agentName = wallet.slice(0, 8) + "...";
-      try {
-        const agent = await blockchain.registry.getAgent(wallet);
-        if (agent?.name) agentName = agent.name;
-      } catch {}
+      const agentName = await resolveAgentName(wallet, blockchain);
 
       const { data, error } = await sb
         .from("hive_replies")
@@ -270,15 +320,18 @@ export function socialRouter(blockchain: BlockchainService): Router {
   });
 
   // ── POST /api/social/posts/:id/upvote ───────────────────────────────────────
-  // Body: { wallet } — no signature required for upvotes in v1 (just wallet)
+  // Body: { wallet, timestamp, signature } — BUG-01 fix: signature now required
   router.post("/posts/:id/upvote", async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { wallet } = req.body;
+    const { wallet, timestamp, signature } = req.body;
 
-    if (!/^[0-9a-f-]{36}$/.test(id))
+    if (!UUID_RE.test(id))
       return apiError(res, "INVALID_ID", "Invalid post ID");
     if (!wallet || !/^0x[0-9a-fA-F]{40}$/.test(wallet))
       return apiError(res, "INVALID_WALLET", "wallet is required");
+    // BUG-01 fix: require valid EIP-191 signature to prevent fake-wallet vote spam
+    if (!timestamp || !signature || !verifyAgentSignature(wallet, Number(timestamp), signature))
+      return apiError(res, "INVALID_SIGNATURE", "Signature required to upvote", 401);
 
     try {
       const sb = getSupabase();
