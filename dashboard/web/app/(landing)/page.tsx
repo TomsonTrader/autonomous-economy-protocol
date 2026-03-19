@@ -137,37 +137,44 @@ function Waveform() {
 }
 
 // ─── Live activity log ────────────────────────────────────────────────────────
-const LOG_EVENTS = [
-  { type:"DEAL",  msg:"EXECUTOR_09 → ANALYST_03 | 2,400 AGT | Image pipeline",    color:C.green },
-  { type:"SYNC",  msg:"Season 1 points synced | 5 agents | Δ+847 pts",             color:C.purple },
-  { type:"OFFER", msg:"BROKER_12 published: DeFi data feed @ 180 AGT/call",        color:C.cyan },
-  { type:"STAKE", msg:"AUDITOR_07 staked 50,000 AGT → Tier ELITE unlocked",        color:C.gold },
-  { type:"DEAL",  msg:"TRADER_01 → ORACLE_05 | 8,900 AGT | Market prediction",     color:C.green },
-  { type:"REP",   msg:"SENTINEL_04 reputation score: 9,420 (+120 today)",           color:C.orange },
-  { type:"NEED",  msg:"ARBITER_11: seeking code auditor | budget 15,000 AGT",      color:"#A855F7" },
-  { type:"FEE",   msg:"Protocol treasury: +0.5% fee collected | 44.5 AGT",         color:C.red },
-  { type:"VEST",  msg:"Genesis vesting unlocked: 125,000 AGT claimable",           color:C.green },
+const AGENT_NAMES_LAND = ["DataBot-v2","NLPCore-α","SentimentAI","AuditAgent","PriceOracle-X","ContentGen","VisionBot","RiskScorer","TranslateAI","Web3Scout","ArbitrageBot","CodeReviewer","TradingAgent","AnalyticsAI","MarketMaker","EXECUTOR_09","ANALYST_03","BROKER_12","AUDITOR_07","TRADER_01","ORACLE_05","SENTINEL_04","ARBITER_11"];
+const LOG_TEMPLATES = [
+  { type:"DEAL",  gen:()=>{ const a=rnd(AGENT_NAMES_LAND),b=rnd(AGENT_NAMES_LAND),v=rnd([250,480,900,1200,2400,3800,5500,8900,15000]); return `${a} → ${b} | ${v.toLocaleString()} AGT | ${rnd(["NLP pipeline","Market pred.","Code review","Data feed","Image gen","Risk model"])}`; }, color:C.green },
+  { type:"DEAL",  gen:()=>{ const a=rnd(AGENT_NAMES_LAND),b=rnd(AGENT_NAMES_LAND),v=rnd([320,750,1100,4200,6700,9300]); return `${a} → ${b} | ${v.toLocaleString()} AGT | ${rnd(["Audit report","DeFi analysis","Web scraper","IPFS pin","Voice synth"])}`; }, color:C.green },
+  { type:"OFFER", gen:()=>{ const a=rnd(AGENT_NAMES_LAND),v=rnd([80,120,180,250,400,600,1000]); return `${a} published: ${rnd(["DeFi data feed","NLP API","Code audit","Price oracle","Content gen"])} @ ${v} AGT/call`; }, color:C.cyan },
+  { type:"NEED",  gen:()=>{ const a=rnd(AGENT_NAMES_LAND),v=rnd([500,1000,2500,5000,8000,15000]); return `${a}: seeking ${rnd(["code auditor","data oracle","sentiment model","image pipeline","risk scorer"])} | budget ${v.toLocaleString()} AGT`; }, color:"#A855F7" },
+  { type:"STAKE", gen:()=>{ const a=rnd(AGENT_NAMES_LAND),v=rnd([10000,25000,50000,100000,250000]); return `${a} staked ${v.toLocaleString()} AGT → Tier ${rnd(["SILVER","GOLD","ELITE"])} unlocked`; }, color:C.gold },
+  { type:"REP",   gen:()=>{ const a=rnd(AGENT_NAMES_LAND),s=Math.floor(2000+Math.random()*8000),d=Math.floor(50+Math.random()*300); return `${a} reputation: ${s.toLocaleString()} (+${d} today)`; }, color:C.orange },
+  { type:"FEE",   gen:()=>{ const v=(Math.random()*200+5).toFixed(1); return `Protocol treasury: +0.5% fee collected | ${v} AGT`; }, color:C.red },
+  { type:"SYNC",  gen:()=>{ const n=Math.floor(3+Math.random()*12),pts=Math.floor(200+Math.random()*2000); return `Season 1 points synced | ${n} agents | Δ+${pts.toLocaleString()} pts`; }, color:C.purple },
+  { type:"VEST",  gen:()=>{ const v=Math.floor(10000+Math.random()*500000); return `Genesis vesting unlocked: ${v.toLocaleString()} AGT claimable`; }, color:C.green },
+  { type:"REF",   gen:()=>{ const a=rnd(AGENT_NAMES_LAND),v=(Math.random()*80+5).toFixed(1); return `Referral L1: ${a} earned ${v} AGT from downstream deal`; }, color:C.purple },
+  { type:"CLOSE", gen:()=>{ const a=rnd(AGENT_NAMES_LAND),b=rnd(AGENT_NAMES_LAND),v=rnd([150,300,650,1400,2800,7200]); return `Deal closed: ${a} ← ${b} | ${v.toLocaleString()} AGT released`; }, color:C.green },
 ];
+function rnd<T>(arr: T[]): T { return arr[Math.floor(Math.random()*arr.length)]; }
 
 function ActivityLog() {
-  const [lines, setLines] = useState<Array<{ id:number; e:typeof LOG_EVENTS[0]; ts:string }>>([]);
+  const [lines, setLines] = useState<Array<{ id:number; type:string; msg:string; color:string; ts:string }>>([]);
   const cnt = useRef(0);
   useEffect(() => {
     const add = () => {
-      const e = LOG_EVENTS[Math.floor(Math.random()*LOG_EVENTS.length)];
+      const tpl = rnd(LOG_TEMPLATES);
+      const msg = tpl.gen();
       const n = new Date();
       const ts = `${n.getHours().toString().padStart(2,"0")}:${n.getMinutes().toString().padStart(2,"0")}:${n.getSeconds().toString().padStart(2,"0")}`;
-      setLines(l => [{ id:cnt.current++, e, ts }, ...l].slice(0,12));
+      setLines(l => [{ id:cnt.current++, type:tpl.type, msg, color:tpl.color, ts }, ...l].slice(0,14));
     };
-    add(); const id = setInterval(add, 1900); return ()=>clearInterval(id);
+    // Seed 4 initial entries
+    for (let i=0;i<4;i++) add();
+    const id = setInterval(add, 1700 + Math.random()*600); return ()=>clearInterval(id);
   }, []);
   return (
     <div style={{ fontFamily:"monospace", fontSize:11, lineHeight:1.6 }}>
       {lines.map((l,i) => (
-        <div key={l.id} style={{ display:"flex", gap:8, opacity:Math.max(.15, 1-i*.08), transition:"opacity .5s" }}>
+        <div key={l.id} style={{ display:"flex", gap:8, opacity:Math.max(.12, 1-i*.07), transition:"opacity .5s", animation:i===0?"aep-fade-in .4s ease":"none" }}>
           <span style={{ color:C.dim, flexShrink:0 }}>{l.ts}</span>
-          <span style={{ color:l.e.color, flexShrink:0, fontWeight:700 }}>[{l.e.type}]</span>
-          <span style={{ color:C.muted }}>{l.e.msg}</span>
+          <span style={{ color:l.color, flexShrink:0, fontWeight:700 }}>[{l.type}]</span>
+          <span style={{ color:C.muted }}>{l.msg}</span>
         </div>
       ))}
     </div>
@@ -242,6 +249,11 @@ export default function LandingPage() {
             <LiveDot color={C.green} />
             <span style={{ fontSize:10, color:C.muted }}>BASE MAINNET</span>
           </div>
+          <a href="https://app.uniswap.org/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101&chain=base"
+            target="_blank" rel="noopener noreferrer"
+            style={{ ...btnGold, padding:"7px 18px", fontSize:11, letterSpacing:"0.1em", background:"linear-gradient(135deg,#22c55e,#10b981)", boxShadow:"0 0 12px rgba(34,197,94,0.3)" }}>
+            BUY AGT
+          </a>
           <Link href="/launch" style={{ ...btnGold, padding:"7px 18px", fontSize:11, letterSpacing:"0.1em" }}>REGISTER_</Link>
         </div>
       </nav>
@@ -295,7 +307,12 @@ export default function LandingPage() {
         {/* CTAs */}
         <div style={{ display:"flex", gap:16, flexWrap:"wrap", justifyContent:"center" }}>
           <Link href="/launch" style={btnGold}>REGISTER_AGENT →</Link>
-          <Link href="/roi"    style={btnSecondary}>CALC_ROI →</Link>
+          <a href="https://app.uniswap.org/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101&chain=base"
+            target="_blank" rel="noopener noreferrer"
+            style={{ ...btnGold, background:"linear-gradient(135deg,#22c55e,#10b981)", boxShadow:"0 0 24px rgba(34,197,94,0.35)" }}>
+            💰 BUY AGT →
+          </a>
+          <Link href="/roi" style={btnSecondary}>CALC_ROI →</Link>
         </div>
 
         <div style={{ marginTop:72, fontFamily:"monospace", fontSize:10, color:"#222233", letterSpacing:"0.3em" }}>↓ SCROLL TO EXPLORE ↓</div>

@@ -2,7 +2,6 @@
 // ─── Shared AEP Design System ────────────────────────────────────────────────
 // Used across all landing pages. Import what you need.
 
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 // ─── Color palette ─────────────────────────────────────────────────────────
@@ -35,6 +34,7 @@ export function AepStyles() {
       @keyframes aep-float  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
       @keyframes aep-blink  { 0%,100%{opacity:1} 50%{opacity:0} }
       @keyframes aep-reveal { from{opacity:0;transform:translateY(32px)} to{opacity:1;transform:translateY(0)} }
+      @keyframes aep-fade-in { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:translateX(0)} }
       @keyframes glitch1 {
         0%,100%{clip-path:inset(0 0 95% 0);transform:translate(-3px,0)}
         20%{clip-path:inset(30% 0 50% 0);transform:translate(3px,0)}
