@@ -150,10 +150,11 @@ export function HexLogo({ size = 32 }: { size?: number }) {
 // ─── Shared Nav ─────────────────────────────────────────────────────────────
 export function AepNav({ active }: { active?: string }) {
   const links = [
-    { href: "/token", label: "AGT" },
-    { href: "/roi", label: "ROI" },
+    { href: "/hive",       label: "THE_HIVE" },
+    { href: "/token",      label: "AGT" },
+    { href: "/roi",        label: "ROI" },
     { href: "/whitepaper", label: "DOCS" },
-    { href: "/activity", label: "ACTIVITY" },
+    { href: "/activity",   label: "ACTIVITY" },
   ];
   return (
     <nav style={{
