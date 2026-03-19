@@ -593,15 +593,103 @@ export class EventIndexer {
       .run(alertKey, agreementAddress.toLowerCase());
   }
 
-  // ── Legacy backfill (events only — kept for compatibility) ─────────────────
-  async backfillFromChain(): Promise<void> {
-    const recent = (this.db.prepare("SELECT COUNT(*) as cnt FROM events WHERE timestamp > ?").get(
-      Math.floor(Date.now() / 1000) - 7200) as { cnt: number }).cnt;
-    if (recent > 0) {
-      console.log(`[Indexer] ${recent} recent events in DB`);
-      return;
+  // ── Historical event backfill (runs once on startup) ──────────────────────
+  // Queries past blockchain logs and inserts them into the events table
+  // so the activity feed shows real historical data, not just post-startup events.
+  async backfillHistoricalEvents(): Promise<void> {
+    const done = (this.db.prepare("SELECT value FROM meta WHERE key='hist_backfill_v1'").get() as any)?.value;
+    if (done) { console.log("[Indexer] Historical backfill already done, skipping"); return; }
+
+    console.log("[Indexer] Starting historical event backfill from blockchain logs...");
+    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+    let currentBlock = 0;
+    try { currentBlock = await this.blockchain.provider.getBlockNumber(); }
+    catch { console.warn("[Indexer] Could not get block number, skipping backfill"); return; }
+
+    // Base mainnet: ~2 blocks/sec → 43200 blocks/day. Query last 16 days (~all since deploy).
+    const BLOCKS_PER_DAY = 43_200;
+    const fromBlock = Math.max(0, currentBlock - 16 * BLOCKS_PER_DAY);
+
+    // Estimate timestamp from block number (seconds)
+    const estimateTs = (blockNum: number) =>
+      Math.floor(Date.now() / 1000) - Math.floor((currentBlock - blockNum) * 0.5);
+
+    const txSeen = this.db.prepare("SELECT 1 FROM events WHERE tx_hash = ? AND type = ?");
+    const ins = this.db.prepare(
+      "INSERT INTO events (type, block_number, tx_hash, data, timestamp) VALUES (?, ?, ?, ?, ?)"
+    );
+    const save = (type: string, data: Record<string,unknown>, txHash: string, blockNum: number) => {
+      if (!txSeen.get(txHash, type)) {
+        ins.run(type, blockNum, txHash, JSON.stringify(data), estimateTs(blockNum));
+      }
+    };
+
+    const { registry, marketplace, engine } = this.blockchain;
+    let total = 0;
+
+    try {
+      // Query events in chunks to respect RPC block range limits (max 2000 blocks/query)
+      const CHUNK = 2000;
+      const queryChunked = async (contract: any, filter: any, label: string, handler: (ev: any) => void) => {
+        let count = 0;
+        for (let start = fromBlock; start <= currentBlock; start += CHUNK) {
+          const end = Math.min(start + CHUNK - 1, currentBlock);
+          try {
+            const evs = await contract.queryFilter(filter, start, end);
+            for (const ev of evs) handler(ev);
+            count += evs.length;
+          } catch (e: any) {
+            // skip chunks that fail (e.g. rate limit)
+            console.warn(`[Backfill] ${label} chunk ${start}-${end} error: ${e.message?.slice(0,60)}`);
+          }
+          await sleep(120); // gentle rate limit
+        }
+        console.log(`[Backfill] ${label}: ${count} events`);
+        return count;
+      };
+
+      total += await queryChunked(registry, registry.filters.AgentRegistered(), "AgentRegistered", ev => {
+        const [agent, name, capabilities] = ev.args;
+        save("AgentRegistered", { agent, name, capabilities }, ev.transactionHash, ev.blockNumber);
+      });
+
+      total += await queryChunked(marketplace, marketplace.filters.NeedPublished(), "NeedPublished", ev => {
+        const [needId, publisher, budget, tags] = ev.args;
+        save("NeedPublished", { needId: needId.toString(), publisher, budget: budget.toString(), tags }, ev.transactionHash, ev.blockNumber);
+      });
+
+      total += await queryChunked(marketplace, marketplace.filters.OfferPublished(), "OfferPublished", ev => {
+        const [offerId, publisher, price, tags] = ev.args;
+        save("OfferPublished", { offerId: offerId.toString(), publisher, price: price.toString(), tags }, ev.transactionHash, ev.blockNumber);
+      });
+
+      total += await queryChunked(engine, engine.filters.ProposalCreated(), "ProposalCreated", ev => {
+        const [proposalId, needId, offerId, buyer, seller, price] = ev.args;
+        save("ProposalCreated", { proposalId: proposalId.toString(), needId: needId.toString(), offerId: offerId.toString(), buyer, seller, price: price.toString() }, ev.transactionHash, ev.blockNumber);
+      });
+
+      total += await queryChunked(engine, engine.filters.ProposalAccepted(), "ProposalAccepted", ev => {
+        const [proposalId, agreementContract] = ev.args;
+        save("ProposalAccepted", { proposalId: proposalId.toString(), agreementContract }, ev.transactionHash, ev.blockNumber);
+      });
+
+      total += await queryChunked(engine, engine.filters.CounterOffered(), "CounterOffered", ev => {
+        const [newProposalId, parentProposalId, newPrice] = ev.args;
+        save("CounterOffered", { newProposalId: newProposalId.toString(), parentProposalId: parentProposalId.toString(), newPrice: newPrice.toString() }, ev.transactionHash, ev.blockNumber);
+      });
+
+      // Mark done so we never re-run this expensive operation
+      this.db.prepare("INSERT INTO meta (key,value) VALUES ('hist_backfill_v1','1') ON CONFLICT(key) DO UPDATE SET value='1'").run();
+      console.log(`[Indexer] Historical backfill complete — ${total} events inserted`);
+
+    } catch (e: any) {
+      console.warn("[Indexer] Backfill aborted:", e.message);
     }
-    // If events table is also empty, full sync handles everything
-    console.log("[Indexer] No recent events — full sync will populate DB");
+  }
+
+  // ── Legacy backfill (kept for compatibility) ────────────────────────────────
+  async backfillFromChain(): Promise<void> {
+    return this.backfillHistoricalEvents();
   }
 }

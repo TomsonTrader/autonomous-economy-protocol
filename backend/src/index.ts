@@ -104,6 +104,10 @@ async function main() {
   // First sync at 10s to let RPC settle after cold start
   setTimeout(() => indexer.syncFromChain().catch(e => console.warn("[DataStore] Startup sync error:", e.message)), 10_000);
 
+  // Backfill historical events (runs once, skipped on subsequent starts)
+  // Queries past blockchain logs so activity feed shows real historical data
+  setTimeout(() => indexer.backfillHistoricalEvents().catch(e => console.warn("[Backfill] Error:", e.message)), 30_000);
+
   // Periodic sync every 5 minutes — keeps SQLite fresh without hammering RPC
   setInterval(() => indexer.syncFromChain().catch(() => {}), 5 * 60_000);
 
