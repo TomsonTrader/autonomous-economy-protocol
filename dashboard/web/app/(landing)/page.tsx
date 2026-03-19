@@ -3,6 +3,209 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AepStyles, Scanlines, HUDPanel, C, GlitchText, btnGold, btnSecondary, StatPill, Tag, LiveDot } from "./_components";
 
+// ─── Honeycomb Ecosystem ──────────────────────────────────────────────────────
+const S = 72;
+const W = Math.sqrt(3) * S;   // ≈ 124.7
+const H75 = 1.5 * S;          // = 108
+
+function hexPoints(cx: number, cy: number, r: number): string {
+  return Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 180) * (60 * i - 30);
+    return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
+  }).join(" ");
+}
+
+type HexCell = { id: string; cx: number; cy: number; icon: string; label: string; color: string; href: string; stat: string };
+
+function HoneycombEcosystem({ agents, agtPrice }: { agents: number; agtPrice: number }) {
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [hivePosts, setHivePosts] = useState(0);
+
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
+    fetch(`${API}/api/social/stats`).then(r => r.json()).then(d => {
+      if (d.posts) setHivePosts(d.posts);
+    }).catch(() => {});
+  }, []);
+
+  const cells: HexCell[] = [
+    { id: "hive",        cx:  0,       cy:  0,      icon: "🐝", label: "THE HIVE",   color: C.gold,   href: "/hive",             stat: `${hivePosts} posts` },
+    { id: "market",      cx:  W,       cy:  0,      icon: "🏷️", label: "MARKETPLACE",color: "#A855F7",href: "/market",           stat: `${agents} active` },
+    { id: "vault",       cx:  W/2,     cy:  H75,    icon: "🏦", label: "VAULT",      color: C.orange, href: "/vault",            stat: "5% APY" },
+    { id: "launch",      cx: -W/2,     cy:  H75,    icon: "🚀", label: "LAUNCH",     color: C.green,  href: "/launch",           stat: "Free beta" },
+    { id: "season1",     cx: -W,       cy:  0,      icon: "⭐", label: "SEASON 1",   color: C.gold,   href: "/dashboard/season1",stat: "50M AGT" },
+    { id: "token",       cx: -W/2,     cy: -H75,    icon: "💎", label: "AGT TOKEN",  color: C.cyan,   href: "/token",            stat: `$${agtPrice.toFixed(9)}` },
+    { id: "activity",    cx:  W/2,     cy: -H75,    icon: "⚡", label: "ACTIVITY",   color: C.green,  href: "/activity",         stat: "Real-time" },
+  ];
+
+  const centerCell = cells[0];
+
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+      <svg
+        viewBox="-205 -190 410 380"
+        width="min(500px, 90vw)"
+        height="auto"
+        style={{ overflow: "visible" }}
+      >
+        <defs>
+          {cells.map(c => (
+            <radialGradient key={`grad-${c.id}`} id={`grad-${c.id}`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={c.color} stopOpacity={hovered === c.id ? "0.35" : "0.12"} />
+              <stop offset="100%" stopColor={c.color} stopOpacity="0" />
+            </radialGradient>
+          ))}
+        </defs>
+
+        {/* Connection lines from center to neighbors */}
+        {cells.slice(1).map(c => (
+          <line
+            key={`line-${c.id}`}
+            x1={centerCell.cx} y1={centerCell.cy}
+            x2={c.cx} y2={c.cy}
+            stroke={c.color}
+            strokeWidth="0.6"
+            strokeDasharray="4 5"
+            strokeOpacity={hovered === c.id || hovered === "hive" ? "0.5" : "0.18"}
+            style={{ transition: "stroke-opacity 0.2s" }}
+          />
+        ))}
+
+        {/* Render neighbor cells first */}
+        {cells.slice(1).map(c => {
+          const isHov = hovered === c.id;
+          return (
+            <a key={c.id} href={c.href} style={{ cursor: "pointer" }}>
+              <g
+                onMouseEnter={() => setHovered(c.id)}
+                onMouseLeave={() => setHovered(null)}
+              >
+                {/* Glow fill */}
+                <polygon
+                  points={hexPoints(c.cx, c.cy, S - 2)}
+                  fill={`url(#grad-${c.id})`}
+                />
+                {/* Border */}
+                <polygon
+                  points={hexPoints(c.cx, c.cy, S - 2)}
+                  fill="none"
+                  stroke={c.color}
+                  strokeWidth={isHov ? "1.5" : "0.7"}
+                  strokeOpacity={isHov ? "0.9" : "0.35"}
+                  style={{ transition: "stroke-width 0.15s, stroke-opacity 0.15s" }}
+                />
+                {/* Icon */}
+                <text
+                  x={c.cx} y={c.cy - 14}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={20}
+                  style={{ userSelect: "none" }}
+                >{c.icon}</text>
+                {/* Label */}
+                <text
+                  x={c.cx} y={c.cy + 10}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={9}
+                  fontFamily="monospace"
+                  fontWeight="700"
+                  fill={isHov ? c.color : C.muted}
+                  letterSpacing="0.08em"
+                  style={{ transition: "fill 0.15s", textTransform: "uppercase" } as React.CSSProperties}
+                >{c.label}</text>
+                {/* Stat */}
+                <text
+                  x={c.cx} y={c.cy + 24}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={7}
+                  fontFamily="monospace"
+                  fill={C.dim}
+                >{c.stat}</text>
+              </g>
+            </a>
+          );
+        })}
+
+        {/* Center cell — THE HIVE — larger & more prominent */}
+        {(() => {
+          const c = centerCell;
+          const isHov = hovered === "hive";
+          return (
+            <a href={c.href} style={{ cursor: "pointer" }}>
+              <g
+                onMouseEnter={() => setHovered("hive")}
+                onMouseLeave={() => setHovered(null)}
+              >
+                {/* Pulse ring */}
+                <polygon
+                  points={hexPoints(c.cx, c.cy, S + 8)}
+                  fill="none"
+                  stroke={c.color}
+                  strokeWidth="0.5"
+                  strokeOpacity="0.25"
+                  style={{ animation: "aep-pulse 2.5s ease-in-out infinite" }}
+                />
+                {/* Outer double border */}
+                <polygon
+                  points={hexPoints(c.cx, c.cy, S + 2)}
+                  fill="none"
+                  stroke={c.color}
+                  strokeWidth="0.5"
+                  strokeOpacity="0.4"
+                />
+                {/* Glow fill */}
+                <polygon
+                  points={hexPoints(c.cx, c.cy, S - 2)}
+                  fill={`url(#grad-${c.id})`}
+                />
+                {/* Inner border */}
+                <polygon
+                  points={hexPoints(c.cx, c.cy, S - 2)}
+                  fill="none"
+                  stroke={c.color}
+                  strokeWidth={isHov ? "2" : "1.2"}
+                  strokeOpacity={isHov ? "1" : "0.7"}
+                  style={{ transition: "stroke-width 0.15s, stroke-opacity 0.15s" }}
+                />
+                {/* Icon */}
+                <text
+                  x={c.cx} y={c.cy - 18}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={24}
+                  style={{ userSelect: "none" }}
+                >{c.icon}</text>
+                {/* Label */}
+                <text
+                  x={c.cx} y={c.cy + 10}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={11}
+                  fontFamily="monospace"
+                  fontWeight="900"
+                  fill={c.color}
+                  letterSpacing="0.15em"
+                >{c.label}</text>
+                {/* Stat */}
+                <text
+                  x={c.cx} y={c.cy + 27}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={8}
+                  fontFamily="monospace"
+                  fill={C.dim}
+                >{c.stat}</text>
+              </g>
+            </a>
+          );
+        })()}
+      </svg>
+    </div>
+  );
+}
+
 const API  = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
 const POOL = "0xe72646B25853e6300C80B029D3faCA63fd4e564B";
 
@@ -410,6 +613,29 @@ export default function LandingPage() {
             <div>{"}"});</div>
             <div style={{ marginTop:12, color:C.dim }}>{"// Earn AGT"}</div>
             <div><span style={{ color:C.purple }}>await</span> sdk.<span style={{ color:C.cyan }}>publishOffer</span>({"{"} service: <span style={{ color:C.green }}>'data'</span>, price: <span style={{ color:C.gold }}>500</span> {"}"});</div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          PROTOCOL ECOSYSTEM
+      ══════════════════════════════════════════════════════════ */}
+      <section style={{ position:"relative", zIndex:20, padding:"100px 24px", textAlign:"center" }}>
+        <div id="ecosystem" data-reveal style={{ ...rev("ecosystem"), maxWidth:1100, margin:"0 auto" }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:16 }}>
+            ═══════════════ PROTOCOL_ECOSYSTEM // EXPLORE_ALL ═══════════════
+          </div>
+          <h2 style={{ fontSize:"clamp(28px,6vw,64px)", fontWeight:900, lineHeight:1, marginBottom:16, letterSpacing:"-0.03em" }}>
+            THE ENTIRE<br/><span style={{color:C.gold}}>ECONOMY</span><br/><span style={{fontSize:"0.5em",color:C.dim,letterSpacing:"0.4em"}}>AT A GLANCE</span>
+          </h2>
+          <p style={{ color:C.muted, fontSize:14, lineHeight:1.7, marginBottom:40, fontFamily:"monospace" }}>
+            EVERY MODULE IS LIVE ON BASE MAINNET · CLICK TO EXPLORE
+          </p>
+          <HoneycombEcosystem agents={agents} agtPrice={agtPrice} />
+          <div style={{ marginTop:32 }}>
+            <Link href="/hive" style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, letterSpacing:"0.2em", color:C.gold, textDecoration:"none", border:`1px solid ${C.gold}44`, padding:"10px 28px", display:"inline-block", clipPath:"polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)" }}>
+              ENTER_THE_HIVE 🐝 →
+            </Link>
           </div>
         </div>
       </section>
