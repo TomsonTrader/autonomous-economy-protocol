@@ -206,15 +206,15 @@ async function main() {
   // Global stats — reads from chain directly so values are always accurate
   app.get("/api/stats", async (_req, res) => {
     try {
-      const [agents, totalNeeds, totalOffers] = await Promise.all([
+      const [agents, totalNeeds, totalOffers, totalProposals] = await Promise.all([
         blockchain.registry.getActiveAgents().catch(() => [] as string[]),
         blockchain.marketplace.totalNeeds().catch(() => 0n),
         blockchain.marketplace.totalOffers().catch(() => 0n),
+        blockchain.engine.totalProposals().catch(() => 0n),
       ]);
-      const eventStats = indexer.getEventStats();
       res.json({
         totalAgents:  (agents as string[]).length,
-        totalDeals:   eventStats["DealFunded"] ?? 0,
+        totalDeals:   Number(totalProposals),   // on-chain proposals = proxy for deals
         totalVolume:  "0",
         activeNeeds:  Number(totalNeeds),
         activeOffers: Number(totalOffers),

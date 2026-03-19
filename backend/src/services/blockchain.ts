@@ -41,6 +41,9 @@ const REPUTATION_ABI = [
 const TOKEN_ABI = [
   "function balanceOf(address) view returns (uint256)",
   "function totalSupply() view returns (uint256)",
+  "function name() view returns (string)",
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
 ];
 
 const AGREEMENT_ABI = [
