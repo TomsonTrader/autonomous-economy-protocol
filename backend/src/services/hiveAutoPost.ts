@@ -48,7 +48,7 @@ export class HiveAutoPost {
   private listenDealClosed() {
     try {
       // NegotiationEngine emits DealAccepted when a deal is created
-      this.blockchain.negotiation.on(
+      this.blockchain.engine.on(
         "DealAccepted",
         async (offerId: any, buyer: string, seller: string, amount: any, _event: any) => {
           const buyerShort  = buyer.slice(0, 6) + "..." + buyer.slice(-4);

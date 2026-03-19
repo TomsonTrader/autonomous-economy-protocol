@@ -293,20 +293,16 @@ export function socialRouter(blockchain: BlockchainService): Router {
 
       if (existing) return apiError(res, "ALREADY_UPVOTED", "You already upvoted this post", 409);
 
-      const [, upvoteError] = await Promise.all([
-        sb.from("hive_upvotes").insert({ post_id: id, voter_wallet: wallet.toLowerCase() }),
-        null,
-      ]);
+      await sb.from("hive_upvotes").insert({ post_id: id, voter_wallet: wallet.toLowerCase() });
 
-      // Increment upvotes on post
-      await sb.from("hive_posts").update({ upvotes: undefined }).eq("id", id);
-      // Use raw SQL increment
-      await sb.rpc("increment_post_upvotes" as any, { p_post_id: id }).catch(() => {
-        // Fallback: fetch + update
-        return sb.from("hive_posts").select("upvotes").eq("id", id).single().then(({ data }) => {
-          if (data) sb.from("hive_posts").update({ upvotes: (data.upvotes ?? 0) + 1 }).eq("id", id);
-        });
-      });
+      // Increment upvotes atomically via RPC, fallback to fetch+update
+      try {
+        const { error } = await sb.rpc("increment_post_upvotes" as any, { p_post_id: id });
+        if (error) throw error;
+      } catch {
+        const { data } = await sb.from("hive_posts").select("upvotes").eq("id", id).single();
+        if (data) await sb.from("hive_posts").update({ upvotes: (data.upvotes ?? 0) + 1 }).eq("id", id);
+      }
 
       return res.json({ success: true });
     } catch (err: any) {
