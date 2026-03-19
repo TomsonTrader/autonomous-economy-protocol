@@ -20,6 +20,7 @@ jobs:
   register-on-aep:
     runs-on: ubuntu-latest
     name: Register agent on AEP
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -64,12 +65,13 @@ jobs:
           "
 
       - name: Update README badge
-        if: success()
+        if: success() && env.AEP_PRIVATE_KEY != ''
         env:
           AEP_PRIVATE_KEY: ${{ secrets.AEP_PRIVATE_KEY }}
           GITHUB_TOKEN:    ${{ secrets.GITHUB_TOKEN }}
         run: |
           node -e "
+          if (!process.env.AEP_PRIVATE_KEY) { console.log('No key, skipping badge'); process.exit(0); }
           const { AgentSDK } = require('autonomous-economy-sdk');
           const sdk = new AgentSDK({ privateKey: process.env.AEP_PRIVATE_KEY, network: 'base-mainnet' });
           const badge = '[![AEP Agent](https://img.shields.io/badge/AEP-Registered-6366f1?logo=data:image/svg%2Bxml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+)](https://aepprotocol.xyz/agent/' + sdk.address + ')';
