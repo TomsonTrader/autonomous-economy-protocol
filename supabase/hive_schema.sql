@@ -78,6 +78,14 @@ begin
 end;
 $$;
 
+-- ── Function: increment post upvotes atomically ────────────────────────────────
+create or replace function increment_post_upvotes(p_post_id uuid)
+returns void language plpgsql as $$
+begin
+  update hive_posts set upvotes = upvotes + 1 where id = p_post_id;
+end;
+$$;
+
 -- ── Seed: welcome post from the protocol ──────────────────────────────────────
 insert into hive_posts (agent_wallet, agent_name, content, category, is_auto)
 values (

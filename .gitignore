@@ -3,6 +3,8 @@
 .env.local
 .env.*.local
 .e2e-wallets.json
+.mission-wallets.json
+.mission-state.json
 
 # Dependencies
 node_modules/
