@@ -23,21 +23,41 @@ const VALID_TEMPLATES: Record<string, string[]> = {
   "audit-bot":      ["security", "audit", "solidity"],
 };
 
-// In-memory daily rate limit for managed launches
+// In-memory rate limits for managed launches
+const MANAGED_DAILY_MAX = 5;           // global cap per calendar day
+// max launches per IP per 24h (enforced in checkManagedRateLimit)
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 let managedDailyCount = 0;
 let managedDayStart   = Date.now();
-const MANAGED_DAILY_MAX = 10;
+const ipTimestamps = new Map<string, number>(); // ip → last launch timestamp
 
-function checkManagedRateLimit(): boolean {
+function checkManagedRateLimit(ip: string): { ok: boolean; reason?: string } {
   const now = Date.now();
-  const dayMs = 24 * 60 * 60 * 1000;
-  if (now - managedDayStart > dayMs) {
+
+  // Reset global counter each calendar day
+  if (now - managedDayStart > DAY_MS) {
     managedDayStart   = now;
     managedDailyCount = 0;
   }
-  if (managedDailyCount >= MANAGED_DAILY_MAX) return false;
+  if (managedDailyCount >= MANAGED_DAILY_MAX) {
+    return { ok: false, reason: "Daily global limit reached. Try again tomorrow." };
+  }
+
+  // Per-IP: 1 launch per 24h
+  const lastIp = ipTimestamps.get(ip);
+  if (lastIp && now - lastIp < DAY_MS) {
+    return { ok: false, reason: "One managed agent per IP per day." };
+  }
+
   managedDailyCount++;
-  return true;
+  ipTimestamps.set(ip, now);
+  // Prune old IP entries to avoid unbounded growth
+  if (ipTimestamps.size > 1000) {
+    const cutoff = now - DAY_MS;
+    for (const [k, v] of ipTimestamps) { if (v < cutoff) ipTimestamps.delete(k); }
+  }
+  return { ok: true };
 }
 
 // Resolve managed-agents.json path: Railway uses /app, local uses repo root
@@ -182,9 +202,11 @@ export function launchpadRouter(contracts: {
       return res.status(503).json({ error: "Launchpad not configured (missing DEPLOYER_PRIVATE_KEY)" });
     }
 
-    // Rate limit: max 10 per day globally
-    if (!checkManagedRateLimit()) {
-      return res.status(429).json({ error: "Daily managed agent limit reached. Try again tomorrow." });
+    // Rate limit: global (5/day) + per-IP (1/day)
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+    const rl = checkManagedRateLimit(ip);
+    if (!rl.ok) {
+      return res.status(429).json({ error: rl.reason });
     }
 
     const { template, name, ownerAddress } = req.body as {
@@ -207,8 +229,9 @@ export function launchpadRouter(contracts: {
     const capabilities = VALID_TEMPLATES[template];
     const cleanOwner   = ownerAddress && /^0x[0-9a-fA-F]{40}$/.test(ownerAddress) ? ownerAddress : undefined;
 
-    // ETH for gas (covers ~5 txs) and AGT for registration + operations
-    const MANAGED_ETH = ethers.parseEther("0.0001");
+    // ETH: minimum for approve + registerAgent on Base (~150k gas at 0.03 gwei max = 0.0000045 ETH)
+    // 0.000005 ETH gives ~5x safety margin and covers ~200 future ops at normal gas
+    const MANAGED_ETH = ethers.parseEther("0.000005");
     const MANAGED_AGT = ethers.parseEther("15");
 
     try {
@@ -228,7 +251,7 @@ export function launchpadRouter(contracts: {
       if ((agtBal as bigint) < MANAGED_AGT) {
         return res.status(503).json({ error: "Launchpad AGT depleted — try again later" });
       }
-      if ((ethBal as bigint) < MANAGED_ETH + ethers.parseEther("0.0001")) {
+      if ((ethBal as bigint) < MANAGED_ETH + ethers.parseEther("0.00005")) {
         return res.status(503).json({ error: "Launchpad ETH depleted — try again later" });
       }
 
