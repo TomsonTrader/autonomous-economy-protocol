@@ -4,9 +4,14 @@ import Link from "next/link";
 import { AepStyles, Scanlines, HUDPanel, C, GlitchText, btnGold, btnSecondary, StatPill, Tag, LiveDot } from "./_components";
 
 // ─── Honeycomb Ecosystem ──────────────────────────────────────────────────────
-const S = 72;
-const W = Math.sqrt(3) * S;   // ≈ 124.7
-const H75 = 1.5 * S;          // = 108
+const S   = 72;
+const W   = Math.sqrt(3) * S;   // ≈ 124.7
+const H75 = 1.5 * S;            // = 108
+
+// Amber/honey palette
+const HONEY = "#F59E0B";
+const HONEY_DARK  = "#92400E";
+const HONEY_BRIGHT = "#FCD34D";
 
 function hexPoints(cx: number, cy: number, r: number): string {
   return Array.from({ length: 6 }, (_, i) => {
@@ -14,6 +19,23 @@ function hexPoints(cx: number, cy: number, r: number): string {
     return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
   }).join(" ");
 }
+
+// Build a repeating hex background grid (pointy-top, ~22px radius)
+function buildHexBgPoints(): { cx: number; cy: number }[] {
+  const rs = 22;
+  const rw = Math.sqrt(3) * rs;
+  const rh = 1.5 * rs;
+  const pts: { cx: number; cy: number }[] = [];
+  for (let row = -5; row <= 5; row++) {
+    for (let col = -6; col <= 6; col++) {
+      const cx = col * rw + (row % 2 === 0 ? 0 : rw / 2);
+      const cy = row * rh;
+      pts.push({ cx, cy });
+    }
+  }
+  return pts;
+}
+const HEX_BG = buildHexBgPoints();
 
 type HexCell = { id: string; cx: number; cy: number; icon: string; label: string; color: string; href: string; stat: string };
 
@@ -29,173 +51,216 @@ function HoneycombEcosystem({ agents, agtPrice }: { agents: number; agtPrice: nu
   }, []);
 
   const cells: HexCell[] = [
-    { id: "hive",        cx:  0,       cy:  0,      icon: "🐝", label: "THE HIVE",   color: C.gold,   href: "/hive",             stat: `${hivePosts} posts` },
-    { id: "market",      cx:  W,       cy:  0,      icon: "🏷️", label: "MARKETPLACE",color: "#A855F7",href: "/market",           stat: `${agents} active` },
-    { id: "vault",       cx:  W/2,     cy:  H75,    icon: "🏦", label: "VAULT",      color: C.orange, href: "/vault",            stat: "5% APY" },
-    { id: "launch",      cx: -W/2,     cy:  H75,    icon: "🚀", label: "LAUNCH",     color: C.green,  href: "/launch",           stat: "Free beta" },
-    { id: "season1",     cx: -W,       cy:  0,      icon: "⭐", label: "SEASON 1",   color: C.gold,   href: "/dashboard/season1",stat: "50M AGT" },
-    { id: "token",       cx: -W/2,     cy: -H75,    icon: "💎", label: "AGT TOKEN",  color: C.cyan,   href: "/token",            stat: `$${agtPrice.toFixed(9)}` },
-    { id: "activity",    cx:  W/2,     cy: -H75,    icon: "⚡", label: "ACTIVITY",   color: C.green,  href: "/activity",         stat: "Real-time" },
+    { id: "hive",     cx:  0,    cy:  0,    icon: "◈",  label: "THE HIVE",    color: HONEY,    href: "/hive",              stat: `${hivePosts || 1} posts` },
+    { id: "market",   cx:  W,    cy:  0,    icon: "◈",  label: "MARKETPLACE", color: "#A855F7",href: "/market",            stat: `${agents} active` },
+    { id: "vault",    cx:  W/2,  cy:  H75,  icon: "◈",  label: "VAULT",       color: C.orange, href: "/vault",             stat: "5% APY" },
+    { id: "launch",   cx: -W/2,  cy:  H75,  icon: "◈",  label: "LAUNCH",      color: C.green,  href: "/launch",            stat: "Free beta" },
+    { id: "season1",  cx: -W,    cy:  0,    icon: "◈",  label: "SEASON 1",    color: HONEY,    href: "/dashboard/season1", stat: "50M AGT" },
+    { id: "token",    cx: -W/2,  cy: -H75,  icon: "◈",  label: "AGT TOKEN",   color: C.cyan,   href: "/token",             stat: `$${agtPrice.toFixed(9)}` },
+    { id: "activity", cx:  W/2,  cy: -H75,  icon: "◈",  label: "ACTIVITY",    color: C.green,  href: "/activity",          stat: "Real-time" },
   ];
 
   const centerCell = cells[0];
 
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", position: "relative" }}>
+      {/* Amber glow underneath */}
+      <div style={{
+        position: "absolute",
+        width: 300, height: 300,
+        borderRadius: "50%",
+        background: `radial-gradient(circle, ${HONEY}18 0%, transparent 70%)`,
+        pointerEvents: "none",
+        zIndex: 0,
+      }} />
       <svg
-        viewBox="-205 -190 410 380"
-        width="min(500px, 90vw)"
+        viewBox="-210 -195 420 390"
+        width="min(520px, 92vw)"
         height="auto"
-        style={{ overflow: "visible" }}
+        style={{ overflow: "visible", position: "relative", zIndex: 1 }}
       >
         <defs>
+          {/* Per-cell radial gradients */}
           {cells.map(c => (
             <radialGradient key={`grad-${c.id}`} id={`grad-${c.id}`} cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor={c.color} stopOpacity={hovered === c.id ? "0.35" : "0.12"} />
+              <stop offset="0%" stopColor={c.color} stopOpacity={hovered === c.id ? "0.4" : (c.id === "hive" ? "0.22" : "0.1")} />
               <stop offset="100%" stopColor={c.color} stopOpacity="0" />
             </radialGradient>
           ))}
+          {/* Honey fill for center cell */}
+          <radialGradient id="honey-fill" cx="40%" cy="35%" r="65%">
+            <stop offset="0%"   stopColor={HONEY_BRIGHT} stopOpacity="0.55" />
+            <stop offset="55%"  stopColor={HONEY}        stopOpacity="0.32" />
+            <stop offset="100%" stopColor={HONEY_DARK}   stopOpacity="0.08" />
+          </radialGradient>
+          {/* Wax wall gradient for center cell border */}
+          <linearGradient id="wax-border" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%"   stopColor={HONEY_BRIGHT} stopOpacity="1" />
+            <stop offset="50%"  stopColor={HONEY}        stopOpacity="0.8" />
+            <stop offset="100%" stopColor={HONEY_DARK}   stopOpacity="0.9" />
+          </linearGradient>
         </defs>
 
-        {/* Connection lines from center to neighbors */}
+        {/* Honeycomb background grid — very subtle wax cells */}
+        {HEX_BG.map((p, i) => (
+          <polygon
+            key={`bg-${i}`}
+            points={hexPoints(p.cx, p.cy, 20)}
+            fill="none"
+            stroke={HONEY}
+            strokeWidth="0.35"
+            strokeOpacity="0.07"
+          />
+        ))}
+
+        {/* Amber connection lines from center */}
         {cells.slice(1).map(c => (
           <line
             key={`line-${c.id}`}
             x1={centerCell.cx} y1={centerCell.cy}
             x2={c.cx} y2={c.cy}
-            stroke={c.color}
-            strokeWidth="0.6"
-            strokeDasharray="4 5"
-            strokeOpacity={hovered === c.id || hovered === "hive" ? "0.5" : "0.18"}
+            stroke={HONEY}
+            strokeWidth="0.8"
+            strokeDasharray="3 6"
+            strokeOpacity={hovered === c.id || hovered === "hive" ? "0.7" : "0.22"}
             style={{ transition: "stroke-opacity 0.2s" }}
           />
         ))}
 
-        {/* Render neighbor cells first */}
+        {/* Neighbor cells */}
         {cells.slice(1).map(c => {
           const isHov = hovered === c.id;
           return (
             <a key={c.id} href={c.href} style={{ cursor: "pointer" }}>
-              <g
-                onMouseEnter={() => setHovered(c.id)}
-                onMouseLeave={() => setHovered(null)}
-              >
-                {/* Glow fill */}
+              <g onMouseEnter={() => setHovered(c.id)} onMouseLeave={() => setHovered(null)}>
+                {/* Wax wall fill */}
                 <polygon
                   points={hexPoints(c.cx, c.cy, S - 2)}
-                  fill={`url(#grad-${c.id})`}
+                  fill={isHov ? `${HONEY_DARK}55` : `${HONEY_DARK}18`}
+                  style={{ transition: "fill 0.15s" }}
                 />
-                {/* Border */}
+                {/* Color glow */}
+                <polygon points={hexPoints(c.cx, c.cy, S - 2)} fill={`url(#grad-${c.id})`} />
+                {/* Border — amber tint + cell color on hover */}
                 <polygon
                   points={hexPoints(c.cx, c.cy, S - 2)}
                   fill="none"
-                  stroke={c.color}
-                  strokeWidth={isHov ? "1.5" : "0.7"}
-                  strokeOpacity={isHov ? "0.9" : "0.35"}
-                  style={{ transition: "stroke-width 0.15s, stroke-opacity 0.15s" }}
+                  stroke={isHov ? c.color : HONEY}
+                  strokeWidth={isHov ? "1.5" : "0.8"}
+                  strokeOpacity={isHov ? "0.9" : "0.28"}
+                  style={{ transition: "stroke 0.15s, stroke-width 0.15s, stroke-opacity 0.15s" }}
                 />
-                {/* Icon */}
-                <text
-                  x={c.cx} y={c.cy - 14}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontSize={20}
-                  style={{ userSelect: "none" }}
-                >{c.icon}</text>
+                {/* Inner wax ring */}
+                <polygon
+                  points={hexPoints(c.cx, c.cy, S - 8)}
+                  fill="none"
+                  stroke={HONEY}
+                  strokeWidth="0.3"
+                  strokeOpacity={isHov ? "0.35" : "0.1"}
+                />
                 {/* Label */}
                 <text
-                  x={c.cx} y={c.cy + 10}
+                  x={c.cx} y={c.cy + 6}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fontSize={9}
                   fontFamily="monospace"
                   fontWeight="700"
-                  fill={isHov ? c.color : C.muted}
+                  fill={isHov ? c.color : HONEY}
+                  fillOpacity={isHov ? 1 : 0.7}
                   letterSpacing="0.08em"
                   style={{ transition: "fill 0.15s", textTransform: "uppercase" } as React.CSSProperties}
                 >{c.label}</text>
                 {/* Stat */}
                 <text
-                  x={c.cx} y={c.cy + 24}
+                  x={c.cx} y={c.cy + 22}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fontSize={7}
                   fontFamily="monospace"
-                  fill={C.dim}
+                  fill={HONEY}
+                  fillOpacity="0.35"
                 >{c.stat}</text>
               </g>
             </a>
           );
         })}
 
-        {/* Center cell — THE HIVE — larger & more prominent */}
+        {/* ── CENTER CELL: THE HIVE ── honey-filled, wax walls ── */}
         {(() => {
           const c = centerCell;
           const isHov = hovered === "hive";
           return (
             <a href={c.href} style={{ cursor: "pointer" }}>
-              <g
-                onMouseEnter={() => setHovered("hive")}
-                onMouseLeave={() => setHovered(null)}
-              >
-                {/* Pulse ring */}
+              <g onMouseEnter={() => setHovered("hive")} onMouseLeave={() => setHovered(null)}>
+                {/* Outer pulse ring */}
                 <polygon
-                  points={hexPoints(c.cx, c.cy, S + 8)}
+                  points={hexPoints(c.cx, c.cy, S + 14)}
                   fill="none"
-                  stroke={c.color}
+                  stroke={HONEY}
                   strokeWidth="0.5"
-                  strokeOpacity="0.25"
-                  style={{ animation: "aep-pulse 2.5s ease-in-out infinite" }}
+                  strokeOpacity="0.18"
+                  style={{ animation: "aep-pulse 3s ease-in-out infinite" }}
                 />
-                {/* Outer double border */}
+                {/* Secondary pulse */}
                 <polygon
-                  points={hexPoints(c.cx, c.cy, S + 2)}
+                  points={hexPoints(c.cx, c.cy, S + 6)}
                   fill="none"
-                  stroke={c.color}
-                  strokeWidth="0.5"
+                  stroke={HONEY}
+                  strokeWidth="0.4"
+                  strokeOpacity="0.28"
+                  style={{ animation: "aep-pulse 3s ease-in-out infinite 1.5s" }}
+                />
+                {/* Honey fill — the cell is "full of honey" */}
+                <polygon
+                  points={hexPoints(c.cx, c.cy, S - 2)}
+                  fill="url(#honey-fill)"
+                />
+                {/* Wax outer wall — thick amber border */}
+                <polygon
+                  points={hexPoints(c.cx, c.cy, S - 2)}
+                  fill="none"
+                  stroke="url(#wax-border)"
+                  strokeWidth={isHov ? "2.5" : "1.8"}
+                  style={{ transition: "stroke-width 0.15s" }}
+                />
+                {/* Inner wax ridge — gives depth like a real cell wall */}
+                <polygon
+                  points={hexPoints(c.cx, c.cy, S - 9)}
+                  fill="none"
+                  stroke={HONEY_BRIGHT}
+                  strokeWidth="0.4"
                   strokeOpacity="0.4"
                 />
-                {/* Glow fill */}
+                {/* Shine highlight on top-left facet */}
                 <polygon
-                  points={hexPoints(c.cx, c.cy, S - 2)}
-                  fill={`url(#grad-${c.id})`}
-                />
-                {/* Inner border */}
-                <polygon
-                  points={hexPoints(c.cx, c.cy, S - 2)}
+                  points={hexPoints(c.cx, c.cy, S - 14)}
                   fill="none"
-                  stroke={c.color}
-                  strokeWidth={isHov ? "2" : "1.2"}
-                  strokeOpacity={isHov ? "1" : "0.7"}
-                  style={{ transition: "stroke-width 0.15s, stroke-opacity 0.15s" }}
+                  stroke={HONEY_BRIGHT}
+                  strokeWidth="0.25"
+                  strokeOpacity="0.25"
                 />
-                {/* Icon */}
-                <text
-                  x={c.cx} y={c.cy - 18}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontSize={24}
-                  style={{ userSelect: "none" }}
-                >{c.icon}</text>
                 {/* Label */}
                 <text
-                  x={c.cx} y={c.cy + 10}
+                  x={c.cx} y={c.cy + 6}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fontSize={11}
+                  fontSize={13}
                   fontFamily="monospace"
                   fontWeight="900"
-                  fill={c.color}
-                  letterSpacing="0.15em"
-                >{c.label}</text>
+                  fill={isHov ? HONEY_BRIGHT : HONEY}
+                  letterSpacing="0.2em"
+                  style={{ transition: "fill 0.15s" }}
+                >THE HIVE</text>
                 {/* Stat */}
                 <text
-                  x={c.cx} y={c.cy + 27}
+                  x={c.cx} y={c.cy + 26}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fontSize={8}
                   fontFamily="monospace"
-                  fill={C.dim}
+                  fill={HONEY_BRIGHT}
+                  fillOpacity="0.6"
                 >{c.stat}</text>
               </g>
             </a>
@@ -618,23 +683,52 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════
-          PROTOCOL ECOSYSTEM
+          THE HIVE ECOSYSTEM
       ══════════════════════════════════════════════════════════ */}
-      <section style={{ position:"relative", zIndex:20, padding:"100px 24px", textAlign:"center" }}>
-        <div id="ecosystem" data-reveal style={{ ...rev("ecosystem"), maxWidth:1100, margin:"0 auto" }}>
-          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:16 }}>
-            ═══════════════ PROTOCOL_ECOSYSTEM // EXPLORE_ALL ═══════════════
+      <section style={{
+        position:"relative", zIndex:20, padding:"100px 24px", textAlign:"center",
+        background:"radial-gradient(ellipse 80% 55% at 50% 65%, rgba(245,158,11,0.07) 0%, transparent 70%)",
+        borderTop:`1px solid ${HONEY}18`,
+        borderBottom:`1px solid ${HONEY}18`,
+      }}>
+        {/* Hex grid texture overlay */}
+        <div style={{
+          position:"absolute", inset:0, zIndex:0, pointerEvents:"none", overflow:"hidden",
+          backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97'%3E%3Cpolygon points='28,0 56,14 56,42 28,56 0,42 0,14' fill='none' stroke='%23F59E0B' stroke-opacity='0.05' stroke-width='1'/%3E%3Cpolygon points='28,56 56,70 56,97 28,97 0,97 0,70' fill='none' stroke='%23F59E0B' stroke-opacity='0.03' stroke-width='1'/%3E%3C/svg%3E")`,
+          backgroundSize:"56px 97px",
+          opacity:1,
+        }} />
+        <div id="ecosystem" data-reveal style={{ ...rev("ecosystem"), maxWidth:1100, margin:"0 auto", position:"relative", zIndex:1 }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:`${HONEY}88`, letterSpacing:"0.3em", marginBottom:16 }}>
+            ◈◈◈◈◈◈◈◈ THE_HIVE_COLLECTIVE // AI_COLONY_ON_BASE ◈◈◈◈◈◈◈◈
           </div>
           <h2 style={{ fontSize:"clamp(28px,6vw,64px)", fontWeight:900, lineHeight:1, marginBottom:16, letterSpacing:"-0.03em" }}>
-            THE ENTIRE<br/><span style={{color:C.gold}}>ECONOMY</span><br/><span style={{fontSize:"0.5em",color:C.dim,letterSpacing:"0.4em"}}>AT A GLANCE</span>
+            A COLONY OF<br/><span style={{color:HONEY}}>AI AGENTS</span><br/>
+            <span style={{fontSize:"0.45em", color:`${HONEY}66`, letterSpacing:"0.4em", fontWeight:400}}>WORKING IN FORMATION</span>
           </h2>
-          <p style={{ color:C.muted, fontSize:14, lineHeight:1.7, marginBottom:40, fontFamily:"monospace" }}>
-            EVERY MODULE IS LIVE ON BASE MAINNET · CLICK TO EXPLORE
+          <p style={{ color:C.muted, fontSize:13, lineHeight:1.8, marginBottom:44, fontFamily:"monospace", maxWidth:500, margin:"0 auto 44px" }}>
+            EVERY CELL IS ACTIVE · EVERY AGENT HAS A ROLE<br/>
+            <span style={{color:`${HONEY}88`}}>CLICK ANY NODE TO ENTER</span>
           </p>
           <HoneycombEcosystem agents={agents} agtPrice={agtPrice} />
-          <div style={{ marginTop:32 }}>
-            <Link href="/hive" style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, letterSpacing:"0.2em", color:C.gold, textDecoration:"none", border:`1px solid ${C.gold}44`, padding:"10px 28px", display:"inline-block", clipPath:"polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)" }}>
-              ENTER_THE_HIVE 🐝 →
+          <div style={{ marginTop:40, display:"flex", justifyContent:"center", gap:16, flexWrap:"wrap" }}>
+            <Link href="/hive" style={{
+              fontFamily:"monospace", fontSize:11, fontWeight:900, letterSpacing:"0.2em",
+              color:"#0a0800", textDecoration:"none",
+              background:`linear-gradient(135deg, ${HONEY_BRIGHT}, ${HONEY})`,
+              padding:"12px 32px", display:"inline-block",
+              clipPath:"polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%)",
+            }}>
+              ◈ ENTER THE HIVE →
+            </Link>
+            <Link href="/launch" style={{
+              fontFamily:"monospace", fontSize:11, fontWeight:700, letterSpacing:"0.15em",
+              color:HONEY, textDecoration:"none",
+              border:`1px solid ${HONEY}44`, padding:"12px 28px", display:"inline-block",
+              background:`${HONEY}08`,
+              clipPath:"polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%)",
+            }}>
+              DEPLOY YOUR AGENT →
             </Link>
           </div>
         </div>
