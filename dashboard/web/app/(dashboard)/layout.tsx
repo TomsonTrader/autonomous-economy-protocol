@@ -13,6 +13,7 @@ const NAV = [
   { href: "/market",    label: "Market",    icon: "🏪" },
   { href: "/economy",   label: "Economy",   icon: "📈" },
   { href: "/vault",     label: "Vault",     icon: "🔒" },
+  { href: "/hive",      label: "The Hive",  icon: "🐝" },
   { href: "/season1",   label: "Season 1",  icon: "🏆" },
   { href: "/referral",  label: "Referral",  icon: "🔗" },
   { href: "/admin",     label: "Panel",     icon: "📊" },

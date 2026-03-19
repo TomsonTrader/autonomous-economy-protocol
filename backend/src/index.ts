@@ -25,6 +25,8 @@ import { deliveryRouter } from "./routes/delivery";
 import { webhooksRouter } from "./routes/webhooks";
 import { dealsRouter } from "./routes/deals";
 import { subscriptionsRouter } from "./routes/subscriptions";
+import { socialRouter } from "./routes/social";
+import { HiveAutoPost } from "./services/hiveAutoPost";
 import { DealMonitor } from "./services/dealMonitor";
 import { ethers } from "ethers";
 
@@ -133,6 +135,10 @@ async function main() {
   app.use("/api/webhooks", webhooksRouter(indexer));
   app.use("/api/deals",    dealsRouter(indexer));
   app.use("/api/launchpad", launchpadRouter(blockchain.deployment.contracts));
+  app.use("/api/social",   socialRouter(blockchain));
+
+  // The Hive — auto-post on-chain events to social feed
+  new HiveAutoPost(blockchain).start();
 
   // Deal monitor — watches deadlines and fires webhook alerts
   const dealMonitor = new DealMonitor(indexer, wsService);
