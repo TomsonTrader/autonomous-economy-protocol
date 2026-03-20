@@ -59,46 +59,51 @@ export default function JoinPage() {
   const [done, setDone]         = useState(false);
   const [alreadyClaimed, setAlreadyClaimed] = useState(false);
 
-  // ── On mount: check for active Supabase session (magic link sets it via URL hash) ──
+  // ── On mount: detect session (existing or from magic link URL hash) ──────────
   useEffect(() => {
-    async function checkSession() {
-      // Read ?ref= param
-      const params = new URLSearchParams(window.location.search);
-      const ref = params.get("ref");
-      if (ref) setReferred(ref);
+    // Read ?ref= param
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) setReferred(ref);
 
-      const sb = getSupabase();
+    const sb = getSupabase();
 
-      // Let Supabase process the URL hash (#access_token=...) from magic link
-      // getSession() triggers PKCE / implicit flow token exchange automatically
-      const { data: { session } } = await sb.auth.getSession();
-
-      if (session) {
-        // Check if already claimed
-        try {
-          const res = await fetch(`${API}/api/human/profile`, {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          });
-          if (res.ok) {
-            const d = await res.json();
-            if (d.profile?.airdrop_claimed) {
-              setAlreadyClaimed(true);
-              setDone(true);
-              setTxHash(d.profile.airdrop_tx_hash ?? "");
-              setWallet(d.profile.wallet ?? "");
-            } else {
-              setStep(2); // authenticated but not yet claimed → show claim form
-            }
-          } else {
-            setStep(2); // profile doesn't exist yet — will be created on claim
+    async function handleSession(token: string) {
+      try {
+        const res = await fetch(`${API}/api/human/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const d = await res.json();
+          if (d.profile?.airdrop_claimed) {
+            setAlreadyClaimed(true);
+            setDone(true);
+            setTxHash(d.profile.airdrop_tx_hash ?? "");
+            setWallet(d.profile.wallet ?? "");
+            return;
           }
-        } catch {
-          setStep(2);
         }
+      } catch { /* ignore */ }
+      setStep(2);
+    }
+
+    // Listen for auth state changes — fires when magic link hash is processed
+    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+        await handleSession(session.access_token);
+        setLoading(false);
+      }
+    });
+
+    // Also check immediately for an existing session (returning visitor)
+    sb.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        await handleSession(session.access_token);
       }
       setLoading(false);
-    }
-    checkSession();
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // ── Send magic link ──────────────────────────────────────────────────────────
