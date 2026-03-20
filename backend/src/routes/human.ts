@@ -171,6 +171,25 @@ export function humanRouter(): Router {
         return apiError(res, "WALLET_TAKEN", "This wallet address is already linked to another account");
       }
 
+      // Anti-sybil: wallet must have ETH on Base (proves it's an active wallet)
+      try {
+        const provider = new ethers.JsonRpcProvider(
+          process.env.RPC_URL || "https://mainnet.base.org"
+        );
+        const ethBalance = await provider.getBalance(wallet);
+        if (ethBalance === 0n) {
+          return apiError(
+            res,
+            "INACTIVE_WALLET",
+            "Wallet has 0 ETH on Base. Please use an active wallet with some ETH to prevent abuse.",
+            400
+          );
+        }
+      } catch (balErr: any) {
+        // RPC error — don't block the claim, log and continue
+        console.warn("[Human] ETH balance check failed (non-fatal):", balErr.message);
+      }
+
       // Send 500 AGT
       const txHash = await sendAGT(wallet, AIRDROP_WEI);
 

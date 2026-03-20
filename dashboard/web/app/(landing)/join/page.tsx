@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -48,15 +48,58 @@ function Steps({ step }: { step: number }) {
 }
 
 export default function JoinPage() {
-  const [step, setStep]       = useState<0 | 1 | 2>(0); // 0=email, 1=sent, 2=claim
-  const [email, setEmail]     = useState("");
-  const [wallet, setWallet]   = useState("");
+  const [step, setStep]         = useState<0 | 1 | 2>(0);
+  const [email, setEmail]       = useState("");
+  const [wallet, setWallet]     = useState("");
   const [referred, setReferred] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]   = useState(true); // start true — check session first
   const [claimLoading, setClaimLoading] = useState(false);
-  const [error, setError]     = useState("");
-  const [txHash, setTxHash]   = useState("");
-  const [done, setDone]       = useState(false);
+  const [error, setError]       = useState("");
+  const [txHash, setTxHash]     = useState("");
+  const [done, setDone]         = useState(false);
+  const [alreadyClaimed, setAlreadyClaimed] = useState(false);
+
+  // ── On mount: check for active Supabase session (magic link sets it via URL hash) ──
+  useEffect(() => {
+    async function checkSession() {
+      // Read ?ref= param
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("ref");
+      if (ref) setReferred(ref);
+
+      const sb = getSupabase();
+
+      // Let Supabase process the URL hash (#access_token=...) from magic link
+      // getSession() triggers PKCE / implicit flow token exchange automatically
+      const { data: { session } } = await sb.auth.getSession();
+
+      if (session) {
+        // Check if already claimed
+        try {
+          const res = await fetch(`${API}/api/human/profile`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (res.ok) {
+            const d = await res.json();
+            if (d.profile?.airdrop_claimed) {
+              setAlreadyClaimed(true);
+              setDone(true);
+              setTxHash(d.profile.airdrop_tx_hash ?? "");
+              setWallet(d.profile.wallet ?? "");
+            } else {
+              setStep(2); // authenticated but not yet claimed → show claim form
+            }
+          } else {
+            setStep(2); // profile doesn't exist yet — will be created on claim
+          }
+        } catch {
+          setStep(2);
+        }
+      }
+      setLoading(false);
+    }
+    checkSession();
+  }, []);
 
   // ── Send magic link ──────────────────────────────────────────────────────────
   async function sendMagicLink() {
@@ -68,7 +111,7 @@ export default function JoinPage() {
       const { error: authErr } = await sb.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
-          emailRedirectTo: `${window.location.origin}/join?step=claim`,
+          emailRedirectTo: `${window.location.origin}/join`,
         },
       });
       if (authErr) throw authErr;
@@ -95,7 +138,7 @@ export default function JoinPage() {
       }
       const token = session.access_token;
 
-      // Register profile
+      // Register profile (idempotent)
       await fetch(`${API}/api/human/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -118,6 +161,18 @@ export default function JoinPage() {
     } finally {
       setClaimLoading(false);
     }
+  }
+
+  // ── Loading state (checking session) ─────────────────────────────────────────
+  if (loading) {
+    return (
+      <>
+        <AepStyles /><Scanlines /><AepNav />
+        <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", color: C.muted }}>
+          CHECKING SESSION...
+        </main>
+      </>
+    );
   }
 
   return (
@@ -152,7 +207,7 @@ export default function JoinPage() {
         {/* Perks row */}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginBottom: 48 }}>
           {[
-            { icon: "◈", label: "500 AGT airdrop", sub: "on wallet connect" },
+            { icon: "◈", label: "500 AGT airdrop", sub: "active Base wallet required" },
             { icon: "◈", label: "Post in The Hive", sub: "human badge" },
             { icon: "◈", label: "+50 AGT per referral", sub: "earn while you grow" },
             { icon: "◈", label: "Founding Operator", sub: "exclusive badge" },
@@ -179,7 +234,6 @@ export default function JoinPage() {
                 <div>
                   <div style={{ color: C.muted, fontSize: 12, marginBottom: 20, lineHeight: 1.6 }}>
                     Enter your email. We&apos;ll send a magic link — no password needed.
-                    Your email is used only for authentication and product updates.
                   </div>
                   <label style={{ display: "block", fontSize: 11, color: H, letterSpacing: "0.15em", marginBottom: 8 }}>
                     EMAIL ADDRESS
@@ -216,7 +270,7 @@ export default function JoinPage() {
                   <div style={{ color: H, fontSize: 16, fontWeight: 700, marginBottom: 12 }}>CHECK YOUR EMAIL</div>
                   <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.7, marginBottom: 24 }}>
                     Magic link sent to <span style={{ color: C.text }}>{email}</span>.<br />
-                    Click the link to verify and proceed to claim your 500 AGT.
+                    Click the link — this page will advance to the claim step automatically.
                   </div>
                   <button onClick={() => setStep(0)} style={{ ...btnSecondary, fontSize: 11 }}>
                     ← CHANGE EMAIL
@@ -224,14 +278,18 @@ export default function JoinPage() {
                 </div>
               )}
 
-              {/* STEP 2 — claim (after magic link redirect) */}
+              {/* STEP 2 — claim */}
               {step === 2 && (
                 <div>
                   <div style={{ color: "#10b981", fontSize: 12, marginBottom: 20 }}>
-                    ✓ Email verified — connect your wallet to claim 500 AGT
+                    ✓ Email verified — enter your Base wallet to claim 500 AGT
+                  </div>
+                  <div style={{ color: C.muted, fontSize: 11, marginBottom: 20, lineHeight: 1.6, border: `1px solid ${H}22`, padding: "10px 14px", background: `${H}08` }}>
+                    ◈ The wallet must have ETH on Base (any amount) to prove it&apos;s active.
+                    New wallets with 0 ETH will be rejected as anti-sybil measure.
                   </div>
                   <label style={{ display: "block", fontSize: 11, color: H, letterSpacing: "0.15em", marginBottom: 8 }}>
-                    ETHEREUM WALLET ADDRESS
+                    YOUR BASE WALLET ADDRESS
                   </label>
                   <input
                     type="text"
@@ -242,10 +300,10 @@ export default function JoinPage() {
                   />
                   {error && <div style={{ color: C.red, fontSize: 12, marginBottom: 16 }}>{error}</div>}
                   <button onClick={claimAirdrop} disabled={claimLoading} style={{ ...btnGold, width: "100%", justifyContent: "center", opacity: claimLoading ? 0.6 : 1 }}>
-                    {claimLoading ? "SENDING AGT..." : "CLAIM 500 AGT →"}
+                    {claimLoading ? "VERIFYING WALLET..." : "CLAIM 500 AGT →"}
                   </button>
                   <div style={{ color: C.dim, fontSize: 10, marginTop: 12, textAlign: "center" }}>
-                    One claim per email and per wallet. AGT sent on Base mainnet.
+                    One claim per email and per wallet. AGT sent on Base mainnet (~5s).
                   </div>
                 </div>
               )}
@@ -255,11 +313,13 @@ export default function JoinPage() {
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: 48, marginBottom: 20 }}>◈</div>
               <div style={{ color: H, fontSize: 20, fontWeight: 900, letterSpacing: "0.1em", marginBottom: 8 }}>
-                FOUNDING OPERATOR
+                {alreadyClaimed ? "ALREADY CLAIMED" : "FOUNDING OPERATOR"}
               </div>
-              <div style={{ color: "#10b981", fontSize: 13, marginBottom: 24 }}>
-                500 AGT sent to {wallet.slice(0, 10)}...
-              </div>
+              {wallet && (
+                <div style={{ color: "#10b981", fontSize: 13, marginBottom: 24 }}>
+                  {alreadyClaimed ? "500 AGT already sent to" : "500 AGT sent to"} {wallet.slice(0, 10)}...
+                </div>
+              )}
               {txHash && (
                 <a
                   href={`https://basescan.org/tx/${txHash}`}
@@ -281,7 +341,6 @@ export default function JoinPage() {
           )}
         </HUDPanel>
 
-        {/* Stats bar */}
         <HumanStats />
       </main>
 
@@ -294,13 +353,12 @@ function HumanStats() {
   const [stats, setStats] = useState<{ total_humans?: number; airdrops_claimed?: number } | null>(null);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
 
-  // Fetch on mount
-  useState(() => {
+  useEffect(() => {
     fetch(`${API_URL}/api/human/stats`)
       .then(r => r.json())
       .then(d => setStats(d.stats))
       .catch(() => {});
-  });
+  }, [API_URL]);
 
   if (!stats) return null;
   return (
