@@ -26,6 +26,7 @@ import { webhooksRouter } from "./routes/webhooks";
 import { dealsRouter } from "./routes/deals";
 import { subscriptionsRouter } from "./routes/subscriptions";
 import { socialRouter } from "./routes/social";
+import { humanRouter } from "./routes/human";
 import { HiveAutoPost } from "./services/hiveAutoPost";
 import { DealMonitor } from "./services/dealMonitor";
 import { ethers } from "ethers";
@@ -136,6 +137,7 @@ async function main() {
   app.use("/api/deals",    dealsRouter(indexer));
   app.use("/api/launchpad", launchpadRouter(blockchain.deployment.contracts));
   app.use("/api/social",   socialRouter(blockchain));
+  app.use("/api/human",    humanRouter());
 
   // The Hive — auto-post on-chain events to social feed
   new HiveAutoPost(blockchain).start();

@@ -152,7 +152,7 @@ export function AepNav({ active }: { active?: string }) {
   const links = [
     { href: "/hive",       label: "THE_HIVE" },
     { href: "/token",      label: "AGT" },
-    { href: "/roi",        label: "ROI" },
+    { href: "/join",       label: "JOIN" },
     { href: "/whitepaper", label: "DOCS" },
     { href: "/activity",   label: "ACTIVITY" },
   ];
@@ -215,6 +215,8 @@ export function AepFooter() {
           { label:"LEADERBOARD", href:"/dashboard/season1" },
           { label:"TOKEN",       href:"/token" },
           { label:"REFER",       href:"/refer" },
+          { label:"JOIN",        href:"/join" },
+          { label:"MY PROFILE",  href:"/me" },
         ].map(({ label, href, ext }) => (
           ext
             ? <a key={label} href={href} target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:C.dim, textDecoration:"none", letterSpacing:"0.15em" }}>{label}</a>

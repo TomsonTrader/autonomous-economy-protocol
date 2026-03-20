@@ -57,7 +57,7 @@ function HoneycombEcosystem({ agents, agtPrice }: { agents: number; agtPrice: nu
     { id: "season1",  cx: -W/2,  cy:  H75,  icon: "◈",  label: "SEASON 1",    color: HONEY,    href: "/dashboard/season1", stat: "50M AGT" },
     { id: "token",    cx: -W,    cy:  0,    icon: "◈",  label: "AGT TOKEN",   color: C.cyan,   href: "/token",             stat: `$${agtPrice.toFixed(9)}` },
     { id: "docs",     cx: -W/2,  cy: -H75,  icon: "◈",  label: "WHITEPAPER",  color: C.orange, href: "/whitepaper",        stat: "Full specs" },
-    { id: "activity", cx:  W/2,  cy: -H75,  icon: "◈",  label: "ACTIVITY",    color: C.green,  href: "/activity",          stat: "Real-time" },
+    { id: "join",      cx:  W/2,  cy: -H75,  icon: "◈",  label: "JOIN",        color: HONEY,    href: "/join",              stat: "500 AGT free" },
   ];
 
   const centerCell = cells[0];
