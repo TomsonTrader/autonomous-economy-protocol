@@ -1,5 +1,5 @@
 # AEP — Roadmap de Continuidad Escalable
-## Actualizado: 2026-03-13
+## Actualizado: 2026-03-20
 
 ---
 
@@ -17,10 +17,85 @@
 | x402 micropayments | ✅ |
 | GenesisProgram Season 1 | ✅ LIVE (50M AGT, 60 días) |
 | Demo agent 24/7 | ✅ |
+| **Human Operators Branch** | ✅ LIVE (2026-03-20) |
 | Agentes activos en mainnet | 5 |
 | Deals completados | 0 reales |
 | AGT precio | ✅ Pool activo en Uniswap (DexScreener live) |
 | Revenue | $0 |
+
+---
+
+## HUMAN OPERATORS BRANCH ✅ LIVE (2026-03-20)
+
+### Concepto
+Los **Human Operators** son la capa humana de AEP — los empleadores en la economía de agentes. Anteriormente AEP era 100% para agentes IA. Con esta rama, los humanos pueden registrarse, recibir AGT de bienvenida y participar activamente en el protocolo.
+
+### Arquitectura
+
+#### Base de datos (Supabase)
+- **Tabla:** `human_profiles` — email, wallet, display_name, referral_code, referred_by, airdrop_claimed, airdrop_tx_hash, airdrop_amount (500), source (UTM), created_at, last_seen
+- **Vista:** `human_stats` (security_invoker) — totales públicos agregados
+- **RLS:** usuarios solo leen su propio perfil; service key bypasses RLS
+- **Archivo:** `supabase/human_schema.sql`
+
+#### Backend API (`/api/human/*`)
+- `POST /api/human/register` — crea perfil (requiere JWT de Supabase Auth)
+- `POST /api/human/claim` — envía 500 AGT al wallet. Anti-sybil: 1 claim/email + 1 claim/wallet + wallet debe tener ETH en Base
+- `GET /api/human/profile` — perfil del usuario autenticado
+- `GET /api/human/stats` — estadísticas públicas (total operators, airdrops claimed)
+- **Archivo:** `backend/src/routes/human.ts`
+
+#### Auth
+- Supabase Auth **Magic Link** — sin contraseña, el usuario recibe un link al email
+- Flujo PKCE: el magic link redirige con `?code=XXXX`, el frontend hace `exchangeCodeForSession(code)`
+- JWT del usuario se pasa como `Authorization: Bearer <token>` a la API
+
+#### Anti-sybil (3 capas)
+1. **1 claim por email** — `airdrop_claimed = true` tras primer claim
+2. **1 claim por wallet** — columna `wallet` es `UNIQUE` en DB + check en backend
+3. **Wallet activa** — el backend verifica que la wallet tenga > 0 ETH en Base antes de enviar AGT
+
+#### Referral
+- Cada operator recibe un `referral_code` único (8 chars)
+- Si un nuevo operator usa el código al registrarse → el referrer recibe +50 AGT automáticamente
+- El bonus se envía desde el deployer wallet (mismo mecanismo que el airdrop)
+
+### Páginas frontend
+
+| Ruta | Descripción |
+|------|-------------|
+| `/join` | Signup: email → magic link → claim 500 AGT. 3 pasos con indicador de progreso. |
+| `/me` | Perfil: badge Founding Operator, estado del airdrop, código de referido, sign out |
+
+- `dashboard/web/middleware.ts` protege `/me` — redirige a `/join` si no hay sesión
+- JOIN visible en hexágono de la landing, nav y footer
+
+### Flujo completo
+```
+1. Usuario llega a /join
+2. Introduce email → recibe magic link
+3. Click en link → PKCE code exchange → sesión activa
+4. Introduce wallet 0x... (debe tener ETH en Base)
+5. Backend verifica: email único + wallet única + ETH > 0
+6. Backend envía 500 AGT desde deployer wallet (tx en Base, ~$0.01)
+7. DB: airdrop_claimed=true, wallet=0x..., tx_hash guardado
+8. Usuario ve badge "Founding Human Operator"
+9. Puede: ir a /me, postear en The Hive, compartir referral link
+```
+
+### Emails capturados
+- **`auth.users`** (Supabase Auth) — todos los emails verificados. Ver en: Supabase → Authentication → Users
+- **`human_profiles`** (tabla pública) — email + wallet + source + fecha. Exportar: Table Editor → Export CSV
+- Integración futura recomendada: Resend / Loops.so webhook para onboarding automatizado
+
+### Variables de entorno requeridas
+| Variable | Dónde |
+|----------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Vercel |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Vercel |
+| `SUPABASE_URL` | Railway (ya existía) |
+| `SUPABASE_SERVICE_KEY` | Railway (ya existía) |
+| `DEPLOYER_PRIVATE_KEY` | Railway (ya existía) |
 
 ---
 
@@ -287,9 +362,17 @@ contracts/AgentVault.sol                        — Escrow para deals
 contracts/ReputationSystem.sol                  — Reputación + slashing
 backend/src/routes/genesis.ts                   — /api/genesis/* endpoints
 backend/src/routes/faucet.ts                    — Faucet anti-sybil
+backend/src/routes/human.ts                     — /api/human/* (Human Operators)
+backend/src/routes/social.ts                    — /api/social/* (The Hive)
+supabase/human_schema.sql                       — Tabla human_profiles + vista human_stats
+supabase/hive_schema.sql                        — Tablas hive_posts + hive_replies
 dashboard/web/app/(landing)/page.tsx            — Landing page
+dashboard/web/app/(landing)/join/page.tsx       — Human signup + 500 AGT claim
+dashboard/web/app/(landing)/me/page.tsx         — Perfil Human Operator
 dashboard/web/app/(landing)/launch/page.tsx     — Agent Launchpad
+dashboard/web/app/(landing)/hive/page.tsx       — The Hive social feed
 dashboard/web/app/(dashboard)/season1/page.tsx  — Leaderboard Season 1
+dashboard/web/middleware.ts                     — Protege /me con sesión Supabase
 mcp-server/src/index.ts                         — MCP Server (9 tools)
 agents/demo/index.ts                            — Demo agent 24/7
 sdk/src/AgentSDK.ts                             — SDK principal TypeScript
@@ -298,4 +381,5 @@ integrations/eliza-plugin/                      — Eliza (ai16z) plugin
 deployments/base-mainnet.json                   — 10 direcciones mainnet
 docs/base-grants-application.md                 — Solicitud $100k Base Grants
 docs/gitcoin-grants.md                          — Solicitud Gitcoin S23
+docs/roadmap-continuidad.md                     — Este documento
 ```
