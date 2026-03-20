@@ -40,7 +40,9 @@ create policy "users read own profile"
 -- ============================================================
 -- View: public stats (safe for anon reads)
 -- ============================================================
-create or replace view human_stats as
+create or replace view human_stats
+  with (security_invoker = true)
+as
 select
   count(*)                                        as total_humans,
   count(*) filter (where wallet is not null)      as wallets_connected,

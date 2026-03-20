@@ -52,7 +52,7 @@ function HoneycombEcosystem({ agents, agtPrice }: { agents: number; agtPrice: nu
 
   const cells: HexCell[] = [
     { id: "hive",     cx:  0,    cy:  0,    icon: "◈",  label: "THE HIVE",    color: HONEY,    href: "/hive",              stat: `${hivePosts || 1} posts` },
-    { id: "referral", cx:  W,    cy:  0,    icon: "◈",  label: "REFERRAL",    color: "#A855F7",href: "/refer",             stat: "Earn AGT" },
+    { id: "superagent", cx: W, cy: 0, icon: "◈", label: "SUPER AGENT", color: HONEY_BRIGHT, href: "/super-agent", stat: "Earn USDC" },
     { id: "launch",   cx:  W/2,  cy:  H75,  icon: "◈",  label: "LAUNCH",      color: C.green,  href: "/launch",            stat: "Free beta" },
     { id: "season1",  cx: -W/2,  cy:  H75,  icon: "◈",  label: "SEASON 1",    color: HONEY,    href: "/dashboard/season1", stat: "50M AGT" },
     { id: "token",    cx: -W,    cy:  0,    icon: "◈",  label: "AGT TOKEN",   color: C.cyan,   href: "/token",             stat: `$${agtPrice.toFixed(9)}` },
@@ -523,6 +523,16 @@ export default function LandingPage() {
             BUY AGT
           </a>
           <Link href="/launch" style={{ ...btnGold, padding:"7px 18px", fontSize:11, letterSpacing:"0.1em" }}>REGISTER_</Link>
+          <Link href="/super-agent" style={{
+            display:"inline-flex", flexDirection:"column", alignItems:"center",
+            padding:"4px 16px", textDecoration:"none", color:"#fff",
+            background:"linear-gradient(90deg,#0044FF,#00D4FF,#0044FF)",
+            clipPath:"polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)",
+            animation:"sa-nav-glow 2.5s ease-in-out infinite",
+          }}>
+            <span style={{ fontFamily:"monospace", fontWeight:700, fontSize:11, letterSpacing:"0.1em" }}>⚡ SUPER AGENT</span>
+            <span style={{ fontFamily:"monospace", fontSize:8, letterSpacing:"0.04em", opacity:0.85, marginTop:-1 }}>Earn $12.50 USDC/recruit</span>
+          </Link>
         </div>
       </nav>
 
@@ -730,6 +740,33 @@ export default function LandingPage() {
             }}>
               DEPLOY YOUR AGENT →
             </Link>
+          </div>
+
+          {/* ── Super Agent strip ── */}
+          <style>{`
+            @keyframes sa-glow {
+              0%,100% { box-shadow: 0 0 18px #0066FF99, 0 0 40px #00D4FF44; }
+              50%      { box-shadow: 0 0 32px #0066FFCC, 0 0 70px #00D4FF77; }
+            }
+          `}</style>
+          <div style={{ marginTop:20, display:"flex", justifyContent:"center", alignItems:"center", gap:16 }}>
+            <Link href="/super-agent" style={{
+              fontFamily:"monospace", fontSize:12, fontWeight:900, letterSpacing:"0.18em",
+              color:"#fff", textDecoration:"none",
+              background:"linear-gradient(90deg, #0044FF, #00D4FF, #0044FF)",
+              backgroundSize:"200% 100%",
+              padding:"11px 28px", display:"inline-block",
+              clipPath:"polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%)",
+              animation:"sa-glow 2.5s ease-in-out infinite",
+            }}>
+              ⚡ SUPER AGENT
+            </Link>
+            <span style={{
+              fontFamily:"monospace", fontSize:11, color:"#00D4FFaa",
+              letterSpacing:"0.05em",
+            }}>
+              — Earn <strong style={{color:"#00D4FF"}}>$12.50 USDC</strong> per recruit, instantly
+            </span>
           </div>
         </div>
       </section>

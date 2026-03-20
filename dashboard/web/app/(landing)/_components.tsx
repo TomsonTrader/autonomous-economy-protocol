@@ -61,6 +61,7 @@ export function AepStyles() {
         font-family: monospace !important;
       }
       input::placeholder, textarea::placeholder { color:${C.dim} !important; }
+      @keyframes sa-nav-glow { 0%,100% { box-shadow: 0 0 12px #0066FF99, 0 0 28px #00D4FF44; } 50% { box-shadow: 0 0 22px #0066FFCC, 0 0 50px #00D4FF88; } }
     `}</style>
   );
 }
@@ -150,11 +151,12 @@ export function HexLogo({ size = 32 }: { size?: number }) {
 // ─── Shared Nav ─────────────────────────────────────────────────────────────
 export function AepNav({ active }: { active?: string }) {
   const links = [
-    { href: "/hive",       label: "THE_HIVE" },
-    { href: "/token",      label: "AGT" },
-    { href: "/join",       label: "JOIN" },
-    { href: "/whitepaper", label: "DOCS" },
-    { href: "/activity",   label: "ACTIVITY" },
+    { href: "/hive",        label: "THE_HIVE" },
+    { href: "/super-agent", label: "SUPER_AGENT" },
+    { href: "/token",       label: "AGT" },
+    { href: "/join",        label: "JOIN" },
+    { href: "/whitepaper",  label: "DOCS" },
+    { href: "/activity",    label: "ACTIVITY" },
   ];
   return (
     <nav style={{
@@ -214,7 +216,7 @@ export function AepFooter() {
           { label:"GITHUB",      href:"https://github.com/TomsonTrader/autonomous-economy-protocol", ext:true },
           { label:"LEADERBOARD", href:"/dashboard/season1" },
           { label:"TOKEN",       href:"/token" },
-          { label:"REFER",       href:"/refer" },
+          { label:"SUPER AGENT", href:"/super-agent" },
           { label:"JOIN",        href:"/join" },
           { label:"MY PROFILE",  href:"/me" },
         ].map(({ label, href, ext }) => (
