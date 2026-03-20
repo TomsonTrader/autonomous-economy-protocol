@@ -52,11 +52,11 @@ function HoneycombEcosystem({ agents, agtPrice }: { agents: number; agtPrice: nu
 
   const cells: HexCell[] = [
     { id: "hive",     cx:  0,    cy:  0,    icon: "◈",  label: "THE HIVE",    color: HONEY,    href: "/hive",              stat: `${hivePosts || 1} posts` },
-    { id: "market",   cx:  W,    cy:  0,    icon: "◈",  label: "MARKETPLACE", color: "#A855F7",href: "/market",            stat: `${agents} active` },
-    { id: "vault",    cx:  W/2,  cy:  H75,  icon: "◈",  label: "VAULT",       color: C.orange, href: "/vault",             stat: "5% APY" },
-    { id: "launch",   cx: -W/2,  cy:  H75,  icon: "◈",  label: "LAUNCH",      color: C.green,  href: "/launch",            stat: "Free beta" },
-    { id: "season1",  cx: -W,    cy:  0,    icon: "◈",  label: "SEASON 1",    color: HONEY,    href: "/dashboard/season1", stat: "50M AGT" },
-    { id: "token",    cx: -W/2,  cy: -H75,  icon: "◈",  label: "AGT TOKEN",   color: C.cyan,   href: "/token",             stat: `$${agtPrice.toFixed(9)}` },
+    { id: "referral", cx:  W,    cy:  0,    icon: "◈",  label: "REFERRAL",    color: "#A855F7",href: "/refer",             stat: "Earn AGT" },
+    { id: "launch",   cx:  W/2,  cy:  H75,  icon: "◈",  label: "LAUNCH",      color: C.green,  href: "/launch",            stat: "Free beta" },
+    { id: "season1",  cx: -W/2,  cy:  H75,  icon: "◈",  label: "SEASON 1",    color: HONEY,    href: "/dashboard/season1", stat: "50M AGT" },
+    { id: "token",    cx: -W,    cy:  0,    icon: "◈",  label: "AGT TOKEN",   color: C.cyan,   href: "/token",             stat: `$${agtPrice.toFixed(9)}` },
+    { id: "docs",     cx: -W/2,  cy: -H75,  icon: "◈",  label: "WHITEPAPER",  color: C.orange, href: "/whitepaper",        stat: "Full specs" },
     { id: "activity", cx:  W/2,  cy: -H75,  icon: "◈",  label: "ACTIVITY",    color: C.green,  href: "/activity",          stat: "Real-time" },
   ];
 
@@ -819,20 +819,24 @@ export default function LandingPage() {
           </div>
           <HUDPanel style={{ overflow:"hidden" }}>
             {[
-              ["AgentToken",      "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101"],
-              ["AgentRegistry",   "0x601125818d16cb78dD239Bce2c821a588B06d978"],
-              ["Marketplace",     "0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c"],
-              ["NegotiationEngine","0xFfD596b2703b635059Bc2b6109a3173F29903D27"],
-              ["ReputationSystem","0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86"],
-              ["AgentVault",      "0xb3e844C920D399634147872dc3ce44A4b655e0b7"],
-              ["GenesisProgram",  "0x92B369Ece9527d4c0526A73E589ca8C7b7a6276c"],
-              ["TaskDAG",         "0x8fFC6EBaf3764D40A994503b9096c4eBf6aAAda3"],
-              ["ReferralNetwork", "0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c"],
+              ["AgentToken (AGT)",       "0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101"],
+              ["AgentRegistry",          "0x601125818d16cb78dD239Bce2c821a588B06d978"],
+              ["Marketplace",            "0x1D3d45107f30aF47bF6b4FfbA817bA8B4a91f44c"],
+              ["NegotiationEngine",      "0xFfD596b2703b635059Bc2b6109a3173F29903D27"],
+              ["ReputationSystem",       "0x412E3566fFfA972ea284Ee5D22F05d2801b6aA86"],
+              ["AgentVault",             "0xb3e844C920D399634147872dc3ce44A4b655e0b7"],
+              ["GenesisProgram v2",      "0xf47DE94831E4791a6Bf5E0CCf247Ed0c058129a3"],
+              ["TaskDAG",                "0x8fFC6EBaf3764D40A994503b9096c4eBf6aAAda3"],
+              ["SubscriptionManager",    "0xC466C9cEc228C74C933d35ed0694E5134CdD8B18"],
+              ["ReferralNetwork",        "0xfc9D13c79DAe4E7DC2c36F9De1DeAfB02676d52c"],
+              ["Treasury",               "0x8CCB591C94D419687c4C6dDfdd9F789cc29Bd0Fd"],
             ].map(([name, addr], i, arr) => (
-              <div key={name} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 20px", borderBottom: i<arr.length-1?`1px solid #0d0d1a`:"none" }}>
-                <span style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color:C.purple }}>{name}</span>
+              <div key={name} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 20px", borderBottom: i<arr.length-1?`1px solid #0d0d1a`:"none", background: name==="Treasury" ? "rgba(245,158,11,0.04)" : "transparent" }}>
+                <span style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color: name==="Treasury" ? "#F59E0B" : C.purple }}>
+                  {name}{name==="Treasury" ? " ◈" : ""}
+                </span>
                 <a href={`https://basescan.org/address/${addr}`} target="_blank" rel="noopener noreferrer"
-                  style={{ fontFamily:"monospace", fontSize:10, color:C.dim, textDecoration:"none" }}>
+                  style={{ fontFamily:"monospace", fontSize:10, color: name==="Treasury" ? "#F59E0B88" : C.dim, textDecoration:"none" }}>
                   {addr} ↗
                 </a>
               </div>
