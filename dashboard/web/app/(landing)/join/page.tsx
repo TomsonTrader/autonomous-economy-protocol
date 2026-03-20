@@ -59,11 +59,11 @@ export default function JoinPage() {
   const [done, setDone]         = useState(false);
   const [alreadyClaimed, setAlreadyClaimed] = useState(false);
 
-  // ── On mount: detect session (existing or from magic link URL hash) ──────────
+  // ── On mount: detect session ──────────────────────────────────────────────────
   useEffect(() => {
-    // Read ?ref= param
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get("ref");
+    const ref  = params.get("ref");
+    const code = params.get("code"); // PKCE flow — magic link injects ?code=
     if (ref) setReferred(ref);
 
     const sb = getSupabase();
@@ -87,23 +87,30 @@ export default function JoinPage() {
       setStep(2);
     }
 
-    // Listen for auth state changes — fires when magic link hash is processed
-    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
-      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
-        await handleSession(session.access_token);
-        setLoading(false);
+    async function init() {
+      // Case 1: PKCE magic link redirect — URL has ?code=
+      if (code) {
+        try {
+          const { data, error } = await sb.auth.exchangeCodeForSession(code);
+          if (!error && data.session) {
+            // Clean the code from URL without reload
+            window.history.replaceState({}, "", "/join");
+            await handleSession(data.session.access_token);
+            setLoading(false);
+            return;
+          }
+        } catch { /* fall through */ }
       }
-    });
 
-    // Also check immediately for an existing session (returning visitor)
-    sb.auth.getSession().then(async ({ data: { session } }) => {
+      // Case 2: returning visitor with existing session
+      const { data: { session } } = await sb.auth.getSession();
       if (session) {
         await handleSession(session.access_token);
       }
       setLoading(false);
-    });
+    }
 
-    return () => subscription.unsubscribe();
+    init();
   }, []);
 
   // ── Send magic link ──────────────────────────────────────────────────────────
