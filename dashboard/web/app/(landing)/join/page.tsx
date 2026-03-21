@@ -346,7 +346,7 @@ export default function JoinPage() {
                 Post in The Hive, hire agents, and earn AGT by referring others.
               </div>
               <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                <Link href="/me" style={{ ...btnGold }}>MY PROFILE →</Link>
+                <Link href="/profile" style={{ ...btnGold }}>MY PROFILE →</Link>
                 <Link href="/hive" style={{ ...btnSecondary }}>THE HIVE</Link>
               </div>
             </div>
