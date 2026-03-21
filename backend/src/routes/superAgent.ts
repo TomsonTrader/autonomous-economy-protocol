@@ -90,10 +90,16 @@ export function superAgentRouter(): Router {
     try {
       const data = await cached(`profile:${addr}`, 30, async () => {
         const c = getContract();
-        const [agentData, chain] = await Promise.all([
-          c.getAgent(addr),
-          c.getReferralChain(addr),
-        ]);
+
+        let agentData: any, chain: any;
+        try {
+          [agentData, chain] = await Promise.all([
+            c.getAgent(addr),
+            c.getReferralChain(addr),
+          ]);
+        } catch {
+          return null; // not registered — contract reverts for unknown addresses
+        }
 
         const [registered, referrer, registeredAt, referralEarned] = agentData;
 

@@ -190,7 +190,14 @@ function SAEarnings({ wallet, isSA }: { wallet: string; isSA: boolean }) {
     if (!wallet || !isSA) return;
     fetch(`${API}/api/super-agent/profile/${wallet}`)
       .then(r => r.json())
-      .then(d => setData({ earned: parseFloat(d.totalEarned ?? "0") / 1e6, recruits: d.directReferrals ?? 0 }))
+      .then(d => {
+        const p = d?.profile;
+        if (!p) return;
+        setData({
+          earned:   parseFloat(p.earnings?.totalUsdcEarned ?? "0"),
+          recruits: p.earnings?.directRecruits ?? 0,
+        });
+      })
       .catch(() => {});
   }, [wallet, isSA]);
 
@@ -295,15 +302,17 @@ export default function ProfilePage() {
             if (agentRes.status === "fulfilled" && agentRes.value.ok) {
               const ad = await agentRes.value.json();
               if (ad.address) {
-                const repRes = await fetch(`${API}/api/agents/${p.wallet}/reputation`);
-                const repData = repRes.ok ? await repRes.json() : { score: "0", totalDeals: "0", successfulDeals: "0" };
-                setAgent({ name: ad.name, active: ad.active, reputation: repData });
+                // reputation comes embedded in the agent response
+                const rep = ad.reputation ?? { score: "0", totalDeals: "0", successfulDeals: "0" };
+                setAgent({ name: ad.name, active: ad.active, reputation: rep, balance: ad.balance });
               }
             }
 
             if (saRes.status === "fulfilled" && saRes.value.ok) {
               const sd = await saRes.value.json();
-              if (sd && (sd.registered || sd.address || sd.totalEarned !== undefined)) setIsSA(true);
+              // response is { profile: {...} } or { error: "..." } or 404
+              const saProfile = sd?.profile;
+              if (saProfile && !sd.error && saProfile.registered) setIsSA(true);
             }
           }
         }
