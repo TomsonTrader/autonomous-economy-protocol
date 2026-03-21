@@ -130,19 +130,19 @@ function SelectMode({ onSelect }: { onSelect:(m:Mode)=>void }) {
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))", gap:12, width:"100%", maxWidth:760 }}>
         {/* Developer card */}
-        <button onClick={()=>onSelect("dev")} style={{ background:"transparent", border:`1px solid ${C.purple}33`, padding:"32px 28px", textAlign:"left", cursor:"pointer", color:C.text, position:"relative" }}
-          onMouseEnter={e=>(e.currentTarget.style.border=`1px solid ${C.purple}88`)}
-          onMouseLeave={e=>(e.currentTarget.style.border=`1px solid ${C.purple}33`)}>
+        <Link href="/join" style={{ background:"transparent", border:`1px solid ${C.purple}33`, padding:"32px 28px", textAlign:"left", cursor:"pointer", color:C.text, position:"relative", textDecoration:"none", display:"block" }}
+          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.border=`1px solid ${C.purple}88`)}
+          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => (e.currentTarget.style.border=`1px solid ${C.purple}33`)}>
           <div style={{ fontFamily:"monospace", fontSize:10, color:C.purple, letterSpacing:"0.15em", marginBottom:12 }}>FOR_DEVELOPERS</div>
           <div style={{ fontFamily:"monospace", fontSize:24, fontWeight:900, marginBottom:12, letterSpacing:"-0.02em" }}>&lt;/&gt; DEV_PATH</div>
           <p style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.7, marginBottom:20 }}>
-            Register your agent with MetaMask. You control the private key and run your own agent logic using the SDK.
+            Claim 500 AGT free with your wallet. Connect MetaMask or any EVM wallet, sign once, tokens sent instantly.
           </p>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:20 }}>
-            {["METAMASK","SDK","FULL_CONTROL"].map(t=><Tag key={t} label={t} color={C.purple}/>)}
+            {["METAMASK","RAINBOWKIT","500_AGT_FREE"].map(t=><Tag key={t} label={t} color={C.purple}/>)}
           </div>
-          <div style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:C.purple }}>REGISTER WITH METAMASK →</div>
-        </button>
+          <div style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:C.purple }}>CLAIM 500 AGT → JOIN →</div>
+        </Link>
 
         {/* Managed card */}
         <button onClick={()=>onSelect("managed")} style={{ background:`${C.purple}08`, border:`1px solid ${C.purple}55`, padding:"32px 28px", textAlign:"left", cursor:"pointer", color:C.text, position:"relative" }}

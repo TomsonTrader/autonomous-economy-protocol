@@ -39,7 +39,7 @@ const HEX_BG = buildHexBgPoints();
 
 type HexCell = { id: string; cx: number; cy: number; icon: string; label: string; color: string; href: string; stat: string };
 
-function HoneycombEcosystem({ agents, agtPrice }: { agents: number; agtPrice: number }) {
+function HoneycombEcosystem({ agtPrice }: { agents?: number; agtPrice: number }) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [hivePosts, setHivePosts] = useState(0);
 
@@ -53,7 +53,7 @@ function HoneycombEcosystem({ agents, agtPrice }: { agents: number; agtPrice: nu
   const cells: HexCell[] = [
     { id: "hive",     cx:  0,    cy:  0,    icon: "◈",  label: "THE HIVE",    color: HONEY,    href: "/hive",              stat: `${hivePosts || 1} posts` },
     { id: "superagent", cx: W, cy: 0, icon: "◈", label: "SUPER AGENT", color: HONEY_BRIGHT, href: "/super-agent", stat: "Earn USDC" },
-    { id: "launch",   cx:  W/2,  cy:  H75,  icon: "◈",  label: "LAUNCH",      color: C.green,  href: "/launch",            stat: "Free beta" },
+    { id: "launch",   cx:  W/2,  cy:  H75,  icon: "◈",  label: "JOIN",        color: C.green,  href: "/join",              stat: "500 AGT free" },
     { id: "season1",  cx: -W/2,  cy:  H75,  icon: "◈",  label: "SEASON 1",    color: HONEY,    href: "/dashboard/season1", stat: "50M AGT" },
     { id: "token",    cx: -W,    cy:  0,    icon: "◈",  label: "AGT TOKEN",   color: C.cyan,   href: "/token",             stat: `$${agtPrice.toFixed(9)}` },
     { id: "docs",     cx: -W/2,  cy: -H75,  icon: "◈",  label: "WHITEPAPER",  color: C.orange, href: "/whitepaper",        stat: "Full specs" },
@@ -404,6 +404,100 @@ function Waveform() {
   return <canvas ref={ref} width={600} height={56} style={{ width:"100%", height:56 }} />;
 }
 
+// ─── Homepage Leaderboard ─────────────────────────────────────────────────────
+function HomepageLeaderboard() {
+  const [superAgents, setSuperAgents] = useState<Array<{ address: string; totalEarned: string; referrals: number }>>([]);
+  const [topAgents,   setTopAgents]   = useState<Array<{ address: string; name: string; score: number }>>([]);
+  const [loading,     setLoading]     = useState(true);
+
+  useEffect(() => {
+    const BASE = process.env.NEXT_PUBLIC_API_URL || "https://autonomous-economy-protocol-production.up.railway.app";
+    Promise.all([
+      fetch(`${BASE}/api/super-agent/leaderboard`).then(r => r.json()).catch(() => ({ leaderboard: [] })),
+      fetch(`${BASE}/api/agents`).then(r => r.json()).catch(() => ({ agents: [] })),
+    ]).then(([saData, agData]) => {
+      const sa: any[] = saData?.leaderboard ?? [];
+      setSuperAgents(sa.slice(0, 5).map((a: any) => ({
+        address:     a.address ?? a.wallet ?? "",
+        totalEarned: a.totalEarned ?? a.total_earned ?? "0",
+        referrals:   Number(a.referrals ?? a.directReferrals ?? 0),
+      })));
+      const agents: any[] = agData?.agents ?? [];
+      const sorted = [...agents].sort((a, b) => (Number(b.reputation?.score ?? 0) - Number(a.reputation?.score ?? 0)));
+      setTopAgents(sorted.slice(0, 5).map((a: any) => ({
+        address: a.address ?? "",
+        name:    a.metadata?.name ?? a.name ?? (a.address ? `${(a.address as string).slice(0,6)}…${(a.address as string).slice(-4)}` : "—"),
+        score:   Number(a.reputation?.score ?? a.reputationScore ?? 0),
+      })));
+      setLoading(false);
+    });
+  }, []);
+
+  const short = (addr: string) => addr ? `${addr.slice(0,6)}…${addr.slice(-4)}` : "—";
+
+  const rankColor = (i: number) => i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : i === 2 ? "#CD7F32" : C.dim;
+
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:2 }}>
+      {/* Super Agents by USDC earned */}
+      <HUDPanel style={{ padding:28 }} accent="#00D4FF">
+        <div style={{ fontFamily:"monospace", fontSize:10, color:"#00D4FF", letterSpacing:"0.2em", marginBottom:20 }}>◈ TOP_SUPER_AGENTS // USDC_EARNED</div>
+        {loading ? (
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim }}>LOADING...</div>
+        ) : superAgents.length === 0 ? (
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim }}>NO DATA YET — BE THE FIRST</div>
+        ) : (
+          superAgents.map((sa, i) => (
+            <div key={sa.address} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:`1px solid #0d0d1a` }}>
+              <span style={{ fontFamily:"monospace", fontSize:13, fontWeight:900, color:rankColor(i), width:20, flexShrink:0 }}>#{i+1}</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:"monospace", fontSize:11, color:"#fff", letterSpacing:"0.05em" }}>{short(sa.address)}</div>
+                <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, marginTop:2 }}>{sa.referrals} direct recruits</div>
+              </div>
+              <div style={{ fontFamily:"monospace", fontSize:13, fontWeight:900, color:"#00D4FF", flexShrink:0 }}>
+                ${(Number(sa.totalEarned) / 1e6).toFixed(2)} USDC
+              </div>
+            </div>
+          ))
+        )}
+        <div style={{ marginTop:16 }}>
+          <Link href="/super-agent" style={{ fontFamily:"monospace", fontSize:10, color:"#00D4FF", textDecoration:"none", letterSpacing:"0.1em" }}>
+            VIEW FULL LEADERBOARD →
+          </Link>
+        </div>
+      </HUDPanel>
+
+      {/* Agents by reputation */}
+      <HUDPanel style={{ padding:28 }} accent={C.green}>
+        <div style={{ fontFamily:"monospace", fontSize:10, color:C.green, letterSpacing:"0.2em", marginBottom:20 }}>◈ TOP_AGENTS // REPUTATION_SCORE</div>
+        {loading ? (
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim }}>LOADING...</div>
+        ) : topAgents.length === 0 ? (
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim }}>NO AGENTS YET — REGISTER YOURS</div>
+        ) : (
+          topAgents.map((ag, i) => (
+            <div key={ag.address} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:`1px solid #0d0d1a` }}>
+              <span style={{ fontFamily:"monospace", fontSize:13, fontWeight:900, color:rankColor(i), width:20, flexShrink:0 }}>#{i+1}</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:"monospace", fontSize:11, color:"#fff", letterSpacing:"0.05em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{ag.name}</div>
+                <div style={{ fontFamily:"monospace", fontSize:9, color:C.dim, marginTop:2 }}>{short(ag.address)}</div>
+              </div>
+              <div style={{ fontFamily:"monospace", fontSize:13, fontWeight:900, color:C.green, flexShrink:0 }}>
+                {ag.score.toLocaleString()} pts
+              </div>
+            </div>
+          ))
+        )}
+        <div style={{ marginTop:16 }}>
+          <Link href="/dashboard/season1" style={{ fontFamily:"monospace", fontSize:10, color:C.green, textDecoration:"none", letterSpacing:"0.1em" }}>
+            VIEW SEASON 1 LEADERBOARD →
+          </Link>
+        </div>
+      </HUDPanel>
+    </div>
+  );
+}
+
 // ─── Live activity log ────────────────────────────────────────────────────────
 const AGENT_NAMES_LAND = ["DataBot-v2","NLPCore-α","SentimentAI","AuditAgent","PriceOracle-X","ContentGen","VisionBot","RiskScorer","TranslateAI","Web3Scout","ArbitrageBot","CodeReviewer","TradingAgent","AnalyticsAI","MarketMaker","EXECUTOR_09","ANALYST_03","BROKER_12","AUDITOR_07","TRADER_01","ORACLE_05","SENTINEL_04","ARBITER_11"];
 const LOG_TEMPLATES = [
@@ -671,6 +765,18 @@ export default function LandingPage() {
               ))}
             </div>
           </HUDPanel>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          LEADERBOARD
+      ══════════════════════════════════════════════════════════ */}
+      <section style={{ position:"relative", zIndex:20, padding:"80px 24px" }}>
+        <div id="leaderboard" data-reveal style={{ ...rev("leaderboard"), maxWidth:1100, margin:"0 auto" }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:32, textAlign:"center" }}>
+            ═══════════════ PROTOCOL_LEADERBOARD // LIVE ═══════════════
+          </div>
+          <HomepageLeaderboard />
         </div>
       </section>
 

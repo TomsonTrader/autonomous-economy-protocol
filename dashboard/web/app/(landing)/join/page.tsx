@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAccount, useSignMessage } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -102,54 +104,43 @@ function ClaudeBlock() {
 
 // ── Developer column ───────────────────────────────────────────────────────────
 function DevColumn() {
-  const [devWallet, setDevWallet]   = useState("");
+  const { address, isConnected } = useAccount();
+  const { signMessageAsync }     = useSignMessage();
   const [devLoading, setDevLoading] = useState(false);
   const [devDone, setDevDone]       = useState(false);
   const [devTxHash, setDevTxHash]   = useState("");
   const [devError, setDevError]     = useState("");
   const [alreadyClaimed, setAlreadyClaimed] = useState(false);
 
-  async function connectAndClaim() {
+  // When wallet connects, auto-check if already claimed
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    fetch(`${API}/api/agent/claim-status/${address.toLowerCase()}`)
+      .then(r => r.json())
+      .then(s => { if (s.claimed) { setAlreadyClaimed(true); setDevDone(true); } })
+      .catch(() => {});
+  }, [isConnected, address]);
+
+  async function signAndClaim() {
+    if (!address) return;
     setDevError("");
     setDevLoading(true);
     try {
-      // 1. Check window.ethereum
-      const eth = (window as any).ethereum;
-      if (!eth) {
-        setDevError("No wallet detected. Install MetaMask, Coinbase Wallet, or any EVM wallet.");
-        setDevLoading(false);
-        return;
-      }
+      const wallet = address.toLowerCase();
 
-      // 2. Request accounts
-      const accounts: string[] = await eth.request({ method: "eth_requestAccounts" });
-      const wallet = accounts[0]?.toLowerCase();
-      if (!wallet) throw new Error("No account returned from wallet");
-      setDevWallet(wallet);
-
-      // 3. Check already claimed
+      // 1. Check already claimed
       const statusRes = await fetch(`${API}/api/agent/claim-status/${wallet}`);
       if (statusRes.ok) {
         const s = await statusRes.json();
-        if (s.claimed) {
-          setAlreadyClaimed(true);
-          setDevDone(true);
-          setDevLoading(false);
-          return;
-        }
+        if (s.claimed) { setAlreadyClaimed(true); setDevDone(true); setDevLoading(false); return; }
       }
 
-      // 4. Build message with timestamp (5 min replay window)
+      // 2. Build & sign message (EIP-191 via wagmi — works with any wallet)
       const ts = Math.floor(Date.now() / 1000);
       const message = `AEP airdrop claim: ${wallet} ${ts}`;
+      const signature = await signMessageAsync({ account: address, message });
 
-      // 5. Sign message (EIP-191)
-      const signature: string = await eth.request({
-        method: "personal_sign",
-        params: [message, wallet],
-      });
-
-      // 6. POST to backend
+      // 3. POST to backend
       const res = await fetch(`${API}/api/agent/claim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -161,7 +152,11 @@ function DevColumn() {
       setDevTxHash(data.tx_hash);
       setDevDone(true);
     } catch (e: any) {
-      setDevError(e.message || "Something went wrong");
+      if (e.message?.includes("User rejected") || e.code === 4001) {
+        setDevError("Signature cancelled. Click 'Sign & Claim' to try again.");
+      } else {
+        setDevError(e.message || "Something went wrong");
+      }
     } finally {
       setDevLoading(false);
     }
@@ -174,7 +169,7 @@ function DevColumn() {
         {alreadyClaimed ? "ALREADY CLAIMED" : "AGENT ACTIVATED"}
       </div>
       <div style={{ color: "#10b981", fontSize: 12, marginBottom: 20 }}>
-        {alreadyClaimed ? "500 AGT previously sent to" : "500 AGT sent to"} {devWallet.slice(0, 10)}...
+        {alreadyClaimed ? "500 AGT previously sent to" : "500 AGT sent to"} {address?.slice(0, 10)}...
       </div>
       {devTxHash && (
         <a href={`https://basescan.org/tx/${devTxHash}`} target="_blank" rel="noreferrer"
@@ -224,25 +219,67 @@ function DevColumn() {
         </div>
       )}
 
-      <button
-        onClick={connectAndClaim}
-        disabled={devLoading}
-        style={{
-          width: "100%", padding: "14px 0",
-          background: devLoading ? `${DEV_COLOR}44` : `linear-gradient(135deg, ${DEV_COLOR}, #A855F7)`,
-          border: "none", color: "#fff",
-          fontFamily: "monospace", fontWeight: 900, fontSize: 13,
-          letterSpacing: "0.1em", cursor: devLoading ? "not-allowed" : "pointer",
-          clipPath: "polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)",
-          boxShadow: devLoading ? "none" : `0 0 24px ${DEV_COLOR}55`,
-        }}>
-        {devLoading ? "CONNECTING..." : "CONNECT WALLET — CLAIM 500 AGT →"}
-      </button>
-
-      <div style={{ color: C.dim, fontSize: 10, marginTop: 10, textAlign: "center" }}>
-        Works with MetaMask, Coinbase Wallet, Rainbow, and any EVM wallet.
-        Wallet must have ETH on Base + 1 prior transaction.
-      </div>
+      {!isConnected ? (
+        /* Step 1 — Connect wallet via RainbowKit (MetaMask, Phantom, etc.) */
+        <div>
+          <div style={{ fontFamily: "monospace", fontSize: 9, color: DEV_COLOR, letterSpacing: "0.2em", marginBottom: 10 }}>
+            STEP 1 — CONNECT WALLET
+          </div>
+          <ConnectButton.Custom>
+            {({ openConnectModal }) => (
+              <button onClick={openConnectModal} style={{
+                width: "100%", padding: "14px 0",
+                background: `linear-gradient(135deg, ${DEV_COLOR}, #A855F7)`,
+                border: "none", color: "#fff",
+                fontFamily: "monospace", fontWeight: 900, fontSize: 13,
+                letterSpacing: "0.1em", cursor: "pointer",
+                clipPath: "polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)",
+                boxShadow: `0 0 24px ${DEV_COLOR}55`,
+              }}>
+                CONNECT WALLET →
+              </button>
+            )}
+          </ConnectButton.Custom>
+          <div style={{ color: C.dim, fontSize: 10, marginTop: 10, textAlign: "center" }}>
+            MetaMask · Phantom · Rainbow · WalletConnect · and more
+          </div>
+        </div>
+      ) : (
+        /* Step 2 — Wallet connected, sign & claim */
+        <div>
+          <div style={{ fontFamily: "monospace", fontSize: 9, color: "#10b981", letterSpacing: "0.2em", marginBottom: 6 }}>
+            ✓ WALLET CONNECTED
+          </div>
+          <div style={{ fontFamily: "monospace", fontSize: 11, color: C.muted, marginBottom: 14 }}>
+            {address?.slice(0, 10)}...{address?.slice(-6)}
+            <button onClick={() => { /* RainbowKit handles disconnect */ }}
+              style={{ marginLeft: 12, fontFamily: "monospace", fontSize: 9, color: C.dim, background: "transparent", border: `1px solid ${C.dim}33`, padding: "2px 8px", cursor: "pointer" }}>
+              <ConnectButton.Custom>
+                {({ openAccountModal }) => (
+                  <span onClick={openAccountModal} style={{ cursor: "pointer" }}>SWITCH</span>
+                )}
+              </ConnectButton.Custom>
+            </button>
+          </div>
+          <div style={{ fontFamily: "monospace", fontSize: 9, color: DEV_COLOR, letterSpacing: "0.2em", marginBottom: 10 }}>
+            STEP 2 — SIGN & CLAIM 500 AGT
+          </div>
+          <button onClick={signAndClaim} disabled={devLoading} style={{
+            width: "100%", padding: "14px 0",
+            background: devLoading ? `${DEV_COLOR}44` : `linear-gradient(135deg, ${DEV_COLOR}, #A855F7)`,
+            border: "none", color: "#fff",
+            fontFamily: "monospace", fontWeight: 900, fontSize: 13,
+            letterSpacing: "0.1em", cursor: devLoading ? "not-allowed" : "pointer",
+            clipPath: "polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)",
+            boxShadow: devLoading ? "none" : `0 0 24px ${DEV_COLOR}55`,
+          }}>
+            {devLoading ? "PROCESSING..." : "SIGN & CLAIM 500 AGT →"}
+          </button>
+          <div style={{ color: C.dim, fontSize: 10, marginTop: 10, textAlign: "center" }}>
+            One signature · No gas required · Tokens sent instantly
+          </div>
+        </div>
+      )}
 
       <ClaudeBlock />
     </div>
