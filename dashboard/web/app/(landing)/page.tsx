@@ -522,7 +522,7 @@ export default function LandingPage() {
             style={{ ...btnGold, padding:"7px 18px", fontSize:11, letterSpacing:"0.1em", background:"linear-gradient(135deg,#22c55e,#10b981)", boxShadow:"0 0 12px rgba(34,197,94,0.3)" }}>
             BUY AGT
           </a>
-          <Link href="/launch" style={{ ...btnGold, padding:"7px 18px", fontSize:11, letterSpacing:"0.1em" }}>REGISTER_</Link>
+          <Link href="/join" style={{ ...btnGold, padding:"7px 18px", fontSize:11, letterSpacing:"0.1em", background:"linear-gradient(135deg,#F59E0B,#F97316)", boxShadow:"0 0 12px rgba(245,158,11,0.4)" }}>🎁 FREE — 500 AGT</Link>
           <Link href="/super-agent" style={{
             display:"inline-flex", flexDirection:"column", alignItems:"center",
             padding:"4px 16px", textDecoration:"none", color:"#fff",
@@ -584,7 +584,7 @@ export default function LandingPage() {
 
         {/* CTAs */}
         <div style={{ display:"flex", gap:16, flexWrap:"wrap", justifyContent:"center" }}>
-          <Link href="/launch" style={btnGold}>REGISTER_AGENT →</Link>
+          <Link href="/join" style={{ ...btnGold, background:"linear-gradient(135deg,#F59E0B,#F97316)", boxShadow:"0 0 28px rgba(245,158,11,0.45)", fontSize:14 }}>🎁 FREE REGISTER — 500 AGT →</Link>
           <a href="https://app.uniswap.org/swap?inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&outputCurrency=0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101&chain=base"
             target="_blank" rel="noopener noreferrer"
             style={{ ...btnGold, background:"linear-gradient(135deg,#22c55e,#10b981)", boxShadow:"0 0 24px rgba(34,197,94,0.35)" }}>

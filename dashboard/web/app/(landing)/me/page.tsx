@@ -57,6 +57,73 @@ function CopyBtn({ value }: { value: string }) {
   );
 }
 
+// ── Super Agent Simulator ──────────────────────────────────────────────────────
+function SuperAgentPanel() {
+  const [recruits, setRecruits] = useState(5);
+  const l1 = recruits * 12.5;
+  const l2 = recruits * recruits * 0.5 * 5; // assume each recruit brings recruits/2
+  const total = l1 + l2;
+  const breakEven = 4;
+  const profit = total - 50;
+  const SA = "#00D4FF";
+
+  return (
+    <HUDPanel accent={SA} style={{ padding: "24px" }}>
+      <div style={{ fontSize: 11, color: SA, letterSpacing: "0.2em", marginBottom: 4 }}>⚡ SUPER AGENT PROGRAM</div>
+      <div style={{ fontSize: 11, color: C.muted, marginBottom: 20, lineHeight: 1.6 }}>
+        Pay <span style={{ color: SA, fontWeight: 700 }}>$50 USDC</span> once. Earn{" "}
+        <span style={{ color: SA, fontWeight: 700 }}>$12.50 USDC</span> per direct recruit +{" "}
+        <span style={{ color: SA, fontWeight: 700 }}>$5.00 USDC</span> per their recruits. Instantly on-chain.
+      </div>
+
+      {/* Slider */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.1em" }}>DIRECT RECRUITS / MONTH</span>
+          <span style={{ fontSize: 14, color: SA, fontWeight: 700, fontFamily: "monospace" }}>{recruits}</span>
+        </div>
+        <input
+          type="range" min={1} max={30} value={recruits}
+          onChange={e => setRecruits(Number(e.target.value))}
+          style={{ width: "100%", accentColor: SA, cursor: "pointer" }}
+        />
+      </div>
+
+      {/* Results */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
+        {[
+          { label: "L1 INCOME", value: `$${l1.toFixed(0)}`, color: SA },
+          { label: "L2 INCOME", value: `$${l2.toFixed(0)}`, color: "#A855F7" },
+          { label: "NET PROFIT", value: `$${profit.toFixed(0)}`, color: profit > 0 ? "#10b981" : C.muted },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{ textAlign: "center", padding: "12px 8px", border: `1px solid ${color}33`, background: `${color}08` }}>
+            <div style={{ fontSize: 9, color: C.muted, letterSpacing: "0.1em", marginBottom: 6 }}>{label}</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color, fontFamily: "monospace" }}>{value}</div>
+            <div style={{ fontSize: 9, color: C.dim }}>USDC / mo</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 11, color: C.muted, marginBottom: 16, padding: "8px 12px", border: `1px solid ${C.border}`, background: "#0a0a12" }}>
+        Break-even at <span style={{ color: SA, fontWeight: 700 }}>{breakEven} recruits</span> — everything after is pure profit.
+        {recruits >= breakEven
+          ? <span style={{ color: "#10b981" }}> ✓ You&apos;re profitable.</span>
+          : <span style={{ color: C.muted }}> {breakEven - recruits} more to break even.</span>}
+      </div>
+
+      <Link href="/super-agent" style={{
+        display: "block", textAlign: "center", padding: "13px 0",
+        background: "linear-gradient(90deg,#0044FF,#00D4FF)",
+        color: "#fff", fontWeight: 900, fontSize: 13, letterSpacing: "0.1em",
+        textDecoration: "none",
+        clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)",
+      }}>
+        ⚡ BECOME SUPER AGENT — $50 USDC →
+      </Link>
+    </HUDPanel>
+  );
+}
+
 export default function MePage() {
   const [profile, setProfile]   = useState<HumanProfile | null>(null);
   const [loading, setLoading]   = useState(true);
@@ -289,6 +356,9 @@ export default function MePage() {
             </button>
             {shareMsg && <div style={{ color: "#10b981", fontSize: 11, marginTop: 8 }}>{shareMsg}</div>}
           </HUDPanel>
+
+          {/* Super Agent Upgrade */}
+          <SuperAgentPanel />
 
           {/* Actions */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
