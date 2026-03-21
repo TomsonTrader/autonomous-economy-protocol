@@ -53,3 +53,24 @@ from human_profiles;
 -- Allow anonymous access to the stats view
 grant select on human_stats to anon;
 grant select on human_stats to authenticated;
+
+-- ============================================================
+-- Agent Airdrops — wallet + superagent claim tracking
+-- Run this in Supabase SQL Editor
+-- ============================================================
+
+create table if not exists agent_airdrops (
+  wallet      text primary key,           -- lowercase 0x address
+  type        text not null,              -- 'wallet' | 'superagent'
+  tx_hash     text,
+  created_at  timestamptz not null default now()
+);
+
+-- No RLS needed — backend uses service key. Public reads allowed for status checks.
+alter table agent_airdrops enable row level security;
+
+create policy "public read agent_airdrops"
+  on agent_airdrops for select
+  using (true);
+
+-- Service role handles inserts via backend (no policy needed for service key).

@@ -28,6 +28,7 @@ import { subscriptionsRouter } from "./routes/subscriptions";
 import { socialRouter } from "./routes/social";
 import { humanRouter } from "./routes/human";
 import { superAgentRouter } from "./routes/superAgent";
+import { agentClaimRouter } from "./routes/agentClaim";
 import { HiveAutoPost } from "./services/hiveAutoPost";
 import { DealMonitor } from "./services/dealMonitor";
 import { ethers } from "ethers";
@@ -140,6 +141,7 @@ async function main() {
   app.use("/api/social",   socialRouter(blockchain));
   app.use("/api/human",    humanRouter());
   app.use("/api/super-agent", superAgentRouter());
+  app.use("/api/agent",    agentClaimRouter());
 
   // The Hive — auto-post on-chain events to social feed
   new HiveAutoPost(blockchain).start();
