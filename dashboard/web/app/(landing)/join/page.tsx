@@ -497,6 +497,49 @@ export default function JoinPage() {
           </div>
         </div>
 
+        {/* ── Super Agent strip ── */}
+        <div style={{ width: "100%", maxWidth: 900, marginTop: 24 }}>
+          <div style={{
+            border: "1px solid #00D4FF22",
+            background: "linear-gradient(135deg, #00D4FF08 0%, #0044FF08 100%)",
+            padding: "20px 28px",
+            display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap",
+          }}>
+            <div style={{ fontSize: 22, flexShrink: 0 }}>⚡</div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 12, fontWeight: 900, color: "#00D4FF", letterSpacing: "0.15em", marginBottom: 4 }}>
+                SUPER AGENT PROGRAM
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+                Pay <span style={{ color: "#fff", fontWeight: 700 }}>$50 USDC</span> once.
+                Earn <span style={{ color: "#00D4FF", fontWeight: 700 }}>$12.50 USDC</span> per direct recruit
+                + <span style={{ color: "#A855F7", fontWeight: 700 }}>$5.00 USDC</span> per their recruits.
+                Paid instantly on-chain. No middleman.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 20, flexShrink: 0, flexWrap: "wrap", alignItems: "center" }}>
+              {[
+                { v: "4", sub: "recruits to break even" },
+                { v: "$12.50", sub: "USDC per L1 recruit" },
+                { v: "∞", sub: "passive income" },
+              ].map(s => (
+                <div key={s.sub} style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: "#00D4FF", fontFamily: "monospace" }}>{s.v}</div>
+                  <div style={{ fontSize: 9, color: C.dim, letterSpacing: "0.08em" }}>{s.sub}</div>
+                </div>
+              ))}
+              <Link href="/super-agent" style={{
+                padding: "9px 20px", background: "linear-gradient(90deg,#0044FF,#00D4FF)",
+                color: "#fff", fontFamily: "monospace", fontWeight: 700, fontSize: 11,
+                letterSpacing: "0.1em", textDecoration: "none",
+                clipPath: "polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)",
+              }}>
+                LEARN MORE →
+              </Link>
+            </div>
+          </div>
+        </div>
+
         <HumanStats />
       </main>
       <AepFooter />
