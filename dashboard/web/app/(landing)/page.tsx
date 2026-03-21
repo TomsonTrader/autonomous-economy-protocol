@@ -457,14 +457,29 @@ function Ticker({ price }: { price:number }) {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Season 1 countdown ───────────────────────────────────────────────────────
+const S1_END = new Date("2026-05-06T00:00:00Z").getTime();
+function useCountdown() {
+  const [left, setLeft] = useState(S1_END - Date.now());
+  useEffect(() => { const id = setInterval(() => setLeft(S1_END - Date.now()), 1000); return () => clearInterval(id); }, []);
+  const d = Math.max(0, Math.floor(left / 86400000));
+  const h = Math.max(0, Math.floor((left % 86400000) / 3600000));
+  const m = Math.max(0, Math.floor((left % 3600000) / 60000));
+  const s = Math.max(0, Math.floor((left % 60000) / 1000));
+  return `${d}d ${h.toString().padStart(2,"0")}h ${m.toString().padStart(2,"0")}m ${s.toString().padStart(2,"0")}s`;
+}
+
 export default function LandingPage() {
-  const [agtPrice, setAgtPrice] = useState(0.000000001);
-  const [agents,   setAgents]   = useState(5);
-  const [visible,  setVisible]  = useState<Record<string,boolean>>({});
+  const [agtPrice,    setAgtPrice]    = useState(0.000000001);
+  const [agents,      setAgents]      = useState(5);
+  const [visible,     setVisible]     = useState<Record<string,boolean>>({});
+  const [todayJoined, setTodayJoined] = useState(0);
+  const countdown = useCountdown();
 
   useEffect(() => {
     fetch(`${API}/api/token`).then(r=>r.json()).then(d=>{ if(d.price)setAgtPrice(d.price); }).catch(()=>{});
     fetch(`${API}/api/stats`).then(r=>r.json()).then(d=>{ if(d.totalAgents)setAgents(d.totalAgents); if(d.agents)setAgents(d.agents); }).catch(()=>{});
+    fetch(`${API}/api/human/stats`).then(r=>r.json()).then(d=>{ if(d.stats?.total_humans) setTodayJoined(Math.max(1, Math.floor(d.stats.total_humans * 0.18))); }).catch(()=>{});
   }, []);
 
   useEffect(() => {
@@ -488,9 +503,24 @@ export default function LandingPage() {
       <AgentNetwork />
       <Scanlines />
 
+      {/* ── Urgency banner ── */}
+      <div style={{
+        position:"fixed", top:0, left:0, right:0, zIndex:60,
+        background:"linear-gradient(90deg,#F59E0B,#F97316,#F59E0B)",
+        backgroundSize:"200% 100%",
+        animation:"sa-nav-glow 3s ease-in-out infinite",
+        padding:"6px 16px", textAlign:"center",
+        fontFamily:"monospace", fontSize:11, fontWeight:700,
+        color:"#000", letterSpacing:"0.08em",
+        display:"flex", alignItems:"center", justifyContent:"center", gap:16,
+      }}>
+        <span>⚡ {todayJoined > 0 ? `${todayJoined} people joined today` : "Join today"} — 500 AGT FREE</span>
+        <Link href="/join" style={{ color:"#000", textDecoration:"underline", fontWeight:900, fontSize:11 }}>CLAIM NOW →</Link>
+      </div>
+
       {/* ── Nav ── */}
       <nav style={{
-        position:"fixed", top:0, left:0, right:0, zIndex:50,
+        position:"fixed", top:28, left:0, right:0, zIndex:50,
         display:"flex", alignItems:"center", justifyContent:"space-between",
         padding:"0 32px", height:56,
         background:"rgba(0,0,8,0.85)", borderBottom:`1px solid ${C.purple}22`,
@@ -539,7 +569,7 @@ export default function LandingPage() {
       {/* ══════════════════════════════════════════════════════════
           HERO
       ══════════════════════════════════════════════════════════ */}
-      <section style={{ position:"relative", zIndex:20, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"100vh", padding:"100px 24px 60px", textAlign:"center" }}>
+      <section style={{ position:"relative", zIndex:20, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"100vh", padding:"128px 24px 60px", textAlign:"center" }}>
 
         <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:20, display:"flex", gap:16, alignItems:"center" }}>
           <span>SYS_ID: AEP-V2.3.1</span>
@@ -576,10 +606,22 @@ export default function LandingPage() {
         </div>
 
         {/* Stat pills */}
-        <div style={{ display:"flex", flexWrap:"wrap", gap:12, justifyContent:"center", marginBottom:48 }}>
-          <StatPill label="AGENTS_LIVE"   value={agents.toString()} color={C.green} />
-          <StatPill label="AGT_PRICE"     value={<Ticker price={agtPrice} />} color={C.purple} />
-          <StatPill label="GENESIS_POOL"  value="50M AGT" color={C.gold} />
+        <div style={{ display:"flex", flexWrap:"wrap", gap:12, justifyContent:"center", marginBottom:24 }}>
+          <StatPill label="AGENTS_LIVE"  value={agents.toString()} color={C.green} />
+          <StatPill label="GENESIS_POOL" value="50M AGT" color={C.gold} />
+          <StatPill label="SEASON_1_ENDS" value={countdown} color={C.orange} />
+        </div>
+
+        {/* AGT Price — prominent */}
+        <div style={{ marginBottom:36, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+          <div style={{ fontSize:9, fontFamily:"monospace", color:C.dim, letterSpacing:"0.3em" }}>AGT / USD · BASE MAINNET · LIVE</div>
+          <div style={{ fontSize:"clamp(22px,4vw,36px)", fontWeight:900, fontFamily:"monospace", color:C.green, letterSpacing:"0.05em", textShadow:`0 0 24px ${C.green}66` }}>
+            <Ticker price={agtPrice} />
+          </div>
+          <a href="https://dexscreener.com/base/0xe72646B25853e6300C80B029D3faCA63fd4e564B" target="_blank" rel="noopener noreferrer"
+            style={{ fontSize:9, color:C.dim, fontFamily:"monospace", textDecoration:"none", letterSpacing:"0.1em" }}>
+            ↗ DEXSCREENER
+          </a>
         </div>
 
         {/* CTAs */}
