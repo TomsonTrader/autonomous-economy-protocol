@@ -270,13 +270,39 @@ interface AgentData {
   balance?: string;
 }
 
+async function loadOnChain(wallet: string) {
+  const [agentRes, saRes] = await Promise.allSettled([
+    fetch(`${API}/api/agents/${wallet}`),
+    fetch(`${API}/api/super-agent/profile/${wallet}`),
+  ]);
+  let agent: AgentData | null = null;
+  let isSA = false;
+  if (agentRes.status === "fulfilled" && agentRes.value.ok) {
+    const ad = await agentRes.value.json();
+    if (ad.address) {
+      const rep = ad.reputation ?? { score: "0", totalDeals: "0", successfulDeals: "0" };
+      agent = { name: ad.name, active: ad.active, reputation: rep, balance: ad.balance };
+    }
+  }
+  if (saRes.status === "fulfilled" && saRes.value.ok) {
+    const sd = await saRes.value.json();
+    const saProfile = sd?.profile;
+    if (saProfile && !sd.error && saProfile.registered) isSA = true;
+  }
+  return { agent, isSA };
+}
+
 export default function ProfilePage() {
-  const [profile, setProfile]     = useState<HumanProfile | null>(null);
-  const [agent, setAgent]         = useState<AgentData | null>(null);
-  const [isSA, setIsSA]           = useState(false);
-  const [loading, setLoading]     = useState(true);
-  const [signedIn, setSignedIn]   = useState(false);
-  const [copied, setCopied]       = useState(false);
+  const [profile, setProfile]         = useState<HumanProfile | null>(null);
+  const [agent, setAgent]             = useState<AgentData | null>(null);
+  const [isSA, setIsSA]               = useState(false);
+  const [loading, setLoading]         = useState(true);
+  const [signedIn, setSignedIn]       = useState(false);
+  const [copied, setCopied]           = useState(false);
+  // wallet-only mode (no email session)
+  const [walletInput, setWalletInput] = useState("");
+  const [walletMode, setWalletMode]   = useState(false);
+  const [walletLookup, setWalletLookup] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -284,36 +310,16 @@ export default function ProfilePage() {
       const { data: { session } } = await sb.auth.getSession();
       if (!session) { setLoading(false); return; }
       setSignedIn(true);
-
       try {
         const res = await fetch(`${API}/api/human/profile`, { headers: { Authorization: `Bearer ${session.access_token}` } });
         if (res.ok) {
           const d = await res.json();
           const p: HumanProfile = d.profile;
           setProfile(p);
-
-          // If wallet linked, fetch on-chain data
           if (p.wallet) {
-            const [agentRes, saRes] = await Promise.allSettled([
-              fetch(`${API}/api/agents/${p.wallet}`),
-              fetch(`${API}/api/super-agent/profile/${p.wallet}`),
-            ]);
-
-            if (agentRes.status === "fulfilled" && agentRes.value.ok) {
-              const ad = await agentRes.value.json();
-              if (ad.address) {
-                // reputation comes embedded in the agent response
-                const rep = ad.reputation ?? { score: "0", totalDeals: "0", successfulDeals: "0" };
-                setAgent({ name: ad.name, active: ad.active, reputation: rep, balance: ad.balance });
-              }
-            }
-
-            if (saRes.status === "fulfilled" && saRes.value.ok) {
-              const sd = await saRes.value.json();
-              // response is { profile: {...} } or { error: "..." } or 404
-              const saProfile = sd?.profile;
-              if (saProfile && !sd.error && saProfile.registered) setIsSA(true);
-            }
+            const { agent, isSA } = await loadOnChain(p.wallet);
+            setAgent(agent);
+            setIsSA(isSA);
           }
         }
       } catch { /* silent */ }
@@ -321,6 +327,24 @@ export default function ProfilePage() {
     }
     load();
   }, []);
+
+  async function lookupWallet() {
+    const w = walletInput.trim().toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/.test(w)) return;
+    setWalletLookup(true);
+    const { agent, isSA } = await loadOnChain(w);
+    setAgent(agent);
+    setIsSA(isSA);
+    // build a minimal synthetic profile for wallet-only view
+    setProfile({
+      email: "", wallet: w, display_name: null,
+      referral_code: "", referred_by: null,
+      airdrop_claimed: false, airdrop_amount: 0,
+      created_at: new Date().toISOString(),
+    });
+    setWalletMode(true);
+    setWalletLookup(false);
+  }
 
   async function signOut() {
     await getSupabase().auth.signOut();
@@ -335,23 +359,52 @@ export default function ProfilePage() {
     </>
   );
 
-  if (!signedIn || !profile) return (
-    <><AepStyles /><Scanlines /><AepNav />
+  // ── No session: show wallet lookup ────────────────────────────────────────
+  if (!signedIn && !walletMode) return (
+    <><AepStyles /><Scanlines /><AepNav active="/profile" />
       <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "monospace", padding: "80px 24px" }}>
-        <div style={{ color: H, fontSize: 14, marginBottom: 16 }}>NOT AUTHENTICATED</div>
-        <p style={{ color: C.muted, fontSize: 13, marginBottom: 32, textAlign: "center" }}>Sign in to access your profile.</p>
-        <Link href="/join" style={{ display: "inline-block", padding: "13px 28px", background: `linear-gradient(135deg, ${H}, #F97316)`, color: "#000", fontWeight: 900, letterSpacing: "0.1em", textDecoration: "none", fontSize: 13, clipPath: "polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)" }}>
-          🎁 FREE REGISTER — 500 AGT →
-        </Link>
+        <HUDPanel accent={C.purple} style={{ padding: "36px 32px", maxWidth: 480, width: "100%" }}>
+          <div style={{ fontSize: 11, color: C.purple, letterSpacing: "0.2em", marginBottom: 24, textAlign: "center" }}>◈ ACCESS YOUR PROFILE</div>
+
+          {/* Wallet lookup */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>ENTER YOUR WALLET ADDRESS</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={walletInput}
+                onChange={e => setWalletInput(e.target.value)}
+                placeholder="0x..."
+                onKeyDown={e => e.key === "Enter" && lookupWallet()}
+                style={{ flex: 1, padding: "10px 12px", fontSize: 12, background: "#000010", border: `1px solid ${C.border}`, color: C.text, fontFamily: "monospace" }}
+              />
+              <button onClick={lookupWallet} disabled={walletLookup}
+                style={{ padding: "10px 18px", background: C.purple, border: "none", color: "#fff", fontFamily: "monospace", fontWeight: 700, fontSize: 12, cursor: "pointer", opacity: walletLookup ? 0.6 : 1 }}>
+                {walletLookup ? "..." : "VIEW →"}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 24, textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>OR SIGN IN WITH EMAIL</div>
+            <Link href="/join" style={{ display: "inline-block", padding: "11px 28px", background: `linear-gradient(135deg, ${H}, #F97316)`, color: "#000", fontWeight: 900, letterSpacing: "0.1em", textDecoration: "none", fontSize: 12, clipPath: "polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)" }}>
+              🎁 FREE REGISTER — 500 AGT →
+            </Link>
+          </div>
+        </HUDPanel>
       </main>
     </>
   );
 
+  if (!profile) return null;
+
   // ── Determine tier ─────────────────────────────────────────────────────────
   const tier: Tier = isSA ? "SUPER AGENT" : agent ? "AGENT" : profile.airdrop_claimed ? "OPERATOR" : "GENESIS";
-  const displayName = profile.display_name ?? profile.email.split("@")[0].toUpperCase();
-  const walletShort = profile.wallet ? `${profile.wallet.slice(0, 8)}...${profile.wallet.slice(-4)}` : null;
-  const referralLink = `${typeof window !== "undefined" ? window.location.origin : "https://aepprotocol.xyz"}/join?ref=${profile.referral_code}`;
+  const walletAddr  = profile.wallet ?? "";
+  const displayName = profile.display_name ?? (agent?.name) ?? (walletAddr ? `${walletAddr.slice(0,8)}...` : "AGENT");
+  const walletShort = walletAddr ? `${walletAddr.slice(0, 8)}...${walletAddr.slice(-4)}` : null;
+  const referralLink = profile.referral_code
+    ? `${typeof window !== "undefined" ? window.location.origin : "https://aepprotocol.xyz"}/join?ref=${profile.referral_code}`
+    : "";
 
   // ── Checklist ──────────────────────────────────────────────────────────────
   const checks = [
@@ -394,8 +447,9 @@ export default function ProfilePage() {
                   Member since {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })} · BASE MAINNET
                 </div>
               </div>
-              <button onClick={signOut} style={{ background: "transparent", border: `1px solid ${C.dim}`, color: C.dim, fontFamily: "monospace", fontSize: 10, padding: "5px 10px", cursor: "pointer", flexShrink: 0 }}>
-                SIGN OUT
+              <button onClick={walletMode ? () => { setWalletMode(false); setProfile(null); setAgent(null); setIsSA(false); setWalletInput(""); } : signOut}
+                style={{ background: "transparent", border: `1px solid ${C.dim}`, color: C.dim, fontFamily: "monospace", fontSize: 10, padding: "5px 10px", cursor: "pointer", flexShrink: 0 }}>
+                {walletMode ? "CHANGE" : "SIGN OUT"}
               </button>
             </div>
             <TierBar tier={tier} />
@@ -435,8 +489,8 @@ export default function ProfilePage() {
           {/* ── SUPER AGENT PANEL ── */}
           <SAEarnings wallet={profile.wallet ?? ""} isSA={isSA} />
 
-          {/* ── IDENTITY + REFERRAL ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {/* ── IDENTITY + REFERRAL (solo en modo email) ── */}
+          {!walletMode && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <HUDPanel accent={C.purple} style={{ padding: "20px" }}>
               <div style={{ fontSize: 11, color: C.purple, letterSpacing: "0.2em", marginBottom: 12 }}>IDENTITY</div>
               <Row label="EMAIL"    value={profile.email} />
@@ -455,7 +509,7 @@ export default function ProfilePage() {
                 {copied ? "✓ LINK COPIED!" : "COPY REFERRAL LINK"}
               </button>
             </HUDPanel>
-          </div>
+          </div>}
 
           {/* ── ONBOARDING CHECKLIST ── */}
           <HUDPanel accent={C.green} style={{ padding: "20px 24px" }}>
