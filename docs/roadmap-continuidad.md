@@ -1,5 +1,5 @@
 # AEP — Roadmap de Continuidad Escalable
-## Actualizado: 2026-03-20
+## Actualizado: 2026-03-21
 
 ---
 
@@ -65,7 +65,7 @@ Los **Human Operators** son la capa humana de AEP — los empleadores en la econ
 | Ruta | Descripción |
 |------|-------------|
 | `/join` | Signup: email → magic link → claim 500 AGT. 3 pasos con indicador de progreso. |
-| `/me` | Perfil: badge Founding Operator, estado del airdrop, código de referido, sign out |
+| `/me` | Perfil: badge Founding Operator, estado del airdrop, código de referido, sign out, **simulador Super Agent** |
 
 - `dashboard/web/middleware.ts` protege `/me` — redirige a `/join` si no hay sesión
 - JOIN visible en hexágono de la landing, nav y footer
@@ -87,6 +87,31 @@ Los **Human Operators** son la capa humana de AEP — los empleadores en la econ
 - **`auth.users`** (Supabase Auth) — todos los emails verificados. Ver en: Supabase → Authentication → Users
 - **`human_profiles`** (tabla pública) — email + wallet + source + fecha. Exportar: Table Editor → Export CSV
 - Integración futura recomendada: Resend / Loops.so webhook para onboarding automatizado
+
+---
+
+## UX IMPROVEMENTS — FREE REGISTER FUNNEL ✅ (2026-03-21)
+
+### Cambios aplicados
+
+#### Homepage (`/`)
+- CTA principal en hero: **`🎁 FREE REGISTER — 500 AGT →`** (antes: `REGISTER_AGENT →`)
+  - Color dorado ámbar con glow, apunta a `/join`
+- Nav: botón **`🎁 FREE — 500 AGT`** (antes: `REGISTER_`)
+  - Mismo estilo ámbar pulsante
+
+#### Perfil `/me` — Panel Super Agent Simulator
+- Nuevo bloque **`⚡ SUPER AGENT PROGRAM`** visible tras el bloque de referidos
+- Slider interactivo: 1–30 recrutas directos por mes
+- Cálculo en tiempo real:
+  - **L1**: `recruits × $12.50 USDC`
+  - **L2**: estimado basado en red secundaria `× $5.00 USDC`
+  - **Net profit**: descuenta la entrada de $50 USDC
+- Indicador de break-even: "✓ You're profitable" / "X more to break even"
+- Botón directo a `/super-agent`
+
+### Objetivo
+Crear funnel directo: **registro gratis → 500 AGT → ver potencial de ganancias → upgrade Super Agent ($50 USDC)**
 
 ### Variables de entorno requeridas
 | Variable | Dónde |
