@@ -154,9 +154,8 @@ export function AepNav({ active }: { active?: string }) {
     { href: "/hive",        label: "THE_HIVE" },
     { href: "/super-agent", label: "SUPER_AGENT" },
     { href: "/token",       label: "AGT" },
-    { href: "/join",        label: "JOIN" },
     { href: "/whitepaper",  label: "DOCS" },
-    { href: "/activity",    label: "ACTIVITY" },
+    { href: "/profile",     label: "MY_PROFILE" },
   ];
   return (
     <nav style={{
@@ -187,8 +186,8 @@ export function AepNav({ active }: { active?: string }) {
           <span style={{ width:6, height:6, borderRadius:"50%", background:C.green, boxShadow:`0 0 6px ${C.green}` }} />
           <span style={{ fontSize:10, color:C.muted }}>BASE MAINNET</span>
         </div>
-        <Link href="/launch" style={{ ...btnPrimary, padding:"7px 18px", fontSize:11 }}>
-          REGISTER_
+        <Link href="/join" style={{ ...btnPrimary, padding:"7px 18px", fontSize:11, background:"linear-gradient(135deg,#F59E0B,#F97316)", boxShadow:"0 0 14px rgba(245,158,11,0.4)", color:"#000" }}>
+          🎁 FREE — 500 AGT
         </Link>
       </div>
     </nav>

@@ -46,5 +46,5 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Only run middleware on the /me route
-  matcher: ["/me"],
+  matcher: ["/me", "/profile"],
 };
