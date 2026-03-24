@@ -35,6 +35,26 @@ interface UserParticipant {
   daysLeft?: number;
 }
 
+// ── Countdown timer ────────────────────────────────────────────────────────────
+function Countdown({ targetTs }: { targetTs: number }) {
+  const [diff, setDiff] = useState(Math.max(0, targetTs - Math.floor(Date.now() / 1000)));
+  useEffect(() => {
+    const id = setInterval(() => setDiff(Math.max(0, targetTs - Math.floor(Date.now() / 1000))), 1000);
+    return () => clearInterval(id);
+  }, [targetTs]);
+  const d = Math.floor(diff / 86400);
+  const h = Math.floor((diff % 86400) / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  const s = diff % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (diff === 0) return <span style={{ color: "#ef4444" }}>ENDED</span>;
+  return (
+    <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#a855f7", letterSpacing: "0.05em" }}>
+      {d}d {pad(h)}h {pad(m)}m {pad(s)}s
+    </span>
+  );
+}
+
 const CRITERIA = [
   { label: "Register agent on-chain",      pts: 100, icon: "🤖" },
   { label: "Complete your first deal",     pts: 200, icon: "🤝" },
@@ -156,7 +176,7 @@ export default function Season1Page() {
         </div>
       )}
 
-      {/* Season progress bar */}
+      {/* Season progress bar + countdown */}
       {info?.active && (
         <div style={{ ...card, marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 10 }}>
@@ -170,6 +190,17 @@ export default function Season1Page() {
             <span>Day 1 — Mar 7</span>
             <span>Day 60 — May 11</span>
           </div>
+          {info.end && (
+            <div style={{
+              marginTop: 14, padding: "10px 16px",
+              background: "rgba(168,85,247,0.05)", border: "1px solid rgba(168,85,247,0.2)",
+              borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center",
+              fontSize: 12,
+            }}>
+              <span style={{ color: "var(--muted)", fontWeight: 600 }}>⏱ Time Remaining</span>
+              <Countdown targetTs={info.end} />
+            </div>
+          )}
         </div>
       )}
 

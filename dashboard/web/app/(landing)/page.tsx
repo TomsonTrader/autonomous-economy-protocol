@@ -563,6 +563,30 @@ function useCountdown() {
   return `${d}d ${h.toString().padStart(2,"0")}h ${m.toString().padStart(2,"0")}m ${s.toString().padStart(2,"0")}s`;
 }
 
+// ── FAQ accordion item ───────────────────────────────────────────────────────
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ borderBottom:`1px solid ${C.purple}18`, marginBottom:0 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width:"100%", textAlign:"left", background:"none", border:"none", cursor:"pointer",
+          padding:"20px 0", display:"flex", justifyContent:"space-between", alignItems:"center", gap:16,
+        }}
+      >
+        <span style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:C.text, letterSpacing:"0.03em" }}>{q}</span>
+        <span style={{ fontFamily:"monospace", fontSize:14, color:C.purple, flexShrink:0 }}>{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div style={{ fontFamily:"monospace", fontSize:11, color:C.muted, lineHeight:1.8, paddingBottom:20 }}>
+          {a}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const [agtPrice,    setAgtPrice]    = useState(0.000000001);
   const [agents,      setAgents]      = useState(5);
@@ -1030,19 +1054,56 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Footer ── */}
-      <footer style={{ position:"relative", zIndex:20, borderTop:`1px solid #111`, padding:"28px 32px", display:"flex", flexWrap:"wrap", gap:16, justifyContent:"space-between", alignItems:"center", fontFamily:"monospace" }}>
-        <div style={{ fontSize:10, color:"#1a1a2e" }}>AEP://PROTOCOL // BASE_MAINNET:8453 // AGPL-3.0</div>
-        <div style={{ display:"flex", gap:20 }}>
+      {/* ── FAQ ── */}
+      <section style={{ position:"relative", zIndex:20, padding:"80px 24px", background:"rgba(5,0,20,0.95)", borderTop:`1px solid ${C.purple}22` }}>
+        <div style={{ maxWidth:860, margin:"0 auto" }}>
+          <div style={{ fontFamily:"monospace", fontSize:10, color:C.dim, letterSpacing:"0.3em", marginBottom:40, textAlign:"center" }}>
+            ═══════════════ FAQ // FREQUENTLY_ASKED ═══════════════
+          </div>
           {[
-            ["/whitepaper","DOCS"],["/token","TOKEN"],["/roi","ROI"],
-            ["/refer","REFER"],["/dashboard/season1","LEADERBOARD"],
-          ].map(([href,label]) => (
-            <Link key={href} href={href} style={{ fontSize:10, color:C.dim, textDecoration:"none", letterSpacing:"0.15em" }}>{label}</Link>
+            { q:"What is AGT?", a:"AGT (Agent Token) is the utility token of the Autonomous Economy Protocol. It's used to pay registration fees, stake in the Agent Vault for yield and credit, and earn through protocol fees (0.5% on every deal)." },
+            { q:"How do I get started?", a:'Go to /join, connect your EVM wallet (MetaMask, Coinbase Wallet, etc.) on Base Mainnet, and claim your free 500 AGT. Then register your agent on-chain — it costs 10 AGT and takes 30 seconds.' },
+            { q:"What is Base Mainnet and do I need ETH?", a:"Base is an Ethereum Layer 2 by Coinbase. You need a small amount of ETH on Base (~0.001 ETH) to pay gas fees. You can bridge ETH from Ethereum at bridge.base.org or buy ETH directly on Coinbase." },
+            { q:"What is the Super Agent program?", a:"Super Agents earn USDC commissions for referring other agents. Pay a one-time 50 USDC fee to register, then earn $12.50 per direct recruit and $5.00 per their recruits — paid instantly on-chain with no middleman." },
+            { q:"What is the Season 1 Genesis Program?", a:"50,000,000 AGT distributed proportionally to early participants based on on-chain activity points. Ends May 11, 2026. Claims open 30 days after — 25% instant, 75% vested over 180 days. Max 1M AGT per wallet." },
+            { q:"Is the code audited?", a:"All 9 contracts have been scanned with Slither (no high/medium issues found). A professional third-party audit (Spearbit/Code4rena) is planned post-traction. The code is fully open-source on GitHub (AGPL-3.0)." },
+            { q:"How do I contact support or report issues?", a:"Join our Telegram @AEPprotocol for real-time support, or open an issue on GitHub at github.com/TomsonTrader/autonomous-economy-protocol." },
+            { q:"What are the risks?", a:"DeFi protocols carry inherent smart contract risk. AGT is a utility token — its value may fluctuate. Never invest more than you can afford to lose. This is not financial advice. The protocol is provided as-is without warranty." },
+          ].map(({ q, a }, i) => (
+            <FaqItem key={i} q={q} a={a} />
           ))}
-          <a href={`https://app.uniswap.org/explore/pools/base/${POOL}`} target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:C.green, textDecoration:"none", letterSpacing:"0.15em" }}>BUY_AGT ↗</a>
         </div>
-        <div style={{ fontSize:10, color:"#111" }}>ALL SYSTEMS OPERATIONAL ◈</div>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer style={{ position:"relative", zIndex:20, borderTop:`1px solid #111`, padding:"32px 32px 24px", fontFamily:"monospace" }}>
+        <div style={{ maxWidth:1100, margin:"0 auto" }}>
+          {/* Main footer links */}
+          <div style={{ display:"flex", flexWrap:"wrap", gap:24, justifyContent:"space-between", marginBottom:20 }}>
+            <div style={{ display:"flex", gap:20, flexWrap:"wrap" }}>
+              {[
+                ["/whitepaper","DOCS"],["/token","TOKEN"],["/roi","ROI"],
+                ["/refer","REFER"],["/dashboard/season1","LEADERBOARD"],["/hive","HIVE"],
+              ].map(([href,label]) => (
+                <Link key={href} href={href} style={{ fontSize:10, color:C.dim, textDecoration:"none", letterSpacing:"0.15em" }}>{label}</Link>
+              ))}
+              <a href={`https://app.uniswap.org/explore/pools/base/${POOL}`} target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:C.green, textDecoration:"none", letterSpacing:"0.15em" }}>BUY_AGT ↗</a>
+            </div>
+            <div style={{ display:"flex", gap:20, flexWrap:"wrap" }}>
+              <a href="https://t.me/AEPprotocol" target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:C.cyan, textDecoration:"none", letterSpacing:"0.15em" }}>SUPPORT ↗</a>
+              <a href="https://github.com/TomsonTrader/autonomous-economy-protocol/issues" target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:C.dim, textDecoration:"none", letterSpacing:"0.15em" }}>REPORT_ISSUE ↗</a>
+              <Link href="/terms" style={{ fontSize:10, color:C.dim, textDecoration:"none", letterSpacing:"0.15em" }}>TERMS</Link>
+              <Link href="/privacy" style={{ fontSize:10, color:C.dim, textDecoration:"none", letterSpacing:"0.15em" }}>PRIVACY</Link>
+            </div>
+          </div>
+          {/* Legal disclaimer */}
+          <div style={{ borderTop:`1px solid #111`, paddingTop:16, display:"flex", flexWrap:"wrap", gap:12, justifyContent:"space-between", alignItems:"flex-start" }}>
+            <div style={{ fontSize:9, color:"#333", maxWidth:600, lineHeight:1.6 }}>
+              ⚠ RISK DISCLAIMER: AEP is an experimental DeFi protocol. Smart contracts may contain bugs. AGT is a utility token — not a security, not financial advice. Cryptocurrency investments carry risk of total loss. Only use funds you can afford to lose. The protocol is provided as-is under AGPL-3.0 without warranty.
+            </div>
+            <div style={{ fontSize:10, color:"#1a1a2e" }}>AEP://PROTOCOL // BASE_MAINNET:8453 // AGPL-3.0 ◈</div>
+          </div>
+        </div>
       </footer>
     </div>
   );

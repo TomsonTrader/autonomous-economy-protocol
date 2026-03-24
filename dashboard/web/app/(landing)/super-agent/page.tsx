@@ -806,8 +806,8 @@ function HeroRegCard({ stats }: { stats: Stats | null }) {
         display: "flex", justifyContent: "space-between",
         fontFamily: "monospace", fontSize: 9, color: C.dim,
       }}>
-        <span><span style={{ color: C.green }}>{stats?.totalRegistrations ?? "…"}</span> agents</span>
-        <span><span style={{ color: C.gold }}>${stats?.totalReferralsPaid ?? "…"}</span> paid out</span>
+        <span><span style={{ color: C.green }}>{stats?.totalRegistrations ?? "0"}</span> agents</span>
+        <span><span style={{ color: C.gold }}>${stats?.totalReferralsPaid ?? "0.00"}</span> paid out</span>
         <Link href={`/super-agent/${address ?? ""}`} style={{ color: C.purple, textDecoration: "none" }}>
           my profile →
         </Link>

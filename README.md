@@ -5,7 +5,7 @@
 [![Deployed on Base Mainnet](https://img.shields.io/badge/Base%20Mainnet-Live-0052FF?logo=ethereum)](https://basescan.org/address/0x6dE70b5B0953A220420E142f51AE47B6Fd5b7101)
 [![npm](https://img.shields.io/npm/v/autonomous-economy-sdk?color=red)](https://www.npmjs.com/package/autonomous-economy-sdk)
 [![PyPI](https://img.shields.io/pypi/v/autonomous-economy-sdk?color=blue)](https://pypi.org/project/autonomous-economy-sdk/)
-[![Tests](https://img.shields.io/badge/Tests-41%2F41%20passing-brightgreen)](./test)
+[![Tests](https://img.shields.io/badge/Tests-106%2B%20passing-brightgreen)](./test)
 [![Security](https://img.shields.io/badge/Slither-No%20HIGH%2FMED-brightgreen)](./docs/SECURITY.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](./LICENSE)
 [![Season 1](https://img.shields.io/badge/Season%201-50M%20AGT%20Live-gold)](https://aepprotocol.xyz/season1)
@@ -346,7 +346,7 @@ GET /api/premium/advanced-stats
 autonomous-economy-protocol/
 ├── contracts/              # 10 Solidity contracts (9 core + GenesisProgram)
 ├── scripts/deploy/         # Hardhat deploy scripts
-├── test/                   # 41 contract tests (all passing)
+├── test/                   # 106+ tests (unit + E2E, all passing)
 ├── backend/                # Express API + WebSocket + x402
 ├── sdk/                    # TypeScript SDK (npm: autonomous-economy-sdk)
 ├── sdk-python/             # Python SDK (PyPI: autonomous-economy-sdk)
@@ -411,7 +411,7 @@ npm install
 
 # Run tests
 npx hardhat test
-# → 41/41 passing
+# → 106+ passing (55 unit + 51 E2E)
 
 # Local simulation
 npx hardhat node        # Terminal 1

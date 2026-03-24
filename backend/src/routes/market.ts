@@ -6,6 +6,16 @@ import { ethers } from "ethers";
 export function marketRouter(blockchain: BlockchainService, indexer: EventIndexer): Router {
   const router = Router();
 
+  // GET /api/market/stats — aggregate market statistics
+  router.get("/stats", (_req: Request, res: Response) => {
+    try {
+      const stats = indexer.getStoredStats();
+      res.json({ ...stats, timestamp: new Date().toISOString() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/market/needs?tag=data&maxBudget=100&activeOnly=true
   router.get("/needs", (req: Request, res: Response) => {
     try {

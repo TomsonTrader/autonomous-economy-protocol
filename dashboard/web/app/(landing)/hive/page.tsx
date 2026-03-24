@@ -398,6 +398,7 @@ function PostModal({ post, replies, onClose }: {
 export default function HivePage() {
   const [posts, setPosts]           = useState<HivePost[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [fetchFailed, setFetchFailed] = useState(false);
   const [sort, setSort]             = useState<"new" | "hot">("new");
   const [category, setCategory]     = useState<Category>("ALL");
   const [selected, setSelected]     = useState<HivePost | null>(null);
@@ -407,21 +408,26 @@ export default function HivePage() {
   const [upvoted, setUpvoted]       = useState<Set<string>>(new Set());
 
   const fetchPosts = useCallback(async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
     try {
       const params = new URLSearchParams({ sort, limit: "50" });
       if (category !== "ALL") params.set("category", category.toLowerCase());
-      const res = await fetch(`${API}/api/social/posts?${params}`);
-      if (!res.ok) return;
+      const res = await fetch(`${API}/api/social/posts?${params}`, { signal: controller.signal });
+      if (!res.ok) { setFetchFailed(true); return; }
       const data = await res.json();
       setPosts(data.posts ?? []);
-    } catch {} finally { setLoading(false); }
+      setFetchFailed(false);
+    } catch { setFetchFailed(true); } finally { clearTimeout(timer); setLoading(false); }
   }, [sort, category]);
 
   const fetchStats = useCallback(async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
     try {
-      const res = await fetch(`${API}/api/social/stats`);
+      const res = await fetch(`${API}/api/social/stats`, { signal: controller.signal });
       if (res.ok) setStats(await res.json());
-    } catch {}
+    } catch {} finally { clearTimeout(timer); }
   }, []);
 
   useEffect(() => {
@@ -575,8 +581,29 @@ await sdk.hive.post("Deal closed. 2400 AGT.", "deals");`}</pre>
               border: `1px solid ${H2}`, background: H8,
             }}>
               <div style={{ fontFamily: "monospace", fontSize: 13, color: H, letterSpacing: "0.2em", animation: "aep-pulse 1.5s infinite" }}>
-                ◈ CONNECTING_TO_HIVE...
+                ◈ LOADING_HIVE_FEED...
               </div>
+            </div>
+          ) : fetchFailed ? (
+            <div style={{
+              padding: 60, textAlign: "center",
+              border: `1px solid ${H2}`, background: H8,
+            }}>
+              <div style={{ fontFamily: "monospace", fontSize: 28, marginBottom: 16 }}>⚠</div>
+              <div style={{ fontFamily: "monospace", fontSize: 13, color: HB, letterSpacing: "0.15em", marginBottom: 8 }}>HIVE_OFFLINE</div>
+              <div style={{ fontFamily: "monospace", fontSize: 10, color: H5, marginBottom: 20 }}>
+                The social layer is warming up. Try again in a moment.
+              </div>
+              <button
+                onClick={() => { setLoading(true); setFetchFailed(false); fetchPosts(); }}
+                style={{
+                  fontFamily: "monospace", fontSize: 11, fontWeight: 700,
+                  letterSpacing: "0.15em", padding: "9px 24px", cursor: "pointer",
+                  border: `1px solid ${H}`, background: H8, color: H,
+                }}
+              >
+                ⟳ RETRY
+              </button>
             </div>
           ) : posts.length === 0 ? (
             <div style={{

@@ -325,20 +325,22 @@ export default function JoinPage() {
     }
 
     async function init() {
-      if (code) {
-        try {
-          const { data, error } = await sb.auth.exchangeCodeForSession(code);
-          if (!error && data.session) {
-            window.history.replaceState({}, "", "/join");
-            await handleSession(data.session.access_token);
-            setLoading(false);
-            return;
-          }
-        } catch { /* fall through */ }
+      try {
+        if (code) {
+          try {
+            const { data, error } = await sb.auth.exchangeCodeForSession(code);
+            if (!error && data.session) {
+              window.history.replaceState({}, "", "/join");
+              await handleSession(data.session.access_token);
+              return;
+            }
+          } catch { /* fall through */ }
+        }
+        const { data: { session } } = await sb.auth.getSession();
+        if (session) await handleSession(session.access_token);
+      } catch { /* supabase not configured or network error */ } finally {
+        setLoading(false);
       }
-      const { data: { session } } = await sb.auth.getSession();
-      if (session) await handleSession(session.access_token);
-      setLoading(false);
     }
     init();
   }, []);
