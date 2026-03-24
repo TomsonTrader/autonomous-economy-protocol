@@ -10,7 +10,22 @@ import { Router } from "express";
 import { ethers } from "ethers";
 
 const SUPER_AGENT_REGISTRY = "0x32A872839eEcE0477c257f6d2fDf72a42D8F5425";
-const RPC = process.env.BASE_MAINNET_RPC || "https://mainnet.base.org";
+
+// RPC fallback list — tries each in order until one responds
+const RPC_LIST = [
+  process.env.BASE_MAINNET_RPC,
+  "https://mainnet.base.org",
+  "https://base.llamarpc.com",
+  "https://base.rpc.thirdweb.com",
+].filter(Boolean) as string[];
+
+/** Wrap a promise with a timeout — resolves to fallback instead of throwing */
+function withTimeout<T>(promise: Promise<T>, fallback: T, ms = 10000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
 
 const ABI = [
   "function totalRegistrations() view returns (uint256)",
@@ -30,9 +45,25 @@ const ABI = [
   "event BuyAndBurnExecuted(uint256 usdcSpent, uint256 agtBurned)",
 ];
 
-function getContract() {
-  const provider = new ethers.JsonRpcProvider(RPC, undefined, { batchMaxCount: 5 });
+function getContract(rpc = RPC_LIST[0]) {
+  const provider = new ethers.JsonRpcProvider(rpc, undefined, { batchMaxCount: 5 });
   return new ethers.Contract(SUPER_AGENT_REGISTRY, ABI, provider);
+}
+
+/** Try the call on each RPC in RPC_LIST until one succeeds or all fail */
+async function withFallback<T>(fn: (contract: ReturnType<typeof getContract>) => Promise<T>): Promise<T> {
+  let lastErr: unknown;
+  for (const rpc of RPC_LIST) {
+    try {
+      return await withTimeout(fn(getContract(rpc)), null as any, 10000).then((v) => {
+        if (v === null) throw new Error("timeout");
+        return v;
+      });
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }
 
 // Simple in-memory cache (60s TTL)
@@ -53,30 +84,31 @@ export function superAgentRouter(): Router {
   router.get("/stats", async (_req, res) => {
     res.setHeader("Cache-Control", "public, max-age=60");
     try {
-      const data = await cached("stats", 60, async () => {
-        const c = getContract();
-        const [regs, referralsPaid, burnPending, agtBurned, burnEnabled, fee] =
-          await Promise.all([
-            c.totalRegistrations(),
-            c.totalReferralsPaid(),
-            c.burnAccumulator(),
-            c.totalAGTBurned(),
-            c.publicBurnEnabled(),
-            c.REGISTRATION_FEE(),
-          ]);
-        return {
-          totalRegistrations:  Number(regs),
-          totalReferralsPaid:  (Number(referralsPaid) / 1e6).toFixed(2),    // USDC
-          burnPendingUsdc:     (Number(burnPending)   / 1e6).toFixed(2),
-          totalAGTBurned:      ethers.formatEther(agtBurned),
-          publicBurnEnabled:   burnEnabled,
-          registrationFeeUsdc: (Number(fee) / 1e6).toFixed(2),
-          contract:            SUPER_AGENT_REGISTRY,
-        };
-      });
+      const data = await cached("stats", 60, () =>
+        withFallback(async (c) => {
+          const [regs, referralsPaid, burnPending, agtBurned, burnEnabled, fee] =
+            await Promise.all([
+              c.totalRegistrations(),
+              c.totalReferralsPaid(),
+              c.burnAccumulator(),
+              c.totalAGTBurned(),
+              c.publicBurnEnabled(),
+              c.REGISTRATION_FEE(),
+            ]);
+          return {
+            totalRegistrations:  Number(regs),
+            totalReferralsPaid:  (Number(referralsPaid) / 1e6).toFixed(2),
+            burnPendingUsdc:     (Number(burnPending)   / 1e6).toFixed(2),
+            totalAGTBurned:      ethers.formatEther(agtBurned),
+            publicBurnEnabled:   burnEnabled,
+            registrationFeeUsdc: (Number(fee) / 1e6).toFixed(2),
+            contract:            SUPER_AGENT_REGISTRY,
+          };
+        })
+      );
       res.json({ stats: data });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(503).json({ error: "Stats unavailable: " + e.message });
     }
   });
 
@@ -157,64 +189,61 @@ export function superAgentRouter(): Router {
       return res.status(400).json({ error: "Invalid address" });
     }
     try {
-      const c = getContract();
-      const isReg = await c.isRegistered(addr);
+      const isReg = await withFallback((c) => c.isRegistered(addr));
       res.json({ address: addr, registered: isReg });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(503).json({ error: "Check unavailable: " + e.message });
     }
   });
 
   // ── GET /api/super-agent/leaderboard ──────────────────────────────────────
-  // Top 20 by referral earnings — reads from AgentRegistered events
+  // Top 20 by referral earnings
   router.get("/leaderboard", async (_req, res) => {
     res.setHeader("Cache-Control", "public, max-age=120");
     try {
-      const data = await cached("leaderboard", 120, async () => {
-        const c = getContract();
+      const data = await cached("leaderboard", 120, () =>
+        withFallback(async (c) => {
+          const total = Number(await c.totalRegistrations());
+          if (total === 0) return [];
 
-        // Get total registrations to know how many to fetch
-        const total = Number(await c.totalRegistrations());
-        if (total === 0) return [];
+          // Fetch agentList indices in parallel (not sequential)
+          const fetchCount = Math.min(total, 50);
+          const addrResults = await Promise.allSettled(
+            Array.from({ length: fetchCount }, (_, i) => c.agentList(i))
+          );
+          const addrs = addrResults
+            .filter(r => r.status === "fulfilled")
+            .map(r => (r as PromiseFulfilledResult<string>).value.toLowerCase());
 
-        // Fetch up to 50 agents (gas-efficient: paginate agentList)
-        const fetchCount = Math.min(total, 50);
-        const addrs: string[] = [];
-        for (let i = 0; i < fetchCount; i++) {
-          try {
-            const a = await c.agentList(i);
-            addrs.push(a.toLowerCase());
-          } catch { break; }
-        }
+          // Fetch earnings for each in parallel
+          const profiles = await Promise.allSettled(
+            addrs.map(async (addr) => {
+              const [agentData, chain] = await Promise.all([
+                c.getAgent(addr),
+                c.getReferralChain(addr),
+              ]);
+              const [, referrer, registeredAt, referralEarned] = agentData;
+              return {
+                address:      addr,
+                registeredAt: Number(registeredAt),
+                referrer:     referrer === ethers.ZeroAddress ? null : referrer.toLowerCase(),
+                hasL2:        chain[1] !== ethers.ZeroAddress,
+                earnedUsdc:   Number(referralEarned) / 1e6,
+              };
+            })
+          );
 
-        // Fetch earnings for each
-        const profiles = await Promise.allSettled(
-          addrs.map(async (addr) => {
-            const [agentData, chain] = await Promise.all([
-              c.getAgent(addr),
-              c.getReferralChain(addr),
-            ]);
-            const [, referrer, registeredAt, referralEarned] = agentData;
-            return {
-              address:      addr,
-              registeredAt: Number(registeredAt),
-              referrer:     referrer === ethers.ZeroAddress ? null : referrer.toLowerCase(),
-              hasL2:        chain[1] !== ethers.ZeroAddress,
-              earnedUsdc:   Number(referralEarned) / 1e6,
-            };
-          })
-        );
-
-        return profiles
-          .filter(p => p.status === "fulfilled")
-          .map(p => (p as PromiseFulfilledResult<any>).value)
-          .sort((a, b) => b.earnedUsdc - a.earnedUsdc)
-          .slice(0, 20);
-      });
+          return profiles
+            .filter(p => p.status === "fulfilled")
+            .map(p => (p as PromiseFulfilledResult<any>).value)
+            .sort((a, b) => b.earnedUsdc - a.earnedUsdc)
+            .slice(0, 20);
+        })
+      );
 
       res.json({ leaderboard: data });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(503).json({ error: "Leaderboard unavailable: " + e.message });
     }
   });
 

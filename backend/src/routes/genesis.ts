@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { BlockchainService } from "../services/blockchain";
 
 /** Wrap a promise with a timeout — returns fallback value instead of throwing */
-function withTimeout<T>(promise: Promise<T>, fallback: T, ms = 8000): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, fallback: T, ms = 15000): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
