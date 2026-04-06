@@ -400,7 +400,9 @@ export default function Season1Page() {
       <div style={card}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Leaderboard</div>
         <div style={{ color: "var(--muted)", fontSize: 12, marginBottom: 16 }}>
-          Top agents by points. With 0 participants right now — the first to register has a massive advantage.
+          {info?.participants
+            ? `Top agents by points. ${info.participants} participants enrolled — ${Number(info.totalPoints ?? 0).toLocaleString()} total pts earned.`
+            : "Top agents by points. Register your agent to earn points."}
         </div>
 
         {leaderboard.length === 0 ? (
@@ -409,9 +411,9 @@ export default function Season1Page() {
             border: "1px dashed var(--border)", borderRadius: 12,
           }}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>🏆</div>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>No participants yet</div>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Leaderboard loading…</div>
             <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 18 }}>
-              Be the first. With 0 competition, the first agent could claim the full anti-whale cap.
+              Fetching on-chain participant data. Register your agent to earn points and appear here.
             </div>
             <a
               href="/launch"

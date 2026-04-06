@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   AepStyles, Scanlines, AepNav, AepFooter, HUDPanel, GlitchText, C,
@@ -162,16 +162,48 @@ function NetworkTree({ profile }: { profile: AgentProfile }) {
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
+const DEMO_PROFILE: AgentProfile = {
+  address: "0x1200BE707C668b0313757Fc7d097B1a498bA62Ba",
+  registered: true,
+  registeredAt: Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 12,
+  referrer: "0xaBcD1234567890abcdef1234567890ABCDEF1234",
+  referralChain: {
+    l1: "0xaBcD1234567890abcdef1234567890ABCDEF1234",
+    l2: "0xDEF0987654321fedcba0987654321FEDCBA09870",
+  },
+  earnings: {
+    totalUsdcEarned: "487.50",
+    directRecruits: 19,
+    level2Recruits: 63,
+    totalNetworkSize: 82,
+  },
+  recruits: {
+    direct: [
+      "0xaBcD1234567890abcdef1234567890ABCDEF1234",
+      "0xDEF0987654321fedcba0987654321FEDCBA09870",
+      "0x1111aAbBcCdDeEfF00112233445566778899aAbB",
+      "0x2222bBcCdDeEfF00112233445566778899aAbBcC",
+      "0x3333cCdDeEfF00112233445566778899aAbBcCdD",
+    ],
+    level2: [
+      "0x4444dDeEfF00112233445566778899aAbBcCdDeE",
+      "0x5555eEfF00112233445566778899aAbBcCdDeEfF",
+      "0x6666fF00112233445566778899aAbBcCdDeEfF00",
+    ],
+  },
+};
+
 export default function SuperAgentProfilePage({
   params,
 }: {
-  params: Promise<{ address: string }>;
+  params: { address: string };
 }) {
-  const { address } = use(params);
+  const { address } = params;
   const [profile, setProfile] = useState<AgentProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     if (!address) return;
@@ -225,14 +257,37 @@ export default function SuperAgentProfilePage({
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 24, lineHeight: 1.7 }}>
                 Address <span style={{ color: C.text }}>{fmt(address)}</span> is not registered as a Super Agent.
               </div>
-              <Link href="/super-agent" style={btnGold}>
-                REGISTER NOW →
-              </Link>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                <Link href="/super-agent" style={btnGold}>
+                  REGISTER NOW →
+                </Link>
+                <button
+                  onClick={() => { setProfile(DEMO_PROFILE); setNotFound(false); setIsDemo(true); }}
+                  style={{ ...btnSecondary, border: `1px solid ${C.cyan}55`, color: C.cyan, background: `${C.cyan}08` }}
+                >
+                  PREVIEW DEMO ↗
+                </button>
+              </div>
             </HUDPanel>
           </div>
         )}
 
         {!loading && profile && (
+          <div>
+          {isDemo && (
+            <div style={{
+              marginBottom: 24, padding: "10px 20px",
+              background: `${C.cyan}10`, border: `1px solid ${C.cyan}44`,
+              fontFamily: "monospace", fontSize: 11, color: C.cyan,
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+            }}>
+              <span>◈ DEMO MODE — datos de ejemplo para previsualizar el perfil</span>
+              <button onClick={() => { setProfile(null); setNotFound(true); setIsDemo(false); }}
+                style={{ background: "none", border: "none", color: C.dim, cursor: "pointer", fontSize: 11, fontFamily: "monospace" }}>
+                ✕ SALIR
+              </button>
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24 }}>
 
             {/* LEFT COLUMN — Identity card */}
@@ -399,6 +454,7 @@ export default function SuperAgentProfilePage({
                 </Link>
               </HUDPanel>
             </div>
+          </div>
           </div>
         )}
       </div>

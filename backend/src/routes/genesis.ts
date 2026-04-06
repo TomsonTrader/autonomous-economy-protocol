@@ -10,6 +10,36 @@ function withTimeout<T>(promise: Promise<T>, fallback: T, ms = 15000): Promise<T
   ]);
 }
 
+// Independent RPC list for leaderboard — doesn't use the shared BlockchainService provider
+const RPC_LIST = [
+  process.env.BASE_MAINNET_RPC,
+  "https://mainnet.base.org",
+  "https://base.llamarpc.com",
+  "https://base.rpc.thirdweb.com",
+].filter(Boolean) as string[];
+
+const GENESIS_ABI_MINIMAL = [
+  "function getLeaderboard() view returns (address[] memory addrs, uint256[] memory pts)",
+];
+
+async function fetchLeaderboardDirect(): Promise<{ addrs: string[]; pts: bigint[] } | null> {
+  for (const rpc of RPC_LIST) {
+    try {
+      const provider = new ethers.JsonRpcProvider(rpc, undefined, { batchMaxCount: 1 });
+      const contract = new ethers.Contract(
+        "0xf47DE94831E4791a6Bf5E0CCf247Ed0c058129a3",
+        GENESIS_ABI_MINIMAL,
+        provider
+      );
+      const result = await withTimeout(contract.getLeaderboard(), null, 12000);
+      if (result && result[0]?.length > 0) {
+        return { addrs: Array.from(result[0]), pts: Array.from(result[1]) };
+      }
+    } catch { /* try next RPC */ }
+  }
+  return null;
+}
+
 export function genesisRouter(blockchain: BlockchainService): Router {
   const router = Router();
 
@@ -66,24 +96,37 @@ export function genesisRouter(blockchain: BlockchainService): Router {
   // GET /api/genesis/leaderboard — top 50 participants
   router.get("/leaderboard", async (_req, res) => {
     try {
-      if (!blockchain.genesis) {
+      // Try direct multi-RPC call first (more reliable than shared BlockchainService provider)
+      let addrs: string[] = [];
+      let pts: bigint[] = [];
+
+      const direct = await fetchLeaderboardDirect();
+      if (direct && direct.addrs.length > 0) {
+        addrs = direct.addrs;
+        pts   = direct.pts;
+      } else if (blockchain.genesis) {
+        // Fallback to shared provider
+        const result = await withTimeout<[string[], bigint[]] | null>(
+          blockchain.genesis.getLeaderboard(),
+          null
+        );
+        if (result && result[0]?.length > 0) {
+          addrs = Array.from(result[0]);
+          pts   = Array.from(result[1]);
+        }
+      }
+
+      if (addrs.length === 0) {
         return res.json({ leaderboard: [] });
       }
-      const result = await withTimeout<[string[], bigint[]] | null>(
-        blockchain.genesis.getLeaderboard(),
-        null
-      );
 
-      if (!result) {
-        return res.status(503).json({ error: "Leaderboard RPC timeout — try again shortly" });
-      }
-      const [addrs, pts] = result;
-
+      // Resolve agent names — timeout each individually so one slow lookup can't stall the response
       const leaderboard = await Promise.all(
         addrs.map(async (addr: string, i: number) => {
           const name = await withTimeout(
             blockchain.registry.getAgent(addr).then((a: any) => a.name || addr.slice(0, 8) + "..."),
-            addr.slice(0, 8) + "..."
+            addr.slice(0, 8) + "...",
+            5000
           );
           return { rank: i + 1, address: addr, name, points: Number(pts[i]) };
         })
