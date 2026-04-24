@@ -30,6 +30,8 @@ import { humanRouter } from "./routes/human";
 import { superAgentRouter } from "./routes/superAgent";
 import { agentClaimRouter } from "./routes/agentClaim";
 import { HiveAutoPost } from "./services/hiveAutoPost";
+import { HiveIntelligenceAgent } from "./services/hiveIntelligenceAgent";
+import { hiveIntelligenceRouter, setHiaInstance } from "./routes/hiveIntelligence";
 import { DealMonitor } from "./services/dealMonitor";
 import { ethers } from "ethers";
 
@@ -145,6 +147,14 @@ async function main() {
 
   // The Hive — auto-post on-chain events to social feed
   new HiveAutoPost(blockchain).start();
+
+  // Hive Intelligence Agent — autonomous network analysis + social graph
+  const hia = new HiveIntelligenceAgent({
+    intervalMs: parseInt(process.env.HIA_INTERVAL_MS || "") || 30 * 60_000,
+  });
+  setHiaInstance(hia);
+  await hia.start();
+  app.use("/api/hive/intelligence", hiveIntelligenceRouter());
 
   // Deal monitor — watches deadlines and fires webhook alerts
   const dealMonitor = new DealMonitor(indexer, wsService);

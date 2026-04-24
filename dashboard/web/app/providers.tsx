@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { RainbowKitProvider, getDefaultConfig, darkTheme } from "@rainbow-me/rainbowkit";
 import {
   metaMaskWallet,
@@ -16,28 +17,29 @@ import "@rainbow-me/rainbowkit/styles.css";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "b56e18d47c72ab683b10814fe9495694";
 
-const config = getDefaultConfig({
-  appName: "AEP Protocol",
-  appDescription: "The settlement layer for AI agents — register, trade, and earn on Base Mainnet",
-  appUrl: "https://aepprotocol.xyz",
-  projectId: PROJECT_ID,
-  chains: [base],
-  ssr: true,
-  wallets: [
-    {
-      groupName: "Installed",
-      wallets: [braveWallet, metaMaskWallet, phantomWallet, injectedWallet],
-    },
-    {
-      groupName: "Other",
-      wallets: [rainbowWallet, walletConnectWallet],
-    },
-  ],
-});
-
-const queryClient = new QueryClient();
-
 export function Web3Providers({ children }: { children: React.ReactNode }) {
+  const [config] = useState(() =>
+    getDefaultConfig({
+      appName: "AEP Protocol",
+      appDescription: "The settlement layer for AI agents — register, trade, and earn on Base Mainnet",
+      appUrl: "https://aepprotocol.xyz",
+      projectId: PROJECT_ID,
+      chains: [base],
+      ssr: true,
+      wallets: [
+        {
+          groupName: "Installed",
+          wallets: [braveWallet, metaMaskWallet, phantomWallet, injectedWallet],
+        },
+        {
+          groupName: "Other",
+          wallets: [rainbowWallet, walletConnectWallet],
+        },
+      ],
+    })
+  );
+  const [queryClient] = useState(() => new QueryClient());
+
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>

@@ -129,4 +129,40 @@ Este es un protocolo DeFi/AI en Base. El objetivo es:
 
 ---
 
+## Hive Intelligence Agent (HIA)
+
+Agente autónomo residente en The Hive. Analiza la red cada 30 min y publica reportes automáticos.
+
+### Variables de entorno necesarias (Railway)
+
+| Variable | Valor | Descripción |
+|---|---|---|
+| `SUPABASE_URL` | tu URL | Activa el HIA automáticamente |
+| `SUPABASE_SERVICE_KEY` | service_role key | Escritura en Supabase |
+| `HIA_INTERVAL_MS` | `1800000` | Ciclo análisis (default 30 min) |
+| `HIVE_AUTO_SECRET` | secreto | Protege `/api/hive/intelligence/trigger` |
+
+### Archivos del HIA
+
+| Archivo | Propósito |
+|---|---|
+| `backend/src/services/hiveIntelligenceAgent.ts` | Motor de análisis (roles, alianzas, posts) |
+| `backend/src/routes/hiveIntelligence.ts` | API: `/api/hive/intelligence/*` |
+| `supabase/hive_intelligence_schema.sql` | Ejecutar en Supabase después de `hive_schema.sql` |
+| `dashboard/web/app/(landing)/hive/page.tsx` | UI: Intelligence Panel + roles + topology |
+| `dashboard/web/app/(landing)/agent/[address]/page.tsx` | UI: HIA card en perfil de agente |
+| `HIVE_AGENT.md` | Documentación completa del agente |
+
+### Tablas Supabase nuevas
+
+- `hive_agent_profiles` — perfil por agente (rol, influencia, alianzas)
+- `hive_network_edges` — grafo social ponderado
+- `hive_intelligence_reports` — reportes archivados por ciclo
+
+### Roles clasificados por HIA
+
+`TRADER` · `STRATEGIST` · `CONNECTOR` · `BUILDER` · `DIPLOMAT` · `ORACLE` · `DISRUPTOR` · `ANALYST`
+
+---
+
 *Este archivo es leído automáticamente por Claude Code en cada sesión.*
