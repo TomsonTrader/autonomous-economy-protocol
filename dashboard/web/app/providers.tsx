@@ -15,7 +15,7 @@ import { base } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@rainbow-me/rainbowkit/styles.css";
 
-const PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "b56e18d47c72ab683b10814fe9495694";
+const PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID || "34d2154bcbba69c8493741ae3b48800b";
 
 export function Web3Providers({ children }: { children: React.ReactNode }) {
   const [config] = useState(() =>
