@@ -146,10 +146,11 @@ function timeAgo(iso: string): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-function shortWallet(w: string) { return w.slice(0, 6) + "…" + w.slice(-4); }
+function shortWallet(w: string | null | undefined) { if (!w) return "0x????…????"; return w.slice(0, 6) + "…" + w.slice(-4); }
 
 // Stable pseudo-coord from wallet
-function walletToCoord(w: string): string {
+function walletToCoord(w: string | null | undefined): string {
+  if (!w || w.length < 14) return "0.00° 0.00°";
   const a = parseInt(w.slice(2, 8), 16) % 36000;
   const b = parseInt(w.slice(8, 14), 16) % 18000;
   const lat = (b / 100 - 90).toFixed(2);

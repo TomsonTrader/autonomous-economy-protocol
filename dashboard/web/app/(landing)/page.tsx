@@ -144,10 +144,11 @@ function HiveNetworkWidget() {
           {topAgents.map(a => {
             const rc = ROLE_COLORS[a.role] ?? HONEY;
             const ri = ROLE_ICONS[a.role] ?? "◈";
+            const lbl = a.label ?? a.role ?? "AGENT";
             return (
-              <div key={a.label} style={{ padding:"2px 9px", border:`1px solid ${rc}44`, background:`${rc}0d`, display:"flex", alignItems:"center", gap:5 }}>
+              <div key={lbl} style={{ padding:"2px 9px", border:`1px solid ${rc}44`, background:`${rc}0d`, display:"flex", alignItems:"center", gap:5 }}>
                 <span style={{ fontFamily:"monospace", fontSize:9, color:rc }}>{ri}</span>
-                <span style={{ fontFamily:"monospace", fontSize:9, color:HONEY_BRIGHT }}>{a.label.slice(0,12).toUpperCase()}</span>
+                <span style={{ fontFamily:"monospace", fontSize:9, color:HONEY_BRIGHT }}>{lbl.slice(0,12).toUpperCase()}</span>
                 <span style={{ fontFamily:"monospace", fontSize:8, color:`${HONEY}66` }}>{a.influenceScore}</span>
               </div>
             );
